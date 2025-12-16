@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
+import { AuthProvider } from "@/lib/auth-context";
 
 export const metadata: Metadata = {
     title: "함께 성경 | Bible Together",
@@ -38,7 +39,9 @@ export default function RootLayout({
                 />
             </head>
             <body className="font-sans antialiased bg-background-light dark:bg-background-dark text-slate-900 dark:text-white">
-                {children}
+                <AuthProvider>
+                    {children}
+                </AuthProvider>
             </body>
         </html>
     );

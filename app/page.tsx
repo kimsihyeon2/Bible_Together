@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { Screen } from '@/types';
 import { Language, translations } from '@/i18n';
+import { useAuth } from '@/lib/auth-context';
 import LoginScreen from '@/screens/LoginScreen';
 import DashboardScreen from '@/screens/DashboardScreen';
 import PlanDetailScreen from '@/screens/PlanDetailScreen';
@@ -47,6 +48,7 @@ const getSavedLanguage = (): Language => {
 };
 
 export default function HomePage() {
+    const { user, loading: authLoading } = useAuth();
     const [currentScreen, setCurrentScreen] = useState<Screen>(Screen.LOGIN);
     const [isDarkMode, setIsDarkMode] = useState<boolean>(false);
     const [language, setLanguage] = useState<Language>('ko');
@@ -54,30 +56,57 @@ export default function HomePage() {
 
     const t = translations[language];
 
+    // Initial mount effect
     useEffect(() => {
         setMounted(true);
-        setCurrentScreen(getScreenFromHash());
         setLanguage(getSavedLanguage());
         setIsDarkMode(document.documentElement.classList.contains('dark'));
     }, []);
 
+    // Auth state redirect effect
+    useEffect(() => {
+        if (!mounted || authLoading) return;
+
+        if (user) {
+            // User is logged in, go to dashboard if on login screen
+            if (currentScreen === Screen.LOGIN) {
+                navigate(Screen.DASHBOARD);
+            }
+        } else {
+            // User is not logged in, go to login screen
+            if (currentScreen !== Screen.LOGIN) {
+                navigate(Screen.LOGIN);
+            }
+        }
+    }, [user, authLoading, mounted]);
+
+    // Hash change listener
     useEffect(() => {
         if (!mounted) return;
 
         const handleHashChange = () => {
-            setCurrentScreen(getScreenFromHash());
+            const screen = getScreenFromHash();
+            // Protect routes - redirect to login if not authenticated
+            if (!user && screen !== Screen.LOGIN) {
+                window.location.hash = '#/login';
+                return;
+            }
+            setCurrentScreen(screen);
             window.scrollTo(0, 0);
         };
 
         window.addEventListener('hashchange', handleHashChange);
 
-        if (!window.location.hash) {
-            window.location.hash = '#/login';
+        // Set initial screen based on auth state
+        const initialScreen = getScreenFromHash();
+        if (user || initialScreen === Screen.LOGIN) {
+            setCurrentScreen(initialScreen);
         }
 
         return () => window.removeEventListener('hashchange', handleHashChange);
-    }, [mounted]);
+    }, [mounted, user]);
 
+    // Dark mode effect
     useEffect(() => {
         if (!mounted) return;
         if (isDarkMode) {
@@ -87,6 +116,7 @@ export default function HomePage() {
         }
     }, [isDarkMode, mounted]);
 
+    // Language save effect
     useEffect(() => {
         if (!mounted) return;
         localStorage.setItem('language', language);
@@ -101,10 +131,14 @@ export default function HomePage() {
     const toggleDarkMode = () => setIsDarkMode(prev => !prev);
     const toggleLanguage = () => setLanguage(prev => prev === 'en' ? 'ko' : 'en');
 
-    if (!mounted) {
+    // Loading state
+    if (!mounted || authLoading) {
         return (
-            <div className="min-h-screen flex items-center justify-center bg-background-light">
-                <div className="animate-pulse text-primary text-2xl">함께 성경</div>
+            <div className="min-h-screen flex items-center justify-center bg-background-light dark:bg-background-dark">
+                <div className="flex flex-col items-center gap-4">
+                    <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin"></div>
+                    <div className="text-primary text-xl font-semibold">함께 성경</div>
+                </div>
             </div>
         );
     }

@@ -1,12 +1,29 @@
 'use client';
 
-import { createClient } from '@supabase/supabase-js';
+import { createClient, SupabaseClient } from '@supabase/supabase-js';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
 
-// Create Supabase client for client-side use
-export const supabase = createClient(supabaseUrl, supabaseAnonKey);
+// Create Supabase client only when environment variables are available
+let supabaseInstance: SupabaseClient | null = null;
+
+function getSupabaseClient(): SupabaseClient {
+    if (!supabaseInstance) {
+        if (!supabaseUrl || !supabaseAnonKey) {
+            // Return a dummy client during SSR/build when env vars are not available
+            // This prevents build errors while still allowing proper initialization at runtime
+            console.warn('Supabase environment variables not set, using placeholder');
+        }
+        supabaseInstance = createClient(
+            supabaseUrl || 'https://placeholder.supabase.co',
+            supabaseAnonKey || 'placeholder-key'
+        );
+    }
+    return supabaseInstance;
+}
+
+export const supabase = getSupabaseClient();
 
 // Types for database tables
 export interface Profile {
