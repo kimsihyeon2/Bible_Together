@@ -1,0 +1,207 @@
+import React from 'react';
+import { Screen } from '../types';
+import { Translations } from '../i18n';
+
+interface DashboardScreenProps {
+  navigate: (screen: Screen) => void;
+  isDarkMode?: boolean;
+  toggleDarkMode?: () => void;
+  t: Translations;
+}
+
+const DashboardScreen: React.FC<DashboardScreenProps> = ({ navigate, isDarkMode, toggleDarkMode, t }) => {
+  return (
+    <div className="relative min-h-screen w-full pb-32 bg-background-light dark:bg-background-dark font-sans text-slate-900 dark:text-white antialiased selection:bg-primary/30">
+      <header className="sticky top-0 z-40 glass-nav border-b border-black/5 dark:border-white/10 transition-all duration-300">
+        <div className="flex items-center justify-between px-5 py-3">
+          <div className="flex flex-col">
+            <span className="text-[11px] font-semibold uppercase tracking-widest text-primary">{t.dashboard.cellName}</span>
+            <h1 className="text-xl font-bold tracking-tight text-slate-900 dark:text-white">{t.dashboard.communityTitle}</h1>
+          </div>
+          <div className="flex items-center gap-3">
+            <button className="relative rounded-full p-2 hover:bg-black/5 dark:hover:bg-white/10 transition-colors">
+              <span className="material-symbols-outlined text-[24px] text-slate-900 dark:text-white">notifications</span>
+              <span className="absolute top-2 right-2 h-2.5 w-2.5 rounded-full bg-red-500 border-2 border-white dark:border-black"></span>
+            </button>
+            <button
+              onClick={toggleDarkMode}
+              className="relative rounded-full p-2 hover:bg-black/5 dark:hover:bg-white/10 transition-colors"
+              title={isDarkMode ? 'Light Mode' : 'Dark Mode'}
+            >
+              <span className="material-symbols-outlined text-[24px] text-slate-900 dark:text-white">
+                {isDarkMode ? 'light_mode' : 'dark_mode'}
+              </span>
+            </button>
+            <button
+              onClick={() => navigate(Screen.SETTINGS)}
+              className="h-9 w-9 overflow-hidden rounded-full border border-black/10 dark:border-white/10"
+            >
+              <img alt="User Profile" className="h-full w-full object-cover bg-slate-200" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCHPcHGBqs2PA_hkmk6LOvxQWjHoBksA4O7FUv_p9aD7Odpm28PvbcOVuOmUqHof5O-8oVxRUx2-PIOmvWQG2YHJeJOtfMRPcA6z6y3wJsbEF7f7Bws07PiM5tIGq-1ZKp9QjJ7_v_v8bqwDE6ghHM75pwYOu7Tg4CwnPNodUTRFeovGYOkYj45CkRI76ivDf_xnspxJqgHcrKmAcGEAGkBez3bnSev9WiS9D02ooojb7JM1FO__hQ0etX7feMTwSijNHG_xEA7TpGC" />
+            </button>
+          </div>
+        </div>
+      </header>
+
+      <main className="flex flex-col gap-6 pt-4">
+        <div className="px-5">
+          <h2 className="text-3xl font-bold tracking-tight text-slate-900 dark:text-white">{t.dashboard.greeting}<br />{t.dashboard.userName}</h2>
+          <p className="mt-2 text-[15px] font-medium text-slate-500 dark:text-slate-400">{t.dashboard.readyMessage}</p>
+        </div>
+
+        <div className="px-5 cursor-pointer" onClick={() => navigate(Screen.PLAN_DETAIL)}>
+          <div className="group relative overflow-hidden rounded-[2rem] bg-surface-light dark:bg-surface-dark shadow-ios-lg transition-transform active:scale-[0.98]">
+            <div className="relative h-64 w-full">
+              <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent z-10"></div>
+              <img alt="Bible Reading" className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-105" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAhaAG7JcTa9y5nZnzx1OnXSG5QbZmcLRgWlRD88LEa92wmYpjJfaDEE1l7nby1PTFJRHONuQs6S5KpCN8sf9cCvXYc-T4RfJdp1MJgk64YM18YaOln1u-xVYom1Qm0SpRnJuxqWu-YMaOuTQ-Mzv8FQCCKbbKLq3kEVuVzy8ZTFjJNgbozP9sXJ4rcW1y5hbbfEAJX3yDUIbSCQ8k8b8PF7kE8HVCbRasfCJy6M151kxy1bKuZ8Aw1WgmMVVb6CNasOoONBGWu3A9R" />
+              <div className="absolute top-4 left-4 z-20">
+                <div className="flex items-center gap-1.5 rounded-full bg-white/20 px-3 py-1 backdrop-blur-md border border-white/20">
+                  <span className="h-2 w-2 rounded-full bg-primary animate-pulse"></span>
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-white">{t.dashboard.todaysReading}</span>
+                </div>
+              </div>
+              <div className="absolute bottom-0 left-0 right-0 p-6 z-20">
+                <div className="flex items-end justify-between gap-4">
+                  <div>
+                    <h3 className="text-3xl font-bold text-white tracking-tight">Romans 8</h3>
+                    <p className="mt-1 text-sm font-medium text-white/90">{t.dashboard.day} 14 • Walking with Jesus</p>
+                  </div>
+                  <button className="flex h-12 w-12 items-center justify-center rounded-full bg-white text-black shadow-lg transition-transform hover:scale-110 active:scale-95">
+                    <span className="material-symbols-outlined font-bold">play_arrow</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="px-5 grid grid-cols-2 gap-4">
+          <div className="rounded-3xl bg-surface-light dark:bg-surface-dark p-5 shadow-ios flex flex-col justify-between h-40 relative overflow-hidden" onClick={() => navigate(Screen.PROGRESS)}>
+            <div className="flex flex-col z-10">
+              <span className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide">{t.dashboard.goal}</span>
+              <span className="text-2xl font-bold text-slate-900 dark:text-white mt-1">75%</span>
+              <span className="text-xs text-slate-400 dark:text-slate-500 mt-1">{t.dashboard.groupProgress}</span>
+            </div>
+            <div className="absolute -bottom-4 -right-4 h-24 w-24">
+              <svg className="h-full w-full -rotate-90" viewBox="0 0 36 36">
+                <path className="text-slate-100 dark:text-slate-800" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="currentColor" strokeWidth="4"></path>
+                <path className="text-primary drop-shadow-[0_0_8px_rgba(52,199,89,0.4)]" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="currentColor" strokeDasharray="75, 100" strokeLinecap="round" strokeWidth="4"></path>
+              </svg>
+            </div>
+          </div>
+          <div className="rounded-3xl bg-surface-light dark:bg-surface-dark p-5 shadow-ios flex flex-col justify-between h-40">
+            <div className="flex flex-col">
+              <span className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide">{t.dashboard.streak}</span>
+              <span className="text-2xl font-bold text-slate-900 dark:text-white mt-1">12 {t.dashboard.days}</span>
+              <span className="text-xs text-slate-400 dark:text-slate-500 mt-1">{t.dashboard.personalBest}</span>
+            </div>
+            <div className="flex items-center gap-1 mt-auto">
+              <div className="h-8 w-8 rounded-full bg-orange-100 dark:bg-orange-900/20 flex items-center justify-center">
+                <span className="material-symbols-outlined text-orange-500 text-lg">local_fire_department</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="flex flex-col gap-4">
+          <div className="px-5 flex items-center justify-between">
+            <h3 className="text-lg font-bold text-slate-900 dark:text-white">{t.dashboard.activePlans}</h3>
+            <a className="text-sm font-medium text-primary hover:text-green-500 transition-colors" href="#">{t.dashboard.seeAll}</a>
+          </div>
+          <div className="flex overflow-x-auto px-5 pb-6 gap-4 scrollbar-hide snap-x snap-mandatory no-scrollbar">
+            <div className="snap-center shrink-0 w-44 flex flex-col gap-2 group cursor-pointer" onClick={() => navigate(Screen.PLAN_DETAIL)}>
+              <div className="relative w-full aspect-[3/4] rounded-2xl overflow-hidden shadow-md">
+                <img alt="Gospel of John" className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-110" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDDiAJX-noX8UkcUN-2usakDWCkjNj22pmX0qZyoYjk9rzM3ceb1DrvprGadeag7KDxwim4j2NXZyvbji7sh_i1A9Y5Rosnds_G6rcNEgs6fgKKqhqBYy45rL4fax1V3RzNLWCzU-xFsSelcyvCOv_gRhWk1GELwmrfiWC7ifVA8pO3DV0fxNKmLzhhm_expzaLjG97JbA3BMing-VQiPvGRyfgMWoMp8XyoR0ayTjCeGgNN_pQAD2N5S4099Rm40alDQuY0prDG00N" />
+                <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent"></div>
+                <div className="absolute bottom-3 left-3 right-3">
+                  <div className="h-1 w-full bg-white/30 rounded-full overflow-hidden backdrop-blur-sm">
+                    <div className="h-full w-1/3 bg-primary rounded-full"></div>
+                  </div>
+                </div>
+              </div>
+              <div>
+                <h4 className="font-semibold text-slate-900 dark:text-white leading-tight">Gospel of John</h4>
+                <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">21 {t.dashboard.daysLeft}</p>
+              </div>
+            </div>
+
+            <div className="snap-center shrink-0 w-44 flex flex-col gap-2 group">
+              <div className="relative w-full aspect-[3/4] rounded-2xl overflow-hidden shadow-md">
+                <img alt="Psalms" className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-110" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBdNEl9d2mVTefzg1Ot_Cz58kb737BNU3x2lFwfYurvDXQ2-QbCWXyNdMzA6YkjlRWpmFV1glw6w4VETawGmiK23hgbaPqNtBtIkzsk-M-NinzUVBMFEkD6X2YXM2ql4Y-BKTCrJID1bnmNGP-x4L0kEgJ7n6ux5B7mhIJFy1KBdWQwnUt8-kiUq7P2rentD0WpqQIvSSdZ0csv7u_Cun1woT24fG26l3bRbiNRcch2XPfnV_6CiD4L7xshe7W8iUNp_L2ZzCcDt9oJ" />
+                <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent"></div>
+                <div className="absolute bottom-3 left-3 right-3">
+                  <div className="h-1 w-full bg-white/30 rounded-full overflow-hidden backdrop-blur-sm">
+                    <div className="h-full w-2/3 bg-primary rounded-full"></div>
+                  </div>
+                </div>
+              </div>
+              <div>
+                <h4 className="font-semibold text-slate-900 dark:text-white leading-tight">Psalms in 30 Days</h4>
+                <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">12 {t.dashboard.daysLeft}</p>
+              </div>
+            </div>
+
+            <div className="snap-center shrink-0 w-44 flex flex-col gap-2">
+              <button className="w-full aspect-[3/4] rounded-2xl border-2 border-dashed border-slate-300 dark:border-white/10 flex flex-col items-center justify-center gap-3 bg-slate-50 dark:bg-white/5 hover:bg-slate-100 dark:hover:bg-white/10 transition-colors">
+                <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center">
+                  <span className="material-symbols-outlined text-primary text-2xl">add</span>
+                </div>
+                <span className="text-sm font-medium text-slate-600 dark:text-slate-300">{t.dashboard.findPlan}</span>
+              </button>
+              <div>
+                <h4 className="font-semibold text-transparent select-none">Placeholder</h4>
+                <p className="text-xs text-transparent mt-0.5 select-none">Hidden</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="px-5">
+          <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-4">{t.dashboard.quickActions}</h3>
+          <div className="grid grid-cols-4 gap-3">
+            {[
+              { icon: 'favorite', label: t.dashboard.prayer, color: 'text-pink-500' },
+              { icon: 'forum', label: t.dashboard.chat, color: 'text-indigo-500', action: () => navigate(Screen.CHAT) },
+              { icon: 'calendar_month', label: t.dashboard.calendar, color: 'text-orange-500' },
+              { icon: 'settings', label: t.dashboard.settings, color: 'text-slate-500', action: () => navigate(Screen.SETTINGS) }
+            ].map((action, i) => (
+              <button key={i} onClick={action.action} className="flex flex-col items-center gap-2 group">
+                <div className="h-16 w-16 rounded-2xl bg-surface-light dark:bg-surface-dark shadow-ios flex items-center justify-center transition-transform group-active:scale-95 group-hover:bg-slate-50 dark:group-hover:bg-white/5">
+                  <span className={`material-symbols-outlined ${action.color} text-2xl`}>{action.icon}</span>
+                </div>
+                <span className="text-[11px] font-medium text-slate-600 dark:text-slate-300">{action.label}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="px-5 mb-10">
+          <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-4">{t.dashboard.latestActivity}</h3>
+          <div className="rounded-2xl bg-surface-light dark:bg-surface-dark shadow-ios overflow-hidden">
+            <div className="flex items-start gap-3 p-4 border-b border-separator-light dark:border-separator-dark/50 last:border-0">
+              <div className="h-10 w-10 rounded-full bg-yellow-100 dark:bg-yellow-900/30 flex items-center justify-center text-yellow-700 dark:text-yellow-500 font-bold text-sm shrink-0">SC</div>
+              <div className="flex-1 min-w-0">
+                <div className="flex justify-between items-start">
+                  <p className="text-sm font-semibold text-slate-900 dark:text-white">Sarah Chen</p>
+                  <span className="text-[11px] text-slate-400">2h</span>
+                </div>
+                <p className="text-sm text-slate-500 dark:text-slate-400 truncate">{t.dashboard.finished} <span className="text-primary">{t.dashboard.day} 12</span> {t.dashboard.of} Gospel of John</p>
+              </div>
+            </div>
+            <div className="flex items-start gap-3 p-4 last:border-0">
+              <div className="h-10 w-10 rounded-full bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center text-blue-700 dark:text-blue-500 font-bold text-sm shrink-0">DJ</div>
+              <div className="flex-1 min-w-0">
+                <div className="flex justify-between items-start">
+                  <p className="text-sm font-semibold text-slate-900 dark:text-white">David Jones</p>
+                  <span className="text-[11px] text-slate-400">4h</span>
+                </div>
+                <p className="text-sm text-slate-500 dark:text-slate-400 mt-0.5 line-clamp-2">"This verse really spoke to me about trusting the process. We often forget..."</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </main>
+    </div>
+  );
+};
+
+export default DashboardScreen;

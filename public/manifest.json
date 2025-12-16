@@ -1,0 +1,30 @@
+{
+    "name": "함께 성경",
+    "short_name": "함께성경",
+    "description": "매일 말씀 읽기와 묵상을 함께하는 커뮤니티",
+    "start_url": "/",
+    "display": "standalone",
+    "background_color": "#F2F2F7",
+    "theme_color": "#34C759",
+    "orientation": "portrait",
+    "icons": [
+        {
+            "src": "/icons/icon-192x192.png",
+            "sizes": "192x192",
+            "type": "image/png",
+            "purpose": "maskable any"
+        },
+        {
+            "src": "/icons/icon-512x512.png",
+            "sizes": "512x512",
+            "type": "image/png",
+            "purpose": "maskable any"
+        }
+    ],
+    "screenshots": [],
+    "categories": [
+        "books",
+        "lifestyle",
+        "social"
+    ]
+}
