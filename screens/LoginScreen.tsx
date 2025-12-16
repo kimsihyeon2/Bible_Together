@@ -66,16 +66,31 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ navigate, t }) => {
   };
 
   const getErrorMessage = (message: string) => {
+    console.log('Auth error message:', message); // Debug logging
+
     if (message.includes('Invalid login credentials')) {
       return '이메일 또는 비밀번호가 올바르지 않습니다.';
     }
     if (message.includes('User already registered')) {
       return '이미 가입된 이메일입니다.';
     }
-    if (message.includes('Password should be')) {
+    if (message.includes('Password should be') || message.includes('password')) {
       return '비밀번호는 6자 이상이어야 합니다.';
     }
-    return '로그인에 실패했습니다. 다시 시도해주세요.';
+    if (message.includes('Email not confirmed')) {
+      return '이메일 인증이 필요합니다. 이메일을 확인해주세요.';
+    }
+    if (message.includes('Signup is disabled')) {
+      return '현재 회원가입이 비활성화되어 있습니다.';
+    }
+    if (message.includes('rate limit') || message.includes('too many')) {
+      return '너무 많은 요청입니다. 잠시 후 다시 시도해주세요.';
+    }
+    if (message.includes('network') || message.includes('fetch')) {
+      return '네트워크 오류가 발생했습니다. 인터넷 연결을 확인해주세요.';
+    }
+    // Return the original message for debugging if no match
+    return `오류: ${message}`;
   };
 
   return (
