@@ -7,6 +7,8 @@ import { useAuth } from '@/lib/auth-context';
 import LoginScreen from '@/screens/LoginScreen';
 import DashboardScreen from '@/screens/DashboardScreen';
 import BibleScreen from '@/screens/BibleScreen';
+import CommunityScreen from '@/screens/CommunityScreen';
+import AdminScreen from '@/screens/AdminScreen';
 import PlanDetailScreen from '@/screens/PlanDetailScreen';
 import ProgressScreen from '@/screens/ProgressScreen';
 import ChatScreen from '@/screens/ChatScreen';
@@ -20,6 +22,7 @@ const ROUTE_MAP: Record<string, Screen> = {
     '#/dashboard': Screen.DASHBOARD,
     '#/bible': Screen.BIBLE,
     '#/community': Screen.COMMUNITY,
+    '#/admin': Screen.ADMIN,
     '#/plan-detail': Screen.PLAN_DETAIL,
     '#/plan/today': Screen.PLAN_DETAIL,
     '#/progress': Screen.PROGRESS,
@@ -32,6 +35,7 @@ const SCREEN_TO_HASH: Record<Screen, string> = {
     [Screen.DASHBOARD]: '#/dashboard',
     [Screen.BIBLE]: '#/bible',
     [Screen.COMMUNITY]: '#/community',
+    [Screen.ADMIN]: '#/admin',
     [Screen.PLAN_DETAIL]: '#/plan-detail',
     [Screen.PROGRESS]: '#/progress',
     [Screen.CHAT]: '#/chat',
@@ -157,7 +161,9 @@ export default function HomePage() {
             case Screen.BIBLE:
                 return <BibleScreen navigate={navigate} t={t} />;
             case Screen.COMMUNITY:
-                return <DashboardScreen navigate={navigate} isDarkMode={isDarkMode} toggleDarkMode={toggleDarkMode} t={t} />;
+                return <CommunityScreen navigate={navigate} t={t} />;
+            case Screen.ADMIN:
+                return <AdminScreen navigate={navigate} t={t} />;
             case Screen.PLAN_DETAIL:
                 return <PlanDetailScreen navigate={navigate} t={t} />;
             case Screen.PROGRESS:

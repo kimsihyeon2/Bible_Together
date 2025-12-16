@@ -1,13 +1,20 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Screen } from '../types';
 import { Translations } from '../i18n';
 import { useAuth } from '@/lib/auth-context';
+import { supabase } from '@/lib/supabase';
 
 interface LoginScreenProps {
   navigate: (screen: Screen) => void;
   t: Translations;
+}
+
+interface Cell {
+  id: string;
+  name: string;
+  invite_code: string;
 }
 
 const LoginScreen: React.FC<LoginScreenProps> = ({ navigate, t }) => {
@@ -15,10 +22,26 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ navigate, t }) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [name, setName] = useState('');
+  const [selectedCellId, setSelectedCellId] = useState('');
+  const [cells, setCells] = useState<Cell[]>([]);
   const [isSignUp, setIsSignUp] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+
+  // Fetch cells on mount
+  useEffect(() => {
+    const fetchCells = async () => {
+      const { data } = await supabase.from('cells').select('*').order('name');
+      if (data) {
+        setCells(data);
+        if (data.length > 0) {
+          setSelectedCellId(data[0].id);
+        }
+      }
+    };
+    fetchCells();
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -37,12 +60,24 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ navigate, t }) => {
         setLoading(false);
         return;
       }
-      const { error } = await signUp(email, password, name);
+      if (!selectedCellId) {
+        setError('소속 셀을 선택해주세요.');
+        setLoading(false);
+        return;
+      }
+      const { error, data } = await signUp(email, password, name);
       if (error) {
         setError(getErrorMessage(error.message));
       } else {
+        // Join the selected cell
+        if (data?.user) {
+          await supabase.from('cell_members').insert({
+            cell_id: selectedCellId,
+            user_id: data.user.id
+          });
+        }
         setError('');
-        alert('회원가입 성공! 이메일을 확인해주세요.');
+        alert('회원가입 성공! 로그인해주세요.');
         setIsSignUp(false);
       }
     } else {
@@ -66,7 +101,7 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ navigate, t }) => {
   };
 
   const getErrorMessage = (message: string) => {
-    console.log('Auth error message:', message); // Debug logging
+    console.log('Auth error message:', message);
 
     if (message.includes('Invalid login credentials')) {
       return '이메일 또는 비밀번호가 올바르지 않습니다.';
@@ -89,7 +124,6 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ navigate, t }) => {
     if (message.includes('network') || message.includes('fetch')) {
       return '네트워크 오류가 발생했습니다. 인터넷 연결을 확인해주세요.';
     }
-    // Return the original message for debugging if no match
     return `오류: ${message}`;
   };
 
@@ -104,10 +138,10 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ navigate, t }) => {
             </div>
           </div>
           <h1 className="text-[28px] font-bold tracking-tight text-text-main dark:text-white mb-2">
-            {t.login.title}
+            {isSignUp ? '회원가입' : t.login.title}
           </h1>
           <p className="text-text-muted text-[15px] font-medium leading-relaxed whitespace-pre-line">
-            {t.login.subtitle}
+            {isSignUp ? '셀과 함께 성경을 읽어보세요' : t.login.subtitle}
           </p>
         </div>
 
@@ -120,20 +154,46 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ navigate, t }) => {
 
           <div className="space-y-4">
             {isSignUp && (
-              <div className="group relative">
-                <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                  <span className="material-symbols-outlined text-gray-400 group-focus-within:text-primary transition-colors text-[22px]">person</span>
+              <>
+                {/* Name input */}
+                <div className="group relative">
+                  <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                    <span className="material-symbols-outlined text-gray-400 group-focus-within:text-primary transition-colors text-[22px]">person</span>
+                  </div>
+                  <input
+                    className="block w-full rounded-2xl border-none bg-surface-light dark:bg-surface-dark py-[18px] pl-12 pr-4 text-[16px] text-text-main dark:text-white placeholder:text-gray-400 shadow-card ring-0 focus:ring-2 focus:ring-primary/20 focus:shadow-lg transition-all duration-300 ease-out"
+                    placeholder="이름"
+                    type="text"
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                  />
                 </div>
-                <input
-                  className="block w-full rounded-2xl border-none bg-surface-light dark:bg-surface-dark py-[18px] pl-12 pr-4 text-[16px] text-text-main dark:text-white placeholder:text-gray-400 shadow-card ring-0 focus:ring-2 focus:ring-primary/20 focus:shadow-lg transition-all duration-300 ease-out"
-                  placeholder="이름"
-                  type="text"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                />
-              </div>
+
+                {/* Cell selection */}
+                <div className="group relative">
+                  <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                    <span className="material-symbols-outlined text-gray-400 group-focus-within:text-primary transition-colors text-[22px]">groups</span>
+                  </div>
+                  <select
+                    className="block w-full rounded-2xl border-none bg-surface-light dark:bg-surface-dark py-[18px] pl-12 pr-4 text-[16px] text-text-main dark:text-white shadow-card ring-0 focus:ring-2 focus:ring-primary/20 focus:shadow-lg transition-all duration-300 ease-out appearance-none cursor-pointer"
+                    value={selectedCellId}
+                    onChange={(e) => setSelectedCellId(e.target.value)}
+                  >
+                    <option value="" disabled>소속 셀 선택</option>
+                    {cells.map((cell) => (
+                      <option key={cell.id} value={cell.id}>
+                        {cell.name}
+                      </option>
+                    ))}
+                  </select>
+                  <div className="absolute inset-y-0 right-0 pr-4 flex items-center pointer-events-none">
+                    <span className="material-symbols-outlined text-gray-400 text-[22px]">expand_more</span>
+                  </div>
+                </div>
+              </>
             )}
 
+            {/* Email input */}
             <div className="group relative">
               <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
                 <span className="material-symbols-outlined text-gray-400 group-focus-within:text-primary transition-colors text-[22px]">mail</span>
@@ -148,6 +208,7 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ navigate, t }) => {
               />
             </div>
 
+            {/* Password input */}
             <div className="group relative">
               <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
                 <span className="material-symbols-outlined text-gray-400 group-focus-within:text-primary transition-colors text-[22px]">lock</span>
