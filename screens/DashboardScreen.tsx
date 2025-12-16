@@ -1,6 +1,11 @@
-import React from 'react';
+'use client';
+
+import React, { useState, useEffect } from 'react';
 import { Screen } from '../types';
 import { Translations } from '../i18n';
+import { useAuth } from '@/lib/auth-context';
+import { UrgentPrayerList, CreateUrgentPrayerModal } from '@/components/UrgentPrayer';
+import { supabase } from '@/lib/supabase';
 
 interface DashboardScreenProps {
   navigate: (screen: Screen) => void;
@@ -10,6 +15,44 @@ interface DashboardScreenProps {
 }
 
 const DashboardScreen: React.FC<DashboardScreenProps> = ({ navigate, isDarkMode, toggleDarkMode, t }) => {
+  const { user, profile, isAdmin } = useAuth();
+  const [showUrgentPrayers, setShowUrgentPrayers] = useState(false);
+  const [showCreatePrayer, setShowCreatePrayer] = useState(false);
+  const [urgentPrayerCount, setUrgentPrayerCount] = useState(0);
+
+  // Get user's first name
+  const getUserName = () => {
+    if (profile?.name) {
+      return profile.name.split(' ')[0];
+    }
+    if (user?.email) {
+      return user.email.split('@')[0];
+    }
+    return '사용자';
+  };
+
+  // Get greeting based on time
+  const getGreeting = () => {
+    const hour = new Date().getHours();
+    if (hour < 12) return t.dashboard.greeting; // 좋은 아침이에요
+    if (hour < 18) return '좋은 오후예요,';
+    return '좋은 저녁이에요,';
+  };
+
+  // Fetch urgent prayer count
+  useEffect(() => {
+    const fetchUrgentPrayers = async () => {
+      const { data } = await supabase
+        .from('urgent_prayers')
+        .select('id')
+        .eq('is_active', true);
+      if (data) {
+        setUrgentPrayerCount(data.length);
+      }
+    };
+    fetchUrgentPrayers();
+  }, []);
+
   return (
     <div className="relative min-h-screen w-full pb-32 bg-background-light dark:bg-background-dark font-sans text-slate-900 dark:text-white antialiased selection:bg-primary/30">
       <header className="sticky top-0 z-40 glass-nav border-b border-black/5 dark:border-white/10 transition-all duration-300">
@@ -19,9 +62,17 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({ navigate, isDarkMode,
             <h1 className="text-xl font-bold tracking-tight text-slate-900 dark:text-white">{t.dashboard.communityTitle}</h1>
           </div>
           <div className="flex items-center gap-3">
-            <button className="relative rounded-full p-2 hover:bg-black/5 dark:hover:bg-white/10 transition-colors">
+            {/* Urgent Prayer Bell */}
+            <button
+              onClick={() => setShowUrgentPrayers(true)}
+              className="relative rounded-full p-2 hover:bg-black/5 dark:hover:bg-white/10 transition-colors"
+            >
               <span className="material-symbols-outlined text-[24px] text-slate-900 dark:text-white">notifications</span>
-              <span className="absolute top-2 right-2 h-2.5 w-2.5 rounded-full bg-red-500 border-2 border-white dark:border-black"></span>
+              {urgentPrayerCount > 0 && (
+                <span className="absolute top-1 right-1 h-5 w-5 rounded-full bg-red-500 text-white text-[10px] font-bold flex items-center justify-center border-2 border-white dark:border-black">
+                  {urgentPrayerCount}
+                </span>
+              )}
             </button>
             <button
               onClick={toggleDarkMode}
@@ -34,20 +85,37 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({ navigate, isDarkMode,
             </button>
             <button
               onClick={() => navigate(Screen.SETTINGS)}
-              className="h-9 w-9 overflow-hidden rounded-full border border-black/10 dark:border-white/10"
+              className="h-9 w-9 overflow-hidden rounded-full bg-primary flex items-center justify-center text-white font-bold"
             >
-              <img alt="User Profile" className="h-full w-full object-cover bg-slate-200" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCHPcHGBqs2PA_hkmk6LOvxQWjHoBksA4O7FUv_p9aD7Odpm28PvbcOVuOmUqHof5O-8oVxRUx2-PIOmvWQG2YHJeJOtfMRPcA6z6y3wJsbEF7f7Bws07PiM5tIGq-1ZKp9QjJ7_v_v8bqwDE6ghHM75pwYOu7Tg4CwnPNodUTRFeovGYOkYj45CkRI76ivDf_xnspxJqgHcrKmAcGEAGkBez3bnSev9WiS9D02ooojb7JM1FO__hQ0etX7feMTwSijNHG_xEA7TpGC" />
+              {getUserName().charAt(0).toUpperCase()}
             </button>
           </div>
         </div>
       </header>
 
       <main className="flex flex-col gap-6 pt-4">
+        {/* Greeting with dynamic user name */}
         <div className="px-5">
-          <h2 className="text-3xl font-bold tracking-tight text-slate-900 dark:text-white">{t.dashboard.greeting}<br />{t.dashboard.userName}</h2>
+          <h2 className="text-3xl font-bold tracking-tight text-slate-900 dark:text-white">
+            {getGreeting()}<br />{getUserName()}
+          </h2>
           <p className="mt-2 text-[15px] font-medium text-slate-500 dark:text-slate-400">{t.dashboard.readyMessage}</p>
         </div>
 
+        {/* Admin: Create Urgent Prayer Button */}
+        {isAdmin && (
+          <div className="px-5">
+            <button
+              onClick={() => setShowCreatePrayer(true)}
+              className="w-full py-3 bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 rounded-2xl font-medium flex items-center justify-center gap-2 hover:bg-red-100 dark:hover:bg-red-900/30 transition-colors"
+            >
+              <span className="material-symbols-outlined">priority_high</span>
+              긴급 기도 요청 보내기
+            </button>
+          </div>
+        )}
+
+        {/* Daily Reading Card */}
         <div className="px-5 cursor-pointer" onClick={() => navigate(Screen.PLAN_DETAIL)}>
           <div className="group relative overflow-hidden rounded-[2rem] bg-surface-light dark:bg-surface-dark shadow-ios-lg transition-transform active:scale-[0.98]">
             <div className="relative h-64 w-full">
@@ -62,8 +130,8 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({ navigate, isDarkMode,
               <div className="absolute bottom-0 left-0 right-0 p-6 z-20">
                 <div className="flex items-end justify-between gap-4">
                   <div>
-                    <h3 className="text-3xl font-bold text-white tracking-tight">Romans 8</h3>
-                    <p className="mt-1 text-sm font-medium text-white/90">{t.dashboard.day} 14 • Walking with Jesus</p>
+                    <h3 className="text-3xl font-bold text-white tracking-tight">로마서 8장</h3>
+                    <p className="mt-1 text-sm font-medium text-white/90">{t.dashboard.day} 14 • 예수님과 함께 걷기</p>
                   </div>
                   <button className="flex h-12 w-12 items-center justify-center rounded-full bg-white text-black shadow-lg transition-transform hover:scale-110 active:scale-95">
                     <span className="material-symbols-outlined font-bold">play_arrow</span>
@@ -74,6 +142,7 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({ navigate, isDarkMode,
           </div>
         </div>
 
+        {/* Stats Cards */}
         <div className="px-5 grid grid-cols-2 gap-4">
           <div className="rounded-3xl bg-surface-light dark:bg-surface-dark p-5 shadow-ios flex flex-col justify-between h-40 relative overflow-hidden" onClick={() => navigate(Screen.PROGRESS)}>
             <div className="flex flex-col z-10">
@@ -102,10 +171,11 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({ navigate, isDarkMode,
           </div>
         </div>
 
+        {/* Active Plans */}
         <div className="flex flex-col gap-4">
           <div className="px-5 flex items-center justify-between">
             <h3 className="text-lg font-bold text-slate-900 dark:text-white">{t.dashboard.activePlans}</h3>
-            <a className="text-sm font-medium text-primary hover:text-green-500 transition-colors" href="#">{t.dashboard.seeAll}</a>
+            <button className="text-sm font-medium text-primary hover:text-green-500 transition-colors">{t.dashboard.seeAll}</button>
           </div>
           <div className="flex overflow-x-auto px-5 pb-6 gap-4 scrollbar-hide snap-x snap-mandatory no-scrollbar">
             <div className="snap-center shrink-0 w-44 flex flex-col gap-2 group cursor-pointer" onClick={() => navigate(Screen.PLAN_DETAIL)}>
@@ -119,12 +189,12 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({ navigate, isDarkMode,
                 </div>
               </div>
               <div>
-                <h4 className="font-semibold text-slate-900 dark:text-white leading-tight">Gospel of John</h4>
-                <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">21 {t.dashboard.daysLeft}</p>
+                <h4 className="font-semibold text-slate-900 dark:text-white leading-tight">요한복음</h4>
+                <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">21일 남음</p>
               </div>
             </div>
 
-            <div className="snap-center shrink-0 w-44 flex flex-col gap-2 group">
+            <div className="snap-center shrink-0 w-44 flex flex-col gap-2 group cursor-pointer">
               <div className="relative w-full aspect-[3/4] rounded-2xl overflow-hidden shadow-md">
                 <img alt="Psalms" className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-110" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBdNEl9d2mVTefzg1Ot_Cz58kb737BNU3x2lFwfYurvDXQ2-QbCWXyNdMzA6YkjlRWpmFV1glw6w4VETawGmiK23hgbaPqNtBtIkzsk-M-NinzUVBMFEkD6X2YXM2ql4Y-BKTCrJID1bnmNGP-x4L0kEgJ7n6ux5B7mhIJFy1KBdWQwnUt8-kiUq7P2rentD0WpqQIvSSdZ0csv7u_Cun1woT24fG26l3bRbiNRcch2XPfnV_6CiD4L7xshe7W8iUNp_L2ZzCcDt9oJ" />
                 <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent"></div>
@@ -135,8 +205,8 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({ navigate, isDarkMode,
                 </div>
               </div>
               <div>
-                <h4 className="font-semibold text-slate-900 dark:text-white leading-tight">Psalms in 30 Days</h4>
-                <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">12 {t.dashboard.daysLeft}</p>
+                <h4 className="font-semibold text-slate-900 dark:text-white leading-tight">시편 30일</h4>
+                <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">12일 남음</p>
               </div>
             </div>
 
@@ -147,21 +217,18 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({ navigate, isDarkMode,
                 </div>
                 <span className="text-sm font-medium text-slate-600 dark:text-slate-300">{t.dashboard.findPlan}</span>
               </button>
-              <div>
-                <h4 className="font-semibold text-transparent select-none">Placeholder</h4>
-                <p className="text-xs text-transparent mt-0.5 select-none">Hidden</p>
-              </div>
             </div>
           </div>
         </div>
 
+        {/* Quick Actions */}
         <div className="px-5">
           <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-4">{t.dashboard.quickActions}</h3>
           <div className="grid grid-cols-4 gap-3">
             {[
-              { icon: 'favorite', label: t.dashboard.prayer, color: 'text-pink-500' },
+              { icon: 'favorite', label: t.dashboard.prayer, color: 'text-pink-500', action: () => setShowUrgentPrayers(true) },
               { icon: 'forum', label: t.dashboard.chat, color: 'text-indigo-500', action: () => navigate(Screen.CHAT) },
-              { icon: 'calendar_month', label: t.dashboard.calendar, color: 'text-orange-500' },
+              { icon: 'menu_book', label: '성경', color: 'text-orange-500', action: () => navigate(Screen.PLAN_DETAIL) },
               { icon: 'settings', label: t.dashboard.settings, color: 'text-slate-500', action: () => navigate(Screen.SETTINGS) }
             ].map((action, i) => (
               <button key={i} onClick={action.action} className="flex flex-col items-center gap-2 group">
@@ -174,32 +241,41 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({ navigate, isDarkMode,
           </div>
         </div>
 
+        {/* Latest Activity */}
         <div className="px-5 mb-10">
           <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-4">{t.dashboard.latestActivity}</h3>
           <div className="rounded-2xl bg-surface-light dark:bg-surface-dark shadow-ios overflow-hidden">
             <div className="flex items-start gap-3 p-4 border-b border-separator-light dark:border-separator-dark/50 last:border-0">
-              <div className="h-10 w-10 rounded-full bg-yellow-100 dark:bg-yellow-900/30 flex items-center justify-center text-yellow-700 dark:text-yellow-500 font-bold text-sm shrink-0">SC</div>
-              <div className="flex-1 min-w-0">
-                <div className="flex justify-between items-start">
-                  <p className="text-sm font-semibold text-slate-900 dark:text-white">Sarah Chen</p>
-                  <span className="text-[11px] text-slate-400">2h</span>
-                </div>
-                <p className="text-sm text-slate-500 dark:text-slate-400 truncate">{t.dashboard.finished} <span className="text-primary">{t.dashboard.day} 12</span> {t.dashboard.of} Gospel of John</p>
+              <div className="h-10 w-10 rounded-full bg-primary/20 flex items-center justify-center text-primary font-bold text-sm shrink-0">
+                {getUserName().charAt(0).toUpperCase()}
               </div>
-            </div>
-            <div className="flex items-start gap-3 p-4 last:border-0">
-              <div className="h-10 w-10 rounded-full bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center text-blue-700 dark:text-blue-500 font-bold text-sm shrink-0">DJ</div>
               <div className="flex-1 min-w-0">
                 <div className="flex justify-between items-start">
-                  <p className="text-sm font-semibold text-slate-900 dark:text-white">David Jones</p>
-                  <span className="text-[11px] text-slate-400">4h</span>
+                  <p className="text-sm font-semibold text-slate-900 dark:text-white">{getUserName()}</p>
+                  <span className="text-[11px] text-slate-400">방금</span>
                 </div>
-                <p className="text-sm text-slate-500 dark:text-slate-400 mt-0.5 line-clamp-2">"This verse really spoke to me about trusting the process. We often forget..."</p>
+                <p className="text-sm text-slate-500 dark:text-slate-400 truncate">오늘 <span className="text-primary">로마서 8장</span>을 읽었습니다</p>
               </div>
             </div>
           </div>
         </div>
       </main>
+
+      {/* Urgent Prayer Modal */}
+      {showUrgentPrayers && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="w-full max-w-md max-h-[80vh] overflow-y-auto">
+            <UrgentPrayerList onClose={() => setShowUrgentPrayers(false)} />
+          </div>
+        </div>
+      )}
+
+      {/* Create Urgent Prayer Modal (Admin only) */}
+      <CreateUrgentPrayerModal
+        isOpen={showCreatePrayer}
+        onClose={() => setShowCreatePrayer(false)}
+        onSuccess={() => setUrgentPrayerCount(prev => prev + 1)}
+      />
     </div>
   );
 };

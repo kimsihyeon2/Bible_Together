@@ -6,6 +6,7 @@ import { Language, translations } from '@/i18n';
 import { useAuth } from '@/lib/auth-context';
 import LoginScreen from '@/screens/LoginScreen';
 import DashboardScreen from '@/screens/DashboardScreen';
+import BibleScreen from '@/screens/BibleScreen';
 import PlanDetailScreen from '@/screens/PlanDetailScreen';
 import ProgressScreen from '@/screens/ProgressScreen';
 import ChatScreen from '@/screens/ChatScreen';
@@ -17,6 +18,8 @@ const ROUTE_MAP: Record<string, Screen> = {
     '': Screen.LOGIN,
     '#/login': Screen.LOGIN,
     '#/dashboard': Screen.DASHBOARD,
+    '#/bible': Screen.BIBLE,
+    '#/community': Screen.COMMUNITY,
     '#/plan-detail': Screen.PLAN_DETAIL,
     '#/plan/today': Screen.PLAN_DETAIL,
     '#/progress': Screen.PROGRESS,
@@ -27,6 +30,8 @@ const ROUTE_MAP: Record<string, Screen> = {
 const SCREEN_TO_HASH: Record<Screen, string> = {
     [Screen.LOGIN]: '#/login',
     [Screen.DASHBOARD]: '#/dashboard',
+    [Screen.BIBLE]: '#/bible',
+    [Screen.COMMUNITY]: '#/community',
     [Screen.PLAN_DETAIL]: '#/plan-detail',
     [Screen.PROGRESS]: '#/progress',
     [Screen.CHAT]: '#/chat',
@@ -149,6 +154,10 @@ export default function HomePage() {
                 return <LoginScreen navigate={navigate} t={t} />;
             case Screen.DASHBOARD:
                 return <DashboardScreen navigate={navigate} isDarkMode={isDarkMode} toggleDarkMode={toggleDarkMode} t={t} />;
+            case Screen.BIBLE:
+                return <BibleScreen navigate={navigate} t={t} />;
+            case Screen.COMMUNITY:
+                return <DashboardScreen navigate={navigate} isDarkMode={isDarkMode} toggleDarkMode={toggleDarkMode} t={t} />;
             case Screen.PLAN_DETAIL:
                 return <PlanDetailScreen navigate={navigate} t={t} />;
             case Screen.PROGRESS:
@@ -164,6 +173,8 @@ export default function HomePage() {
 
     const showBottomNav = [
         Screen.DASHBOARD,
+        Screen.BIBLE,
+        Screen.COMMUNITY,
         Screen.SETTINGS,
         Screen.PROGRESS,
         Screen.CHAT,

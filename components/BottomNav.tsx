@@ -25,18 +25,18 @@ export const BottomNav: React.FC<BottomNavProps> = ({ currentScreen, navigate, t
         </button>
 
         <button
-          onClick={() => navigate(Screen.PLAN_DETAIL)}
-          className={`flex flex-col items-center gap-1 p-2 w-16 ${getIconClass(Screen.PLAN_DETAIL)}`}
+          onClick={() => navigate(Screen.BIBLE)}
+          className={`flex flex-col items-center gap-1 p-2 w-16 ${getIconClass(Screen.BIBLE)}`}
         >
           <span className="material-symbols-outlined text-[26px]">menu_book</span>
           <span className="text-[10px] font-medium">{t.nav.bible}</span>
         </button>
 
         <button
-          onClick={() => navigate(Screen.CHAT)}
-          className={`flex flex-col items-center gap-1 p-2 w-16 ${getIconClass(Screen.CHAT)}`}
+          onClick={() => navigate(Screen.COMMUNITY)}
+          className={`flex flex-col items-center gap-1 p-2 w-16 ${getIconClass(Screen.COMMUNITY)}`}
         >
-          <span className={`material-symbols-outlined text-[26px] ${currentScreen === Screen.CHAT ? "font-variation-settings-fill-1" : ""}`}>groups</span>
+          <span className={`material-symbols-outlined text-[26px] ${currentScreen === Screen.COMMUNITY ? "font-variation-settings-fill-1" : ""}`}>groups</span>
           <span className="text-[10px] font-medium">{t.nav.community}</span>
         </button>
 

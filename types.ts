@@ -1,6 +1,8 @@
 export enum Screen {
   LOGIN = 'LOGIN',
   DASHBOARD = 'DASHBOARD',
+  BIBLE = 'BIBLE',
+  COMMUNITY = 'COMMUNITY',
   PLAN_DETAIL = 'PLAN_DETAIL',
   PROGRESS = 'PROGRESS',
   CHAT = 'CHAT',
