@@ -1,6 +1,10 @@
-import React from 'react';
+'use client';
+
+import React, { useState } from 'react';
 import { Screen } from '../types';
 import { Language, Translations } from '../i18n';
+import { useAuth } from '@/lib/auth-context';
+import { ProfileManager } from '@/components/ProfileManager';
 
 interface SettingsScreenProps {
   navigate: (screen: Screen) => void;
@@ -10,6 +14,22 @@ interface SettingsScreenProps {
 }
 
 const SettingsScreen: React.FC<SettingsScreenProps> = ({ navigate, language, toggleLanguage, t }) => {
+  const { user, profile, signOut, isAdmin } = useAuth();
+  const [showProfileManager, setShowProfileManager] = useState(false);
+
+  const handleLogout = async () => {
+    await signOut();
+    navigate(Screen.LOGIN);
+  };
+
+  const getRoleLabel = (role?: string) => {
+    switch (role) {
+      case 'PASTOR': return '목사 / 관리자';
+      case 'LEADER': return '셀 리더';
+      default: return '셀원';
+    }
+  };
+
   return (
     <div className="bg-ios-bg-light dark:bg-ios-bg-dark font-display text-slate-900 dark:text-white antialiased">
       <div className="relative min-h-screen flex flex-col pb-24">
@@ -27,15 +47,32 @@ const SettingsScreen: React.FC<SettingsScreenProps> = ({ navigate, language, tog
         </header>
 
         <main className="flex-1 w-full max-w-md mx-auto flex flex-col gap-5 mt-4">
+          {/* Profile Section - Now Dynamic */}
           <section className="px-4">
             <div className="flex items-center gap-4 mb-6">
               <div className="relative">
-                <div className="w-[84px] h-[84px] rounded-full bg-slate-200 bg-cover bg-center ring-1 ring-black/5 dark:ring-white/10" style={{ backgroundImage: "url('https://lh3.googleusercontent.com/aida-public/AB6AXuCMwnoRWSiuM2gKimGtMOdFEP31g--dGAyzLA5vdddphRI5hTG5QYyYavyHanSKtDXhPgRWXndBX2ktkSCDB79c1YUCmoRmN2Y2fEiev7WyatGlYwRnrlbT3edWlIW5yCBiDtd5wxhatHdiIKR8on7YAkPTaYrpq9bQNq0ZEq1WFVvjptUkAROKN3ykKiocGgCS3jf_IFySvWlEpqdsw_84_w5FRkSL61AKiQuZsEFh0mgQ71lWU8wSiwfc29vWRe0eEOONSN6LZvEd')" }}></div>
+                <div className="w-[84px] h-[84px] rounded-full bg-primary flex items-center justify-center text-white text-3xl font-bold ring-1 ring-black/5 dark:ring-white/10">
+                  {profile?.name?.charAt(0).toUpperCase() || user?.email?.charAt(0).toUpperCase() || 'U'}
+                </div>
+                {isAdmin && (
+                  <div className="absolute -bottom-1 -right-1 bg-primary text-white text-xs px-2 py-0.5 rounded-full">
+                    {profile?.role === 'PASTOR' ? '관리자' : '리더'}
+                  </div>
+                )}
               </div>
               <div className="flex flex-col justify-center">
-                <h2 className="text-[22px] font-semibold text-black dark:text-white leading-tight">Sarah Miller</h2>
-                <p className="text-slate-500 dark:text-slate-400 text-[15px]">Grace Community Church</p>
-                <a className="text-ios-blue text-[15px] mt-0.5" href="#">{t.settings.editProfile}</a>
+                <h2 className="text-[22px] font-semibold text-black dark:text-white leading-tight">
+                  {profile?.name || user?.email?.split('@')[0] || '사용자'}
+                </h2>
+                <p className="text-slate-500 dark:text-slate-400 text-[15px]">
+                  {getRoleLabel(profile?.role)}
+                </p>
+                <button
+                  onClick={() => setShowProfileManager(true)}
+                  className="text-ios-blue text-[15px] mt-0.5 text-left"
+                >
+                  {t.settings.editProfile}
+                </button>
               </div>
             </div>
 
@@ -58,147 +95,119 @@ const SettingsScreen: React.FC<SettingsScreenProps> = ({ navigate, language, tog
           </section>
 
           <div className="flex flex-col gap-6 px-4">
+            {/* Account section */}
+            <section>
+              <h3 className="text-[13px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2 px-1">계정</h3>
+              <div className="bg-surface-light dark:bg-surface-dark rounded-[18px] divide-y divide-slate-200/50 dark:divide-slate-700/50 overflow-hidden shadow-sm">
+                <SettingsRow icon="security" label={t.settings.securityEmail} iconColor="text-ios-blue" />
+                <SettingsRow icon="group" label={t.settings.community} iconColor="text-ios-green" />
+              </div>
+            </section>
 
-            {/* Language Selector - NEW! */}
-            <div className="bg-surface-light dark:bg-surface-dark rounded-[10px] overflow-hidden shadow-sm">
-              <div
-                className="relative flex items-center p-3 pl-4 active:bg-slate-100 dark:active:bg-slate-800 transition-colors cursor-pointer group"
-                onClick={toggleLanguage}
+            {/* Language section */}
+            <section>
+              <h3 className="text-[13px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2 px-1">{t.settings.language}</h3>
+              <div className="bg-surface-light dark:bg-surface-dark rounded-[18px] overflow-hidden shadow-sm">
+                <div className="flex items-center justify-between px-4 py-3">
+                  <div className="flex items-center gap-3">
+                    <span className="material-symbols-outlined text-ios-purple text-[22px]">translate</span>
+                    <span className="text-[17px] text-black dark:text-white">{t.settings.language}</span>
+                  </div>
+                  <button
+                    onClick={toggleLanguage}
+                    className="px-4 py-1.5 bg-primary/10 text-primary rounded-full text-sm font-medium"
+                  >
+                    {language === 'ko' ? '한국어' : 'English'}
+                  </button>
+                </div>
+              </div>
+            </section>
+
+            {/* Reading Preferences */}
+            <section>
+              <h3 className="text-[13px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2 px-1">읽기 설정</h3>
+              <div className="bg-surface-light dark:bg-surface-dark rounded-[18px] divide-y divide-slate-200/50 dark:divide-slate-700/50 overflow-hidden shadow-sm">
+                <SettingsRow icon="menu_book" label={t.settings.translation} iconColor="text-ios-red" value="개역개정" />
+                <SettingsRow icon="format_size" label={t.settings.fontSize} iconColor="text-ios-orange" value="중간" />
+                <SettingsRow icon="speed" label={t.settings.audioSpeed} iconColor="text-ios-teal" value="1.0x" />
+              </div>
+            </section>
+
+            {/* Notifications */}
+            <section>
+              <h3 className="text-[13px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2 px-1">알림</h3>
+              <div className="bg-surface-light dark:bg-surface-dark rounded-[18px] divide-y divide-slate-200/50 dark:divide-slate-700/50 overflow-hidden shadow-sm">
+                <SettingsToggleRow icon="notifications" label={t.settings.dailyReminder} iconColor="text-ios-red" defaultOn={true} />
+                <SettingsToggleRow icon="groups" label={t.settings.groupActivity} iconColor="text-ios-blue" defaultOn={true} />
+              </div>
+            </section>
+
+            {/* Support */}
+            <section>
+              <h3 className="text-[13px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2 px-1">지원</h3>
+              <div className="bg-surface-light dark:bg-surface-dark rounded-[18px] divide-y divide-slate-200/50 dark:divide-slate-700/50 overflow-hidden shadow-sm">
+                <SettingsRow icon="help" label={t.settings.helpCenter} iconColor="text-ios-blue" />
+                <SettingsRow icon="shield" label={t.settings.privacyPolicy} iconColor="text-ios-green" />
+              </div>
+            </section>
+
+            {/* Logout Button */}
+            <section className="mt-2">
+              <button
+                onClick={handleLogout}
+                className="w-full bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 py-4 rounded-[18px] text-[17px] font-medium hover:bg-red-100 dark:hover:bg-red-900/30 transition-colors"
               >
-                <div className="w-[28px] h-[28px] rounded-[6px] bg-primary flex items-center justify-center text-white mr-3 shrink-0">
-                  <span className="material-symbols-outlined text-[18px]">language</span>
-                </div>
-                <div className="flex-1 flex items-center justify-between pt-1 pb-1">
-                  <span className="text-[17px] text-black dark:text-white">{t.settings.language}</span>
-                  <div className="flex items-center gap-2 mr-2">
-                    <span className="text-[17px] text-slate-500 dark:text-slate-400">{language === 'ko' ? '한국어' : 'English'}</span>
-                    <span className="material-symbols-outlined text-slate-300 dark:text-slate-600 text-[20px]">sync</span>
-                  </div>
-                </div>
-              </div>
-            </div>
+                {t.settings.logOut}
+              </button>
+            </section>
 
-            <div className="bg-surface-light dark:bg-surface-dark rounded-[10px] overflow-hidden shadow-sm">
-              <div className="relative flex items-center p-3 pl-4 active:bg-slate-100 dark:active:bg-slate-800 transition-colors cursor-pointer group">
-                <div className="w-[28px] h-[28px] rounded-[6px] bg-ios-blue flex items-center justify-center text-white mr-3 shrink-0">
-                  <span className="material-symbols-outlined text-[18px]">lock</span>
-                </div>
-                <div className="flex-1 flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3 pt-1 group-last:border-0">
-                  <span className="text-[17px] text-black dark:text-white">{t.settings.securityEmail}</span>
-                  <span className="material-symbols-outlined text-slate-300 dark:text-slate-600 text-[20px] mr-2">chevron_right</span>
-                </div>
-              </div>
-              <div className="relative flex items-center p-3 pl-4 pt-0 active:bg-slate-100 dark:active:bg-slate-800 transition-colors cursor-pointer group">
-                <div className="w-[28px] h-[28px] rounded-[6px] bg-ios-purple flex items-center justify-center text-white mr-3 shrink-0 mt-2">
-                  <span className="material-symbols-outlined text-[18px]">church</span>
-                </div>
-                <div className="flex-1 flex items-center justify-between pt-3 pb-1">
-                  <span className="text-[17px] text-black dark:text-white">{t.settings.community}</span>
-                  <div className="flex items-center gap-2 mr-2">
-                    <span className="text-[17px] text-slate-500 dark:text-slate-400">Grace Church</span>
-                    <span className="material-symbols-outlined text-slate-300 dark:text-slate-600 text-[20px]">chevron_right</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <div className="bg-surface-light dark:bg-surface-dark rounded-[10px] overflow-hidden shadow-sm">
-              <div className="relative flex items-center p-3 pl-4 active:bg-slate-100 dark:active:bg-slate-800 transition-colors cursor-pointer group">
-                <div className="w-[28px] h-[28px] rounded-[6px] bg-ios-orange flex items-center justify-center text-white mr-3 shrink-0">
-                  <span className="material-symbols-outlined text-[18px]">translate</span>
-                </div>
-                <div className="flex-1 flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3 pt-1">
-                  <span className="text-[17px] text-black dark:text-white">{t.settings.translation}</span>
-                  <div className="flex items-center gap-2 mr-2">
-                    <span className="text-[17px] text-slate-500 dark:text-slate-400">NIV</span>
-                    <span className="material-symbols-outlined text-slate-300 dark:text-slate-600 text-[20px]">chevron_right</span>
-                  </div>
-                </div>
-              </div>
-              <div className="relative flex items-center p-3 pl-4 pt-0 active:bg-slate-100 dark:active:bg-slate-800 transition-colors cursor-pointer group">
-                <div className="w-[28px] h-[28px] rounded-[6px] bg-slate-500 flex items-center justify-center text-white mr-3 shrink-0 mt-2">
-                  <span className="material-symbols-outlined text-[18px]">format_size</span>
-                </div>
-                <div className="flex-1 flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pt-3 pb-3">
-                  <span className="text-[17px] text-black dark:text-white">{t.settings.fontSize}</span>
-                  <div className="flex items-center gap-2 mr-2">
-                    <span className="text-[17px] text-slate-500 dark:text-slate-400">Medium</span>
-                    <span className="material-symbols-outlined text-slate-300 dark:text-slate-600 text-[20px]">chevron_right</span>
-                  </div>
-                </div>
-              </div>
-              <div className="relative flex items-center p-3 pl-4 pt-0 active:bg-slate-100 dark:active:bg-slate-800 transition-colors cursor-pointer group">
-                <div className="w-[28px] h-[28px] rounded-[6px] bg-slate-400 flex items-center justify-center text-white mr-3 shrink-0 mt-2">
-                  <span className="material-symbols-outlined text-[18px]">speed</span>
-                </div>
-                <div className="flex-1 flex items-center justify-between pt-3 pb-1">
-                  <span className="text-[17px] text-black dark:text-white">{t.settings.audioSpeed}</span>
-                  <div className="flex items-center gap-2 mr-2">
-                    <span className="text-[17px] text-slate-500 dark:text-slate-400">1.0x</span>
-                    <span className="material-symbols-outlined text-slate-300 dark:text-slate-600 text-[20px]">chevron_right</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <div className="bg-surface-light dark:bg-surface-dark rounded-[10px] overflow-hidden shadow-sm">
-              <div className="relative flex items-center p-3 pl-4 active:bg-slate-100 dark:active:bg-slate-800 transition-colors cursor-pointer group">
-                <div className="w-[28px] h-[28px] rounded-[6px] bg-ios-red flex items-center justify-center text-white mr-3 shrink-0">
-                  <span className="material-symbols-outlined text-[18px]">notifications_active</span>
-                </div>
-                <div className="flex-1 flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3 pt-1">
-                  <span className="text-[17px] text-black dark:text-white">{t.settings.dailyReminder}</span>
-                  <div className="bg-slate-100 dark:bg-slate-800 px-3 py-1 rounded-[6px] mr-2">
-                    <span className="text-[15px] font-semibold text-black dark:text-white">7:00 AM</span>
-                  </div>
-                </div>
-              </div>
-              <div className="relative flex items-center p-3 pl-4 pt-0">
-                <div className="w-[28px] h-[28px] rounded-[6px] bg-primary flex items-center justify-center text-white mr-3 shrink-0 mt-2">
-                  <span className="material-symbols-outlined text-[18px]">groups</span>
-                </div>
-                <div className="flex-1 flex items-center justify-between pt-3 pb-1">
-                  <span className="text-[17px] text-black dark:text-white">{t.settings.groupActivity}</span>
-                  <input defaultChecked className="ios-toggle mr-2" type="checkbox" />
-                </div>
-              </div>
-            </div>
-
-            <div className="bg-surface-light dark:bg-surface-dark rounded-[10px] overflow-hidden shadow-sm">
-              <div className="relative flex items-center p-3 pl-4 active:bg-slate-100 dark:active:bg-slate-800 transition-colors cursor-pointer group">
-                <div className="w-[28px] h-[28px] rounded-[6px] bg-ios-blue flex items-center justify-center text-white mr-3 shrink-0">
-                  <span className="material-symbols-outlined text-[18px]">help</span>
-                </div>
-                <div className="flex-1 flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3 pt-1">
-                  <span className="text-[17px] text-black dark:text-white">{t.settings.helpCenter}</span>
-                  <span className="material-symbols-outlined text-slate-300 dark:text-slate-600 text-[20px] mr-2">chevron_right</span>
-                </div>
-              </div>
-              <div className="relative flex items-center p-3 pl-4 pt-0 active:bg-slate-100 dark:active:bg-slate-800 transition-colors cursor-pointer group">
-                <div className="w-[28px] h-[28px] rounded-[6px] bg-ios-teal flex items-center justify-center text-white mr-3 shrink-0 mt-2">
-                  <span className="material-symbols-outlined text-[18px]">policy</span>
-                </div>
-                <div className="flex-1 flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pt-3 pb-3">
-                  <span className="text-[17px] text-black dark:text-white">{t.settings.privacyPolicy}</span>
-                  <span className="material-symbols-outlined text-slate-300 dark:text-slate-600 text-[20px] mr-2">chevron_right</span>
-                </div>
-              </div>
-              <div
-                className="relative flex items-center p-3 pl-4 pt-0 active:bg-slate-100 dark:active:bg-slate-800 transition-colors cursor-pointer group"
-                onClick={() => navigate(Screen.LOGIN)}
-              >
-                <div className="flex-1 flex items-center justify-center pt-3 pb-1">
-                  <span className="text-[17px] text-ios-red font-normal">{t.settings.logOut}</span>
-                </div>
-              </div>
-            </div>
-
-            <div className="text-center pb-8 pt-2">
-              <p className="text-[13px] text-slate-400 dark:text-slate-500">{t.settings.version}</p>
-            </div>
+            <p className="text-center text-slate-400 text-[13px] pb-6">{t.settings.version}</p>
           </div>
         </main>
       </div>
+
+      {/* Profile Manager Modal */}
+      {showProfileManager && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="w-full max-w-md">
+            <ProfileManager t={t} onClose={() => setShowProfileManager(false)} />
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+// Settings Row Component
+const SettingsRow = ({ icon, label, iconColor, value }: { icon: string; label: string; iconColor: string; value?: string }) => (
+  <div className="flex items-center justify-between px-4 py-3 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors cursor-pointer">
+    <div className="flex items-center gap-3">
+      <span className={`material-symbols-outlined ${iconColor} text-[22px]`}>{icon}</span>
+      <span className="text-[17px] text-black dark:text-white">{label}</span>
+    </div>
+    <div className="flex items-center gap-2">
+      {value && <span className="text-slate-500 text-[15px]">{value}</span>}
+      <span className="material-symbols-outlined text-slate-400 text-[20px]">chevron_right</span>
+    </div>
+  </div>
+);
+
+// Settings Toggle Row Component
+const SettingsToggleRow = ({ icon, label, iconColor, defaultOn }: { icon: string; label: string; iconColor: string; defaultOn?: boolean }) => {
+  const [isOn, setIsOn] = React.useState(defaultOn || false);
+
+  return (
+    <div className="flex items-center justify-between px-4 py-3">
+      <div className="flex items-center gap-3">
+        <span className={`material-symbols-outlined ${iconColor} text-[22px]`}>{icon}</span>
+        <span className="text-[17px] text-black dark:text-white">{label}</span>
+      </div>
+      <button
+        onClick={() => setIsOn(!isOn)}
+        className={`relative inline-flex h-[31px] w-[51px] items-center rounded-full transition-colors ${isOn ? 'bg-ios-green' : 'bg-slate-300 dark:bg-slate-600'}`}
+      >
+        <span className={`inline-block h-[27px] w-[27px] transform rounded-full bg-white shadow-md transition-transform ${isOn ? 'translate-x-[22px]' : 'translate-x-[2px]'}`} />
+      </button>
     </div>
   );
 };
