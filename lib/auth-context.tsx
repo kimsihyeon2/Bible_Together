@@ -104,12 +104,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     // Sign in with Google
     const signInWithGoogle = async () => {
+        // Use environment variable or fallback to Vercel URL
+        const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://bible-together-49b1.vercel.app';
         const { error } = await supabase.auth.signInWithOAuth({
             provider: 'google',
             options: {
-                redirectTo: typeof window !== 'undefined'
-                    ? `${window.location.origin}/auth/callback`
-                    : undefined,
+                redirectTo: `${siteUrl}/auth/callback`,
             },
         });
         return { error };
