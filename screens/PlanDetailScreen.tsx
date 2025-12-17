@@ -85,7 +85,7 @@ const PlanDetailScreen: React.FC<PlanDetailScreenProps> = ({ navigate, t }) => {
         .from('reading_plans')
         .select('*')
         .limit(1)
-        .single();
+        .maybeSingle();
 
       if (plans) {
         setPlan(plans);
@@ -96,7 +96,7 @@ const PlanDetailScreen: React.FC<PlanDetailScreenProps> = ({ navigate, t }) => {
           .select('*')
           .eq('user_id', user.id)
           .eq('plan_id', plans.id)
-          .single();
+          .maybeSingle();
 
         if (progress) {
           setUserProgress(progress);
@@ -110,7 +110,7 @@ const PlanDetailScreen: React.FC<PlanDetailScreenProps> = ({ navigate, t }) => {
               current_day: 1,
             })
             .select()
-            .single();
+            .maybeSingle();
 
           if (newProgress) {
             setUserProgress(newProgress);
@@ -122,7 +122,7 @@ const PlanDetailScreen: React.FC<PlanDetailScreenProps> = ({ navigate, t }) => {
           .from('cell_members')
           .select('cell_id')
           .eq('user_id', user.id)
-          .single();
+          .maybeSingle();
 
         if (membership) {
           const { data: cellProgress } = await supabase
@@ -184,7 +184,7 @@ const PlanDetailScreen: React.FC<PlanDetailScreenProps> = ({ navigate, t }) => {
         })
         .eq('id', userProgress.id)
         .select()
-        .single();
+        .maybeSingle();
 
       if (updatedProgress) {
         setUserProgress(updatedProgress);
@@ -336,8 +336,8 @@ const PlanDetailScreen: React.FC<PlanDetailScreenProps> = ({ navigate, t }) => {
                       onClick={completeToday}
                       disabled={completing}
                       className={`flex-1 h-14 rounded-[20px] font-bold text-[15px] shadow-lg active:scale-[0.98] transition-all flex items-center justify-center gap-2 ${completing
-                          ? 'bg-gray-300 text-gray-500'
-                          : 'bg-primary hover:bg-[#2dbd43] text-white shadow-primary/30'
+                        ? 'bg-gray-300 text-gray-500'
+                        : 'bg-primary hover:bg-[#2dbd43] text-white shadow-primary/30'
                         }`}
                     >
                       {completing ? (
@@ -372,8 +372,8 @@ const PlanDetailScreen: React.FC<PlanDetailScreenProps> = ({ navigate, t }) => {
                   >
                     {isCurrent && <div className="absolute left-0 top-0 bottom-0 w-1 bg-primary"></div>}
                     <div className={`size-6 rounded-full flex items-center justify-center shrink-0 ${isCompleted ? 'bg-primary/20 text-primary' :
-                        isCurrent ? 'bg-primary text-white shadow-glow' :
-                          'border border-gray-300 dark:border-gray-600 text-gray-400'
+                      isCurrent ? 'bg-primary text-white shadow-glow' :
+                        'border border-gray-300 dark:border-gray-600 text-gray-400'
                       }`}>
                       {isCompleted ? (
                         <span className="material-symbols-outlined text-[14px] font-bold">check</span>

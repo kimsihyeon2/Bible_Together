@@ -60,7 +60,7 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({ navigate, isDarkMode,
           .from('cell_members')
           .select('cell_id')
           .eq('user_id', user.id)
-          .single();
+          .maybeSingle();
         setHasCell(!!cellMembership);
 
         // Daily readings for streak
@@ -93,7 +93,7 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({ navigate, isDarkMode,
           .from('user_reading_progress')
           .select('current_day, reading_plans(total_days)')
           .eq('user_id', user.id)
-          .single();
+          .maybeSingle();
 
         setUserStats({
           streak,

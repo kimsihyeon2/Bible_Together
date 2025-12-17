@@ -64,7 +64,7 @@ const SettingsScreen: React.FC<SettingsScreenProps> = ({ navigate, language, tog
         .from('cell_members')
         .select('cell_id, cells(id, name)')
         .eq('user_id', user.id)
-        .single();
+        .maybeSingle();
 
       // Streak 계산
       let streak = 0;

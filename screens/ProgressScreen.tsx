@@ -73,7 +73,7 @@ const ProgressScreen: React.FC<ProgressScreenProps> = ({ navigate, t }) => {
         .from('cell_members')
         .select('cell_id')
         .eq('user_id', user.id)
-        .single();
+        .maybeSingle();
 
       if (cellMembership) {
         const { data: cellReadings } = await supabase

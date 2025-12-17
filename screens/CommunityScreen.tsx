@@ -53,7 +53,7 @@ const CommunityScreen: React.FC<CommunityScreenProps> = ({ navigate, t }) => {
                 .from('cell_members')
                 .select('cell_id')
                 .eq('user_id', user.id)
-                .single();
+                .maybeSingle();
 
             if (cellMembership) {
                 // Get cell info
@@ -61,7 +61,7 @@ const CommunityScreen: React.FC<CommunityScreenProps> = ({ navigate, t }) => {
                     .from('cells')
                     .select('*')
                     .eq('id', cellMembership.cell_id)
-                    .single();
+                    .maybeSingle();
 
                 if (cell) {
                     setCellInfo(cell);

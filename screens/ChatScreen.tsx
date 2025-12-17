@@ -61,7 +61,7 @@ const ChatScreen: React.FC<ChatScreenProps> = ({ navigate, t }) => {
         .from('cell_members')
         .select('cell_id, cells(id, name)')
         .eq('user_id', user.id)
-        .single();
+        .maybeSingle();
 
       if (membership && membership.cells) {
         const cell = membership.cells as unknown as CellInfo;
@@ -313,8 +313,8 @@ const ChatScreen: React.FC<ChatScreenProps> = ({ navigate, t }) => {
             onClick={sendMessage}
             disabled={!newMessage.trim() || sending}
             className={`shrink-0 size-8 rounded-full flex items-center justify-center transition-all shadow-md mb-[4px] active:scale-90 ${newMessage.trim() && !sending
-                ? 'bg-primary text-white hover:bg-primary-dark'
-                : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+              ? 'bg-primary text-white hover:bg-primary-dark'
+              : 'bg-gray-300 text-gray-500 cursor-not-allowed'
               }`}
           >
             {sending ? (
