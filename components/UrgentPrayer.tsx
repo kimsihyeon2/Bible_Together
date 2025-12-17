@@ -11,10 +11,15 @@ interface UrgentPrayerListProps {
 export function UrgentPrayerList({ onClose }: UrgentPrayerListProps) {
     const [prayers, setPrayers] = useState<UrgentPrayer[]>([]);
     const [loading, setLoading] = useState(true);
+    const [prayedIds, setPrayedIds] = useState<string[]>([]);
     const { isAdmin } = useAuth();
 
     useEffect(() => {
         fetchPrayers();
+        const saved = localStorage.getItem('prayed_prayers');
+        if (saved) {
+            setPrayedIds(JSON.parse(saved));
+        }
     }, []);
 
     const fetchPrayers = async () => {
@@ -30,6 +35,32 @@ export function UrgentPrayerList({ onClose }: UrgentPrayerListProps) {
             setPrayers(data as UrgentPrayer[]);
         }
         setLoading(false);
+    };
+
+    const handlePray = async (prayer: UrgentPrayer) => {
+        if (!process.env.NEXT_PUBLIC_SUPABASE_URL) return;
+
+        // Optimistic update
+        const newPrayedIds = [...prayedIds, prayer.id];
+        setPrayedIds(newPrayedIds);
+        localStorage.setItem('prayed_prayers', JSON.stringify(newPrayedIds));
+
+        // Get current user info
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) return;
+
+        // Send notification
+        const receiverId = (prayer as any).created_by;
+        if (receiverId && receiverId !== user.id) {
+            await supabase.from('notifications').insert({
+                user_id: receiverId,
+                sender_id: user.id,
+                type: 'PRAYER_RESPONSE',
+                title: '누군가 당신을 위해 기도했습니다 🙏',
+                message: `${prayer.title} 기도 제목에 대해 함께 기도했습니다.`,
+                data: { prayer_id: prayer.id }
+            });
+        }
     };
 
     const formatTime = (dateStr: string) => {
@@ -74,32 +105,42 @@ export function UrgentPrayerList({ onClose }: UrgentPrayerListProps) {
                 </p>
             ) : (
                 <div className="space-y-3">
-                    {prayers.map((prayer) => (
-                        <div
-                            key={prayer.id}
-                            className="bg-background-light dark:bg-background-dark rounded-xl p-4 border-l-4 border-primary"
-                        >
-                            <div className="flex justify-between items-start mb-2">
-                                <h4 className="font-medium text-text-main dark:text-white">
-                                    {prayer.title}
-                                </h4>
-                                <span className="text-xs text-text-sub">
-                                    {formatTime(prayer.created_at)}
-                                </span>
-                            </div>
-                            <p className="text-sm text-text-sub dark:text-gray-300 mb-2">
-                                {prayer.content}
-                            </p>
-                            {prayer.requester_name && (
-                                <p className="text-xs text-primary font-medium">
-                                    요청자: {prayer.requester_name}
+                    {prayers.map((prayer) => {
+                        const isPrayed = prayedIds.includes(prayer.id);
+                        return (
+                            <div
+                                key={prayer.id}
+                                className="bg-background-light dark:bg-background-dark rounded-xl p-4 border-l-4 border-primary"
+                            >
+                                <div className="flex justify-between items-start mb-2">
+                                    <h4 className="font-medium text-text-main dark:text-white">
+                                        {prayer.title}
+                                    </h4>
+                                    <span className="text-xs text-text-sub">
+                                        {formatTime(prayer.created_at)}
+                                    </span>
+                                </div>
+                                <p className="text-sm text-text-sub dark:text-gray-300 mb-2">
+                                    {prayer.content}
                                 </p>
-                            )}
-                            <button className="mt-3 w-full bg-primary/10 text-primary py-2 rounded-lg text-sm font-medium hover:bg-primary/20 transition-colors">
-                                함께 기도하기 🙏
-                            </button>
-                        </div>
-                    ))}
+                                {prayer.requester_name && (
+                                    <p className="text-xs text-primary font-medium">
+                                        요청자: {prayer.requester_name}
+                                    </p>
+                                )}
+                                <button
+                                    onClick={() => handlePray(prayer)}
+                                    disabled={isPrayed}
+                                    className={`mt-3 w-full py-2 rounded-lg text-sm font-medium transition-colors ${isPrayed
+                                            ? 'bg-green-100 text-green-700 cursor-default'
+                                            : 'bg-primary/10 text-primary hover:bg-primary/20'
+                                        }`}
+                                >
+                                    {isPrayed ? '함께 기도했어요 🙏' : '함께 기도하기 🙏'}
+                                </button>
+                            </div>
+                        );
+                    })}
                 </div>
             )}
         </div>
