@@ -62,7 +62,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             try {
                 const sessionPromise = supabase.auth.getSession();
                 const timeoutPromise = new Promise((_, reject) =>
-                    setTimeout(() => reject(new Error('Auth check timeout')), 5000)
+                    setTimeout(() => reject(new Error('Auth check timeout')), 15000)
                 );
 
                 // Race between session check and timeout
