@@ -165,13 +165,13 @@ DROP POLICY IF EXISTS "Users can update own prayers" ON urgent_prayers;
 CREATE POLICY "Users can update own prayers" 
   ON urgent_prayers FOR UPDATE 
   TO authenticated 
-  USING (auth.uid() = user_id);
+  USING (auth.uid() = created_by);
 
 DROP POLICY IF EXISTS "Users can delete own prayers" ON urgent_prayers;
 CREATE POLICY "Users can delete own prayers" 
   ON urgent_prayers FOR DELETE 
   TO authenticated 
-  USING (auth.uid() = user_id);
+  USING (auth.uid() = created_by);
 
 -- ============================================
 -- 10. messages 테이블 정책
