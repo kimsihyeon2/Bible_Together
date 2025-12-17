@@ -19,6 +19,8 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({ navigate, isDarkMode,
   const [showUrgentPrayers, setShowUrgentPrayers] = useState(false);
   const [showCreatePrayer, setShowCreatePrayer] = useState(false);
   const [urgentPrayerCount, setUrgentPrayerCount] = useState(0);
+  const [userStats, setUserStats] = useState({ streak: 0, todayRead: false, planDay: 0, planTotal: 30 });
+  const [hasCell, setHasCell] = useState(true);
 
   // Get user's first name
   const getUserName = () => {
@@ -39,19 +41,70 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({ navigate, isDarkMode,
     return '좋은 저녁이에요,';
   };
 
-  // Fetch urgent prayer count
+  // Fetch urgent prayer count and user stats
   useEffect(() => {
-    const fetchUrgentPrayers = async () => {
-      const { data } = await supabase
+    const fetchData = async () => {
+      // Urgent prayers
+      const { data: prayers } = await supabase
         .from('urgent_prayers')
         .select('id')
         .eq('is_active', true);
-      if (data) {
-        setUrgentPrayerCount(data.length);
+      if (prayers) {
+        setUrgentPrayerCount(prayers.length);
+      }
+
+      // User stats
+      if (user) {
+        // Check cell membership
+        const { data: cellMembership } = await supabase
+          .from('cell_members')
+          .select('cell_id')
+          .eq('user_id', user.id)
+          .single();
+        setHasCell(!!cellMembership);
+
+        // Daily readings for streak
+        const { data: dailyReadings } = await supabase
+          .from('daily_readings')
+          .select('reading_date')
+          .eq('user_id', user.id)
+          .order('reading_date', { ascending: false });
+
+        // Calculate streak
+        let streak = 0;
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const todayStr = today.toISOString().split('T')[0];
+        const todayRead = dailyReadings?.some((r: { reading_date: string }) => r.reading_date === todayStr) || false;
+
+        if (dailyReadings) {
+          for (let i = 0; i < 365; i++) {
+            const checkDate = new Date(today);
+            checkDate.setDate(checkDate.getDate() - i);
+            const dateStr = checkDate.toISOString().split('T')[0];
+            if (dailyReadings.some((r: { reading_date: string }) => r.reading_date === dateStr)) {
+              streak++;
+            } else if (i > 0) break;
+          }
+        }
+
+        // Reading plan progress
+        const { data: planProgress } = await supabase
+          .from('user_reading_progress')
+          .select('current_day, reading_plans(total_days)')
+          .eq('user_id', user.id)
+          .single();
+
+        setUserStats({
+          streak,
+          todayRead,
+          planDay: planProgress?.current_day || 0,
+          planTotal: (planProgress?.reading_plans as any)?.total_days || 30,
+        });
       }
     };
-    fetchUrgentPrayers();
-  }, []);
+    fetchData();
+  }, [user]);
 
   return (
     <div className="relative min-h-screen w-full pb-32 bg-background-light dark:bg-background-dark font-sans text-slate-900 dark:text-white antialiased selection:bg-primary/30">
@@ -111,6 +164,54 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({ navigate, isDarkMode,
           </h2>
           <p className="mt-2 text-[15px] font-medium text-slate-500 dark:text-slate-400">{t.dashboard.readyMessage}</p>
         </div>
+
+        {/* Personal Stats Cards */}
+        <div className="px-5">
+          <div className="grid grid-cols-3 gap-3">
+            {/* Streak */}
+            <div className="bg-surface-light dark:bg-surface-dark rounded-2xl p-3 shadow-sm flex flex-col items-center">
+              <span className="material-symbols-outlined text-ios-orange text-2xl mb-1">local_fire_department</span>
+              <span className="text-2xl font-bold text-slate-900 dark:text-white">{userStats.streak}</span>
+              <span className="text-[10px] text-slate-500">연속 일수</span>
+            </div>
+            {/* Today Status */}
+            <div className="bg-surface-light dark:bg-surface-dark rounded-2xl p-3 shadow-sm flex flex-col items-center">
+              <span className={`material-symbols-outlined text-2xl mb-1 ${userStats.todayRead ? 'text-primary' : 'text-slate-300'}`}>
+                {userStats.todayRead ? 'check_circle' : 'radio_button_unchecked'}
+              </span>
+              <span className="text-sm font-bold text-slate-900 dark:text-white">{userStats.todayRead ? '완료!' : '읽기 전'}</span>
+              <span className="text-[10px] text-slate-500">오늘의 읽기</span>
+            </div>
+            {/* Plan Progress */}
+            <div
+              className="bg-surface-light dark:bg-surface-dark rounded-2xl p-3 shadow-sm flex flex-col items-center cursor-pointer active:scale-95"
+              onClick={() => navigate(Screen.PLAN_DETAIL)}
+            >
+              <span className="material-symbols-outlined text-ios-blue text-2xl mb-1">menu_book</span>
+              <span className="text-sm font-bold text-slate-900 dark:text-white">
+                {userStats.planDay > 0 ? `${userStats.planDay}/${userStats.planTotal}` : '시작'}
+              </span>
+              <span className="text-[10px] text-slate-500">읽기 플랜</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Cell Join Alert */}
+        {!hasCell && (
+          <div className="px-5">
+            <div
+              onClick={() => navigate(Screen.SETTINGS)}
+              className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-2xl p-4 flex items-center gap-3 cursor-pointer"
+            >
+              <span className="material-symbols-outlined text-amber-500 text-3xl">group_add</span>
+              <div className="flex-1">
+                <p className="text-sm font-semibold text-amber-800 dark:text-amber-300">셀에 가입하세요!</p>
+                <p className="text-xs text-amber-600 dark:text-amber-400">셀에 가입하면 함께 성경을 읽을 수 있어요</p>
+              </div>
+              <span className="material-symbols-outlined text-amber-400">chevron_right</span>
+            </div>
+          </div>
+        )}
 
         {/* Admin: Create Urgent Prayer Button */}
         {isAdmin && (

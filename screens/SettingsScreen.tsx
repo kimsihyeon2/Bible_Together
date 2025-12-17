@@ -1,10 +1,11 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Screen } from '../types';
 import { Language, Translations } from '../i18n';
 import { useAuth } from '@/lib/auth-context';
 import { ProfileManager } from '@/components/ProfileManager';
+import { supabase } from '@/lib/supabase';
 
 interface SettingsScreenProps {
   navigate: (screen: Screen) => void;
@@ -13,9 +14,90 @@ interface SettingsScreenProps {
   t: Translations;
 }
 
+interface UserStats {
+  streak: number;
+  chaptersRead: number;
+  cellName: string | null;
+  cellId: string | null;
+}
+
+interface Cell {
+  id: string;
+  name: string;
+  invite_code: string;
+}
+
 const SettingsScreen: React.FC<SettingsScreenProps> = ({ navigate, language, toggleLanguage, t }) => {
   const { user, profile, signOut, isAdmin } = useAuth();
   const [showProfileManager, setShowProfileManager] = useState(false);
+  const [showCellJoinModal, setShowCellJoinModal] = useState(false);
+  const [userStats, setUserStats] = useState<UserStats>({ streak: 0, chaptersRead: 0, cellName: null, cellId: null });
+  const [cells, setCells] = useState<Cell[]>([]);
+  const [selectedCellId, setSelectedCellId] = useState('');
+  const [joiningCell, setJoiningCell] = useState(false);
+
+  useEffect(() => {
+    if (user) {
+      fetchUserStats();
+    }
+  }, [user]);
+
+  const fetchUserStats = async () => {
+    if (!user) return;
+
+    try {
+      // 1. 읽은 장 수 조회
+      const { data: readings } = await supabase
+        .from('reading_activities')
+        .select('id')
+        .eq('user_id', user.id);
+
+      // 2. 일일 읽기 기록 조회 (streak 계산용)
+      const { data: dailyReadings } = await supabase
+        .from('daily_readings')
+        .select('reading_date')
+        .eq('user_id', user.id)
+        .order('reading_date', { ascending: false });
+
+      // 3. 사용자 셀 정보 조회
+      const { data: cellMembership } = await supabase
+        .from('cell_members')
+        .select('cell_id, cells(id, name)')
+        .eq('user_id', user.id)
+        .single();
+
+      // Streak 계산
+      let streak = 0;
+      if (dailyReadings && dailyReadings.length > 0) {
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+
+        for (let i = 0; i < 365; i++) {
+          const checkDate = new Date(today);
+          checkDate.setDate(checkDate.getDate() - i);
+          const dateStr = checkDate.toISOString().split('T')[0];
+
+          const hasReading = dailyReadings.some((r: { reading_date: string }) => r.reading_date === dateStr);
+          if (hasReading) {
+            streak++;
+          } else if (i > 0) {
+            break;
+          }
+        }
+      }
+
+      const cellInfo = cellMembership?.cells as unknown as { id: string; name: string } | null;
+
+      setUserStats({
+        streak,
+        chaptersRead: readings?.length || 0,
+        cellName: cellInfo?.name || null,
+        cellId: cellInfo?.id || null,
+      });
+    } catch (error) {
+      console.error('Error fetching user stats:', error);
+    }
+  };
 
   const handleLogout = async () => {
     await signOut();
@@ -27,6 +109,38 @@ const SettingsScreen: React.FC<SettingsScreenProps> = ({ navigate, language, tog
       case 'PASTOR': return '목사 / 관리자';
       case 'LEADER': return '셀 리더';
       default: return '셀원';
+    }
+  };
+
+  const openCellJoinModal = async () => {
+    const { data } = await supabase.from('cells').select('*').order('name');
+    if (data) {
+      setCells(data);
+      if (data.length > 0) {
+        setSelectedCellId(data[0].id);
+      }
+    }
+    setShowCellJoinModal(true);
+  };
+
+  const joinCell = async () => {
+    if (!user || !selectedCellId) return;
+    setJoiningCell(true);
+
+    try {
+      const { error } = await supabase.from('cell_members').insert({
+        cell_id: selectedCellId,
+        user_id: user.id,
+      });
+
+      if (!error) {
+        setShowCellJoinModal(false);
+        fetchUserStats();
+      }
+    } catch (error) {
+      console.error('Error joining cell:', error);
+    } finally {
+      setJoiningCell(false);
     }
   };
 
@@ -47,7 +161,7 @@ const SettingsScreen: React.FC<SettingsScreenProps> = ({ navigate, language, tog
         </header>
 
         <main className="flex-1 w-full max-w-md mx-auto flex flex-col gap-5 mt-4">
-          {/* Profile Section - Now Dynamic */}
+          {/* Profile Section - Dynamic */}
           <section className="px-4">
             <div className="flex items-center gap-4 mb-6">
               <div className="relative">
@@ -76,21 +190,46 @@ const SettingsScreen: React.FC<SettingsScreenProps> = ({ navigate, language, tog
               </div>
             </div>
 
+            {/* Stats Grid - DYNAMIC */}
             <div className="grid grid-cols-2 gap-3">
               <div className="bg-surface-light dark:bg-surface-dark rounded-[18px] p-4 flex flex-col justify-between h-[88px] shadow-sm">
                 <div className="flex justify-between items-start">
                   <span className="material-symbols-outlined text-ios-orange text-2xl">local_fire_department</span>
-                  <span className="text-2xl font-bold text-black dark:text-white">12</span>
+                  <span className="text-2xl font-bold text-black dark:text-white">{userStats.streak}</span>
                 </div>
                 <span className="text-[13px] font-medium text-slate-500 dark:text-slate-400">{t.settings.dayStreak}</span>
               </div>
               <div className="bg-surface-light dark:bg-surface-dark rounded-[18px] p-4 flex flex-col justify-between h-[88px] shadow-sm">
                 <div className="flex justify-between items-start">
                   <span className="material-symbols-outlined text-ios-blue text-2xl">auto_stories</span>
-                  <span className="text-2xl font-bold text-black dark:text-white">45</span>
+                  <span className="text-2xl font-bold text-black dark:text-white">{userStats.chaptersRead}</span>
                 </div>
                 <span className="text-[13px] font-medium text-slate-500 dark:text-slate-400">{t.settings.chaptersRead}</span>
               </div>
+            </div>
+
+            {/* Cell Info or Join Button */}
+            <div className="mt-4">
+              {userStats.cellName ? (
+                <div className="bg-surface-light dark:bg-surface-dark rounded-[18px] p-4 flex items-center gap-3 shadow-sm">
+                  <div className="w-12 h-12 rounded-full bg-primary/20 flex items-center justify-center text-primary">
+                    <span className="material-symbols-outlined">groups</span>
+                  </div>
+                  <div className="flex-1">
+                    <p className="text-[15px] font-semibold text-black dark:text-white">{userStats.cellName}</p>
+                    <p className="text-[13px] text-slate-500">내 소속 셀</p>
+                  </div>
+                  <span className="material-symbols-outlined text-slate-400">chevron_right</span>
+                </div>
+              ) : (
+                <button
+                  onClick={openCellJoinModal}
+                  className="w-full bg-primary text-white rounded-[18px] p-4 flex items-center justify-center gap-2 font-medium shadow-sm"
+                >
+                  <span className="material-symbols-outlined">group_add</span>
+                  셀 가입하기
+                </button>
+              )}
             </div>
           </section>
 
@@ -174,28 +313,62 @@ const SettingsScreen: React.FC<SettingsScreenProps> = ({ navigate, language, tog
           </div>
         </div>
       )}
+
+      {/* Cell Join Modal */}
+      {showCellJoinModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="w-full max-w-md bg-white dark:bg-[#1C1C1E] rounded-[24px] p-6">
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-xl font-bold text-black dark:text-white">셀 가입하기</h2>
+              <button onClick={() => setShowCellJoinModal(false)} className="text-slate-400">
+                <span className="material-symbols-outlined">close</span>
+              </button>
+            </div>
+            <div className="mb-6">
+              <label className="block text-sm font-medium text-slate-600 dark:text-slate-400 mb-2">소속 셀 선택</label>
+              <select
+                value={selectedCellId}
+                onChange={(e) => setSelectedCellId(e.target.value)}
+                className="w-full p-3 bg-[#E3E3E8] dark:bg-[#2C2C2E] rounded-xl text-black dark:text-white"
+              >
+                {cells.map((cell) => (
+                  <option key={cell.id} value={cell.id}>{cell.name}</option>
+                ))}
+              </select>
+            </div>
+            <button
+              onClick={joinCell}
+              disabled={joiningCell}
+              className="w-full bg-primary text-white py-3 rounded-xl font-medium disabled:opacity-50"
+            >
+              {joiningCell ? '가입 중...' : '가입하기'}
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
 
 // Settings Row Component
-const SettingsRow = ({ icon, label, iconColor, value }: { icon: string; label: string; iconColor: string; value?: string }) => (
-  <div className="flex items-center justify-between px-4 py-3 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors cursor-pointer">
-    <div className="flex items-center gap-3">
-      <span className={`material-symbols-outlined ${iconColor} text-[22px]`}>{icon}</span>
-      <span className="text-[17px] text-black dark:text-white">{label}</span>
+function SettingsRow({ icon, label, iconColor, value }: { icon: string; label: string; iconColor: string; value?: string }) {
+  return (
+    <div className="flex items-center justify-between px-4 py-3">
+      <div className="flex items-center gap-3">
+        <span className={`material-symbols-outlined ${iconColor} text-[22px]`}>{icon}</span>
+        <span className="text-[17px] text-black dark:text-white">{label}</span>
+      </div>
+      <div className="flex items-center gap-1 text-slate-400">
+        {value && <span className="text-[15px]">{value}</span>}
+        <span className="material-symbols-outlined text-[18px]">chevron_right</span>
+      </div>
     </div>
-    <div className="flex items-center gap-2">
-      {value && <span className="text-slate-500 text-[15px]">{value}</span>}
-      <span className="material-symbols-outlined text-slate-400 text-[20px]">chevron_right</span>
-    </div>
-  </div>
-);
+  );
+}
 
 // Settings Toggle Row Component
-const SettingsToggleRow = ({ icon, label, iconColor, defaultOn }: { icon: string; label: string; iconColor: string; defaultOn?: boolean }) => {
-  const [isOn, setIsOn] = React.useState(defaultOn || false);
-
+function SettingsToggleRow({ icon, label, iconColor, defaultOn }: { icon: string; label: string; iconColor: string; defaultOn?: boolean }) {
+  const [isOn, setIsOn] = useState(defaultOn ?? false);
   return (
     <div className="flex items-center justify-between px-4 py-3">
       <div className="flex items-center gap-3">
@@ -204,12 +377,12 @@ const SettingsToggleRow = ({ icon, label, iconColor, defaultOn }: { icon: string
       </div>
       <button
         onClick={() => setIsOn(!isOn)}
-        className={`relative inline-flex h-[31px] w-[51px] items-center rounded-full transition-colors ${isOn ? 'bg-ios-green' : 'bg-slate-300 dark:bg-slate-600'}`}
+        className={`w-[51px] h-[31px] rounded-full flex items-center px-[2px] transition-colors ${isOn ? 'bg-primary' : 'bg-[#E3E3E8] dark:bg-[#39393D]'}`}
       >
-        <span className={`inline-block h-[27px] w-[27px] transform rounded-full bg-white shadow-md transition-transform ${isOn ? 'translate-x-[22px]' : 'translate-x-[2px]'}`} />
+        <div className={`w-[27px] h-[27px] rounded-full bg-white shadow-md transition-transform ${isOn ? 'translate-x-[20px]' : ''}`}></div>
       </button>
     </div>
   );
-};
+}
 
 export default SettingsScreen;
