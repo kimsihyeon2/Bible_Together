@@ -31,6 +31,15 @@ const ProgressScreen: React.FC<ProgressScreenProps> = ({ navigate, t }) => {
   const [weeklyActivity, setWeeklyActivity] = useState<number[]>([0, 0, 0, 0, 0, 0, 0]);
   const [cellLeaderboard, setCellLeaderboard] = useState<CellMemberProgress[]>([]);
 
+  // 월간 캘린더 데이터
+  const [monthlyReadDays, setMonthlyReadDays] = useState<Set<number>>(new Set());
+  const [currentMonth, setCurrentMonth] = useState(new Date());
+
+  // 목표 설정
+  const [showGoalModal, setShowGoalModal] = useState(false);
+  const [dailyGoal, setDailyGoal] = useState(1); // 일일 읽기 목표 (장)
+  const [savedGoal, setSavedGoal] = useState(1);
+
   // 성경 전체 장 수 (1189장)
   const TOTAL_BIBLE_CHAPTERS = 1189;
 
@@ -109,6 +118,19 @@ const ProgressScreen: React.FC<ProgressScreenProps> = ({ navigate, t }) => {
 
       // 주간 활동 계산
       const weekly = calculateWeeklyActivity(dailyReadings || []);
+
+      // 월간 캘린더 데이터 계산
+      const readDays = new Set<number>();
+      const now = new Date();
+      if (dailyReadings) {
+        dailyReadings.forEach((r: { reading_date: string }) => {
+          const date = new Date(r.reading_date);
+          if (date.getMonth() === now.getMonth() && date.getFullYear() === now.getFullYear()) {
+            readDays.add(date.getDate());
+          }
+        });
+      }
+      setMonthlyReadDays(readDays);
 
       setStats({
         totalChapters,
@@ -376,8 +398,125 @@ const ProgressScreen: React.FC<ProgressScreenProps> = ({ navigate, t }) => {
             </div>
           </div>
 
+          {/* Monthly Attendance Calendar */}
+          <div className="bg-ios-card-light dark:bg-ios-card-dark rounded-[24px] p-5 shadow-ios mb-4">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-bold text-gray-900 dark:text-white">📅 이번 달 출석</h3>
+              <span className="text-sm text-primary font-semibold">{monthlyReadDays.size}일</span>
+            </div>
+            <div className="grid grid-cols-7 gap-1 text-center">
+              {['일', '월', '화', '수', '목', '금', '토'].map((d) => (
+                <span key={d} className="text-[10px] text-gray-400 font-semibold py-1">{d}</span>
+              ))}
+              {(() => {
+                const now = new Date();
+                const firstDay = new Date(now.getFullYear(), now.getMonth(), 1).getDay();
+                const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+                const today = now.getDate();
+                const cells = [];
+
+                // Empty cells for days before first of month
+                for (let i = 0; i < firstDay; i++) {
+                  cells.push(<div key={`empty-${i}`} className="h-8"></div>);
+                }
+
+                // Days of the month
+                for (let day = 1; day <= daysInMonth; day++) {
+                  const isRead = monthlyReadDays.has(day);
+                  const isToday = day === today;
+                  cells.push(
+                    <div
+                      key={day}
+                      className={`h-8 w-8 rounded-full flex items-center justify-center text-xs font-medium mx-auto
+                        ${isRead ? 'bg-primary text-white' : 'text-gray-500 dark:text-gray-400'}
+                        ${isToday && !isRead ? 'ring-2 ring-primary ring-offset-2 dark:ring-offset-gray-900' : ''}
+                      `}
+                    >
+                      {day}
+                    </div>
+                  );
+                }
+                return cells;
+              })()}
+            </div>
+          </div>
+
+          {/* Goal Setting Card */}
+          <div className="bg-ios-card-light dark:bg-ios-card-dark rounded-[24px] p-5 shadow-ios mb-4">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-bold text-gray-900 dark:text-white">🎯 일일 목표</h3>
+              <button
+                onClick={() => setShowGoalModal(true)}
+                className="text-primary text-sm font-semibold"
+              >
+                수정
+              </button>
+            </div>
+            <div className="flex items-center justify-between bg-gray-50 dark:bg-gray-800/50 rounded-2xl p-4">
+              <div className="flex items-center gap-3">
+                <div className="w-12 h-12 rounded-full bg-primary/20 flex items-center justify-center text-primary">
+                  <span className="material-symbols-outlined">menu_book</span>
+                </div>
+                <div>
+                  <p className="text-sm text-gray-500">매일 읽기 목표</p>
+                  <p className="text-xl font-bold text-gray-900 dark:text-white">{savedGoal}장</p>
+                </div>
+              </div>
+              <div className="text-right">
+                <p className="text-xs text-gray-400">오늘 진행률</p>
+                <p className="text-lg font-bold text-primary">
+                  {weeklyActivity[6] >= savedGoal ? '완료! ✅' : `${weeklyActivity[6]}/${savedGoal}`}
+                </p>
+              </div>
+            </div>
+          </div>
+
         </div>
       </div>
+
+      {/* Goal Setting Modal */}
+      {showGoalModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="w-full max-w-sm bg-white dark:bg-[#1C1C1E] rounded-[24px] p-6">
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-xl font-bold text-gray-900 dark:text-white">일일 목표 설정</h2>
+              <button onClick={() => setShowGoalModal(false)} className="text-gray-400">
+                <span className="material-symbols-outlined">close</span>
+              </button>
+            </div>
+            <div className="mb-6">
+              <label className="block text-sm font-medium text-gray-600 dark:text-gray-400 mb-3">
+                하루에 몇 장을 읽으실 건가요?
+              </label>
+              <div className="flex items-center justify-center gap-4">
+                <button
+                  onClick={() => setDailyGoal(Math.max(1, dailyGoal - 1))}
+                  className="w-12 h-12 rounded-full bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 flex items-center justify-center text-2xl"
+                >
+                  -
+                </button>
+                <span className="text-4xl font-bold text-gray-900 dark:text-white w-16 text-center">{dailyGoal}</span>
+                <button
+                  onClick={() => setDailyGoal(dailyGoal + 1)}
+                  className="w-12 h-12 rounded-full bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 flex items-center justify-center text-2xl"
+                >
+                  +
+                </button>
+              </div>
+              <p className="text-center text-sm text-gray-500 mt-2">장 / 일</p>
+            </div>
+            <button
+              onClick={() => {
+                setSavedGoal(dailyGoal);
+                setShowGoalModal(false);
+              }}
+              className="w-full bg-primary text-white py-3 rounded-xl font-medium"
+            >
+              저장하기
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
