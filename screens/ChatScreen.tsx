@@ -295,7 +295,7 @@ const ChatScreen: React.FC<ChatScreenProps> = ({ navigate, t }) => {
       </main>
 
       {/* Input */}
-      <footer className="flex-none bg-background-light/90 dark:bg-background-dark/90 backdrop-blur-xl border-t border-gray-200 dark:border-gray-800 p-2 pb-8 z-40">
+      <footer className="flex-none bg-background-light/90 dark:bg-background-dark/90 backdrop-blur-xl border-t border-gray-200 dark:border-gray-800 p-2 pb-24 z-40">
         <div className="flex items-end gap-2 max-w-4xl mx-auto w-full px-1">
           <div className="flex-1 min-h-[38px] border border-gray-300 dark:border-gray-700 rounded-full px-4 py-1.5 bg-white dark:bg-background-dark focus-within:border-primary/50 focus-within:ring-2 focus-within:ring-primary/20 transition-all flex items-center shadow-sm">
             <input
