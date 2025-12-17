@@ -83,6 +83,16 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({ navigate, isDarkMode,
                 {isDarkMode ? 'light_mode' : 'dark_mode'}
               </span>
             </button>
+            {/* Admin Button - Only for PASTOR/LEADER */}
+            {isAdmin && (
+              <button
+                onClick={() => navigate(Screen.ADMIN)}
+                className="rounded-xl px-3 py-1.5 bg-amber-500 hover:bg-amber-600 text-white text-sm font-semibold transition-colors flex items-center gap-1"
+              >
+                <span className="material-symbols-outlined text-[18px]">admin_panel_settings</span>
+                관리자
+              </button>
+            )}
             <button
               onClick={() => navigate(Screen.SETTINGS)}
               className="h-9 w-9 overflow-hidden rounded-full bg-primary flex items-center justify-center text-white font-bold"
