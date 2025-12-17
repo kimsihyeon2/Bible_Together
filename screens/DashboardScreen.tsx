@@ -19,7 +19,15 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({ navigate, isDarkMode,
   const [showUrgentPrayers, setShowUrgentPrayers] = useState(false);
   const [showCreatePrayer, setShowCreatePrayer] = useState(false);
   const [urgentPrayerCount, setUrgentPrayerCount] = useState(0);
-  const [userStats, setUserStats] = useState({ streak: 0, todayRead: false, planDay: 0, planTotal: 30 });
+  const [userStats, setUserStats] = useState({
+    streak: 0,
+    todayRead: false,
+    planDay: 0,
+    planTotal: 30,
+    planName: '',
+    todayReading: '',
+    planImage: '',
+  });
   const [hasCell, setHasCell] = useState(true);
 
   // Get user's first name
@@ -91,15 +99,24 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({ navigate, isDarkMode,
         // Reading plan progress
         const { data: planProgress } = await supabase
           .from('user_reading_progress')
-          .select('current_day, reading_plans(total_days)')
+          .select('current_day, reading_plans(name, total_days, cover_image_url)')
           .eq('user_id', user.id)
           .maybeSingle();
+
+        const readingPlan = planProgress?.reading_plans as any;
+
+        // 오늘 읽을 장 계산 (요한복음 1장부터 시작)
+        const currentDay = planProgress?.current_day || 1;
+        const todayReadingText = readingPlan?.name ? `${readingPlan.name.split(' ')[0]} ${currentDay}장` : '요한복음 1장';
 
         setUserStats({
           streak,
           todayRead,
-          planDay: planProgress?.current_day || 0,
-          planTotal: (planProgress?.reading_plans as any)?.total_days || 30,
+          planDay: currentDay,
+          planTotal: readingPlan?.total_days || 30,
+          planName: readingPlan?.name || '읽기 플랜 시작하기',
+          todayReading: todayReadingText,
+          planImage: readingPlan?.cover_image_url || 'https://images.unsplash.com/photo-1504052434569-70ad5836ab65?w=800',
         });
       }
     };
@@ -231,7 +248,7 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({ navigate, isDarkMode,
           <div className="group relative overflow-hidden rounded-[2rem] bg-surface-light dark:bg-surface-dark shadow-ios-lg transition-transform active:scale-[0.98]">
             <div className="relative h-64 w-full">
               <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent z-10"></div>
-              <img alt="Bible Reading" className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-105" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAhaAG7JcTa9y5nZnzx1OnXSG5QbZmcLRgWlRD88LEa92wmYpjJfaDEE1l7nby1PTFJRHONuQs6S5KpCN8sf9cCvXYc-T4RfJdp1MJgk64YM18YaOln1u-xVYom1Qm0SpRnJuxqWu-YMaOuTQ-Mzv8FQCCKbbKLq3kEVuVzy8ZTFjJNgbozP9sXJ4rcW1y5hbbfEAJX3yDUIbSCQ8k8b8PF7kE8HVCbRasfCJy6M151kxy1bKuZ8Aw1WgmMVVb6CNasOoONBGWu3A9R" />
+              <img alt="Bible Reading" className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-105" src={userStats.planImage} />
               <div className="absolute top-4 left-4 z-20">
                 <div className="flex items-center gap-1.5 rounded-full bg-white/20 px-3 py-1 backdrop-blur-md border border-white/20">
                   <span className="h-2 w-2 rounded-full bg-primary animate-pulse"></span>
@@ -241,8 +258,8 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({ navigate, isDarkMode,
               <div className="absolute bottom-0 left-0 right-0 p-6 z-20">
                 <div className="flex items-end justify-between gap-4">
                   <div>
-                    <h3 className="text-3xl font-bold text-white tracking-tight">로마서 8장</h3>
-                    <p className="mt-1 text-sm font-medium text-white/90">{t.dashboard.day} 14 • 예수님과 함께 걷기</p>
+                    <h3 className="text-3xl font-bold text-white tracking-tight">{userStats.todayReading}</h3>
+                    <p className="mt-1 text-sm font-medium text-white/90">{t.dashboard.day} {userStats.planDay} • {userStats.planName}</p>
                   </div>
                   <button className="flex h-12 w-12 items-center justify-center rounded-full bg-white text-black shadow-lg transition-transform hover:scale-110 active:scale-95">
                     <span className="material-symbols-outlined font-bold">play_arrow</span>
@@ -271,7 +288,7 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({ navigate, isDarkMode,
           <div className="rounded-3xl bg-surface-light dark:bg-surface-dark p-5 shadow-ios flex flex-col justify-between h-40">
             <div className="flex flex-col">
               <span className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide">{t.dashboard.streak}</span>
-              <span className="text-2xl font-bold text-slate-900 dark:text-white mt-1">12 {t.dashboard.days}</span>
+              <span className="text-2xl font-bold text-slate-900 dark:text-white mt-1">{userStats.streak} {t.dashboard.days}</span>
               <span className="text-xs text-slate-400 dark:text-slate-500 mt-1">{t.dashboard.personalBest}</span>
             </div>
             <div className="flex items-center gap-1 mt-auto">
