@@ -197,6 +197,10 @@ const PlanDetailScreen: React.FC<PlanDetailScreenProps> = ({ navigate, t }) => {
   };
 
   const openBibleScreen = () => {
+    // todayReading에서 책 이름과 장 정보를 localStorage에 저장
+    const reading = JOHN_READING_SCHEDULE[currentDay - 1] || JOHN_READING_SCHEDULE[0];
+    localStorage.setItem('selectedBook', '요한복음');
+    localStorage.setItem('selectedChapter', String(reading.chapter));
     navigate(Screen.BIBLE);
   };
 

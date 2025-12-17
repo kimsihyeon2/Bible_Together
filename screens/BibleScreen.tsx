@@ -53,6 +53,19 @@ const BibleScreen: React.FC<BibleScreenProps> = ({ navigate, t }) => {
             }
         };
         loadBible();
+
+        // localStorage에서 초기 책/장 설정 읽기
+        const savedBook = localStorage.getItem('selectedBook');
+        const savedChapter = localStorage.getItem('selectedChapter');
+        if (savedBook && BIBLE_BOOKS.includes(savedBook)) {
+            setSelectedBook(savedBook);
+            if (savedChapter) {
+                setSelectedChapter(parseInt(savedChapter) || 1);
+            }
+            // 읽은 후 삭제 (일회성)
+            localStorage.removeItem('selectedBook');
+            localStorage.removeItem('selectedChapter');
+        }
     }, []);
 
     const getChapterCount = (book: string) => {
@@ -203,8 +216,8 @@ const BibleScreen: React.FC<BibleScreenProps> = ({ navigate, t }) => {
                                                 setShowBookPicker(false);
                                             }}
                                             className={`py-2 px-3 rounded-lg text-sm font-medium transition-colors ${selectedBook === book
-                                                    ? 'bg-primary text-white'
-                                                    : 'bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700'
+                                                ? 'bg-primary text-white'
+                                                : 'bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700'
                                                 }`}
                                         >
                                             {book}
@@ -224,8 +237,8 @@ const BibleScreen: React.FC<BibleScreenProps> = ({ navigate, t }) => {
                                                 setShowBookPicker(false);
                                             }}
                                             className={`py-2 px-3 rounded-lg text-sm font-medium transition-colors ${selectedBook === book
-                                                    ? 'bg-primary text-white'
-                                                    : 'bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700'
+                                                ? 'bg-primary text-white'
+                                                : 'bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700'
                                                 }`}
                                         >
                                             {book}
@@ -258,8 +271,8 @@ const BibleScreen: React.FC<BibleScreenProps> = ({ navigate, t }) => {
                                             setShowChapterPicker(false);
                                         }}
                                         className={`py-3 rounded-lg text-sm font-medium transition-colors ${selectedChapter === chapter
-                                                ? 'bg-primary text-white'
-                                                : 'bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700'
+                                            ? 'bg-primary text-white'
+                                            : 'bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700'
                                             }`}
                                     >
                                         {chapter}
