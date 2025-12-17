@@ -233,8 +233,8 @@ VALUES
 -- 13. 기본 셀 추가 (없는 경우)
 -- ============================================
 
-INSERT INTO cells (name, description, invite_code, created_at)
-SELECT '다윗셀', '함께 성경을 읽는 다윗셀입니다', 'DAVID001', now()
+INSERT INTO cells (name, invite_code, created_at)
+SELECT '다윗셀', 'DAVID001', now()
 WHERE NOT EXISTS (SELECT 1 FROM cells LIMIT 1);
 
 -- ============================================
