@@ -80,12 +80,20 @@ const PlanDetailScreen: React.FC<PlanDetailScreenProps> = ({ navigate, t }) => {
     setLoading(true);
 
     try {
-      // 1. 첫 번째 읽기 플랜 조회 (요한복음 30일)
-      const { data: plans } = await supabase
+      // 1. 선택된 플랜 ID 확인
+      const selectedPlanId = localStorage.getItem('selectedPlanId');
+
+      let query = supabase
         .from('reading_plans')
-        .select('*')
-        .limit(1)
-        .maybeSingle();
+        .select('*');
+
+      if (selectedPlanId) {
+        query = query.eq('id', selectedPlanId).single();
+      } else {
+        query = query.limit(1).maybeSingle();
+      }
+
+      const { data: plans } = await query;
 
       if (plans) {
         setPlan(plans);

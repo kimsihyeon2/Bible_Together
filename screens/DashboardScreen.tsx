@@ -27,7 +27,9 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({ navigate, isDarkMode,
     planName: '',
     todayReading: '',
     planImage: '',
+    planId: '',
   });
+  const [activePlans, setActivePlans] = useState<any[]>([]);
   const [hasCell, setHasCell] = useState(true);
 
   // Get user's first name
@@ -99,25 +101,42 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({ navigate, isDarkMode,
         // Reading plan progress
         const { data: planProgress } = await supabase
           .from('user_reading_progress')
-          .select('current_day, reading_plans(name, total_days, cover_image_url)')
+          .select('id, current_day, reading_plans(id, name, total_days, cover_image_url)')
           .eq('user_id', user.id)
-          .maybeSingle();
+          .eq('completed', false);
 
-        const readingPlan = planProgress?.reading_plans as any;
+        if (planProgress && planProgress.length > 0) {
+          setActivePlans(planProgress);
 
-        // 오늘 읽을 장 계산 (요한복음 1장부터 시작)
-        const currentDay = planProgress?.current_day || 1;
-        const todayReadingText = readingPlan?.name ? `${readingPlan.name.split(' ')[0]} ${currentDay}장` : '요한복음 1장';
+          const mainPlanProgress = planProgress[0];
+          const readingPlan = mainPlanProgress.reading_plans as any;
 
-        setUserStats({
-          streak,
-          todayRead,
-          planDay: currentDay,
-          planTotal: readingPlan?.total_days || 30,
-          planName: readingPlan?.name || '읽기 플랜 시작하기',
-          todayReading: todayReadingText,
-          planImage: readingPlan?.cover_image_url || 'https://images.unsplash.com/photo-1504052434569-70ad5836ab65?w=800',
-        });
+          // 오늘 읽을 장 계산 (요한복음 1장부터 시작)
+          const currentDay = mainPlanProgress.current_day || 1;
+          const todayReadingText = readingPlan?.name ? `${readingPlan.name.split(' ')[0]} ${currentDay}장` : '요한복음 1장';
+
+          setUserStats({
+            streak,
+            todayRead,
+            planDay: currentDay,
+            planTotal: readingPlan?.total_days || 30,
+            planName: readingPlan?.name || '읽기 플랜 시작하기',
+            todayReading: todayReadingText,
+            planImage: readingPlan?.cover_image_url || 'https://images.unsplash.com/photo-1504052434569-70ad5836ab65?w=800',
+            planId: readingPlan?.id || '',
+          });
+        } else {
+          setUserStats({
+            streak,
+            todayRead,
+            planDay: 0,
+            planTotal: 30,
+            planName: '진행 중인 플랜 없음',
+            todayReading: '플랜을 시작해보세요',
+            planImage: 'https://images.unsplash.com/photo-1504052434569-70ad5836ab65?w=800',
+            planId: '',
+          });
+        }
       }
     };
     fetchData();
@@ -306,40 +325,51 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({ navigate, isDarkMode,
             <button className="text-sm font-medium text-primary hover:text-green-500 transition-colors">{t.dashboard.seeAll}</button>
           </div>
           <div className="flex overflow-x-auto px-5 pb-6 gap-4 scrollbar-hide snap-x snap-mandatory no-scrollbar">
-            <div className="snap-center shrink-0 w-44 flex flex-col gap-2 group cursor-pointer" onClick={() => navigate(Screen.PLAN_DETAIL)}>
-              <div className="relative w-full aspect-[3/4] rounded-2xl overflow-hidden shadow-md">
-                <img alt="Gospel of John" className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-110" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDDiAJX-noX8UkcUN-2usakDWCkjNj22pmX0qZyoYjk9rzM3ceb1DrvprGadeag7KDxwim4j2NXZyvbji7sh_i1A9Y5Rosnds_G6rcNEgs6fgKKqhqBYy45rL4fax1V3RzNLWCzU-xFsSelcyvCOv_gRhWk1GELwmrfiWC7ifVA8pO3DV0fxNKmLzhhm_expzaLjG97JbA3BMing-VQiPvGRyfgMWoMp8XyoR0ayTjCeGgNN_pQAD2N5S4099Rm40alDQuY0prDG00N" />
-                <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent"></div>
-                <div className="absolute bottom-3 left-3 right-3">
-                  <div className="h-1 w-full bg-white/30 rounded-full overflow-hidden backdrop-blur-sm">
-                    <div className="h-full w-1/3 bg-primary rounded-full"></div>
-                  </div>
-                </div>
-              </div>
-              <div>
-                <h4 className="font-semibold text-slate-900 dark:text-white leading-tight">요한복음</h4>
-                <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">21일 남음</p>
-              </div>
-            </div>
+            {activePlans.length > 0 ? (
+              activePlans.map((progress) => {
+                const plan = progress.reading_plans;
+                const percent = Math.round((progress.current_day / plan.total_days) * 100);
 
-            <div className="snap-center shrink-0 w-44 flex flex-col gap-2 group cursor-pointer">
-              <div className="relative w-full aspect-[3/4] rounded-2xl overflow-hidden shadow-md">
-                <img alt="Psalms" className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-110" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBdNEl9d2mVTefzg1Ot_Cz58kb737BNU3x2lFwfYurvDXQ2-QbCWXyNdMzA6YkjlRWpmFV1glw6w4VETawGmiK23hgbaPqNtBtIkzsk-M-NinzUVBMFEkD6X2YXM2ql4Y-BKTCrJID1bnmNGP-x4L0kEgJ7n6ux5B7mhIJFy1KBdWQwnUt8-kiUq7P2rentD0WpqQIvSSdZ0csv7u_Cun1woT24fG26l3bRbiNRcch2XPfnV_6CiD4L7xshe7W8iUNp_L2ZzCcDt9oJ" />
-                <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent"></div>
-                <div className="absolute bottom-3 left-3 right-3">
-                  <div className="h-1 w-full bg-white/30 rounded-full overflow-hidden backdrop-blur-sm">
-                    <div className="h-full w-2/3 bg-primary rounded-full"></div>
+                return (
+                  <div
+                    key={progress.id}
+                    className="snap-center shrink-0 w-44 flex flex-col gap-2 group cursor-pointer"
+                    onClick={() => {
+                      // 선택된 플랜으로 이동하기 전에 필요한 설정 저장
+                      // 여기서는 일단 단순히 이동만 함. PlanDetailScreen에서 로직 보강 필요.
+                      // 하지만 PlanDetailScreen은 현재 단일 플랜(요한복음) 위주로 되어 있음.
+                      // 추후 PlanDetailScreen을 id 기반으로 수정해야 함.
+                      localStorage.setItem('selectedPlanId', plan.id);
+                      navigate(Screen.PLAN_DETAIL);
+                    }}
+                  >
+                    <div className="relative w-full aspect-[3/4] rounded-2xl overflow-hidden shadow-md">
+                      <img alt={plan.name} className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-110" src={plan.cover_image_url || 'https://images.unsplash.com/photo-1504052434569-70ad5836ab65?w=800'} />
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent"></div>
+                      <div className="absolute bottom-3 left-3 right-3">
+                        <div className="h-1 w-full bg-white/30 rounded-full overflow-hidden backdrop-blur-sm">
+                          <div className="h-full bg-primary rounded-full" style={{ width: `${percent}%` }}></div>
+                        </div>
+                      </div>
+                    </div>
+                    <div>
+                      <h4 className="font-semibold text-slate-900 dark:text-white leading-tight">{plan.name}</h4>
+                      <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">{plan.total_days - progress.current_day}일 남음</p>
+                    </div>
                   </div>
-                </div>
+                );
+              })
+            ) : (
+              <div className="snap-center shrink-0 w-full flex items-center justify-center py-8 text-slate-500">
+                진행 중인 플랜이 없습니다.
               </div>
-              <div>
-                <h4 className="font-semibold text-slate-900 dark:text-white leading-tight">시편 30일</h4>
-                <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">12일 남음</p>
-              </div>
-            </div>
+            )}
 
             <div className="snap-center shrink-0 w-44 flex flex-col gap-2">
-              <button className="w-full aspect-[3/4] rounded-2xl border-2 border-dashed border-slate-300 dark:border-white/10 flex flex-col items-center justify-center gap-3 bg-slate-50 dark:bg-white/5 hover:bg-slate-100 dark:hover:bg-white/10 transition-colors">
+              <button
+                onClick={() => navigate(Screen.BIBLE)} // 일단 성경 화면으로 이동, 추후 커뮤니티나 플랜 찾기 화면으로 변경
+                className="w-full aspect-[3/4] rounded-2xl border-2 border-dashed border-slate-300 dark:border-white/10 flex flex-col items-center justify-center gap-3 bg-slate-50 dark:bg-white/5 hover:bg-slate-100 dark:hover:bg-white/10 transition-colors"
+              >
                 <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center">
                   <span className="material-symbols-outlined text-primary text-2xl">add</span>
                 </div>

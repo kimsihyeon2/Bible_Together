@@ -65,6 +65,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                 fetchProfile(session.user.id);
             }
             setLoading(false);
+        }).catch((err) => {
+            console.error('Session check failed:', err);
+            setLoading(false);
         });
 
         // Listen for auth changes
