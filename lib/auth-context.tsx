@@ -27,27 +27,32 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     // Fetch user profile from database
     const fetchProfile = async (userId: string) => {
-        const { data, error } = await supabase
-            .from('profiles')
-            .select('*')
-            .eq('id', userId)
-            .single();
+        try {
+            const { data, error } = await supabase
+                .from('profiles')
+                .select('*')
+                .eq('id', userId)
+                .maybeSingle();
 
-        if (error && error.code === 'PGRST116') {
-            // Profile doesn't exist, create one
-            const { data: userData } = await supabase.auth.getUser();
-            if (userData.user) {
-                const newProfile = {
-                    id: userId,
-                    email: userData.user.email || '',
-                    name: userData.user.user_metadata?.name || userData.user.email?.split('@')[0] || 'User',
-                    role: 'MEMBER' as const,
-                };
-                await supabase.from('profiles').insert(newProfile);
-                setProfile(newProfile as Profile);
+            if (!data) {
+                // Profile doesn't exist, create one
+                const { data: userData } = await supabase.auth.getUser();
+                if (userData.user) {
+                    const newProfile = {
+                        id: userId,
+                        email: userData.user.email || '',
+                        name: userData.user.user_metadata?.name || userData.user.email?.split('@')[0] || 'User',
+                        role: 'MEMBER' as const,
+                    };
+                    await supabase.from('profiles').insert(newProfile);
+                    setProfile(newProfile as Profile);
+                }
+            } else {
+                setProfile(data as Profile);
             }
-        } else if (data) {
-            setProfile(data as Profile);
+        } catch (error) {
+            console.error('Error fetching profile:', error);
+            // Continue without profile rather than blocking
         }
     };
 
