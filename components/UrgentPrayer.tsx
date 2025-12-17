@@ -45,11 +45,18 @@ export function UrgentPrayerList({ onClose }: UrgentPrayerListProps) {
         setPrayedIds(newPrayedIds);
         localStorage.setItem('prayed_prayers', JSON.stringify(newPrayedIds));
 
-        // Get current user info
+        // Get current user info & cell info for activity feed
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) return;
 
-        // Send notification
+        // Fetch user's cell
+        const { data: cellMember } = await supabase
+            .from('cell_members')
+            .select('cell_id')
+            .eq('user_id', user.id)
+            .maybeSingle();
+
+        // 1. Send Notification (To Requester)
         const receiverId = (prayer as any).created_by;
         if (receiverId && receiverId !== user.id) {
             await supabase.from('notifications').insert({
@@ -58,6 +65,17 @@ export function UrgentPrayerList({ onClose }: UrgentPrayerListProps) {
                 type: 'PRAYER_RESPONSE',
                 title: '누군가 당신을 위해 기도했습니다 🙏',
                 message: `${prayer.title} 기도 제목에 대해 함께 기도했습니다.`,
+                data: { prayer_id: prayer.id }
+            });
+        }
+
+        // 2. Add to Activity Feed (To Cell)
+        if (cellMember) {
+            await supabase.from('cell_activities').insert({
+                cell_id: cellMember.cell_id,
+                user_id: user.id,
+                type: 'PRAYER',
+                title: `'${prayer.title}' 기도를 함께 했습니다 🙏`,
                 data: { prayer_id: prayer.id }
             });
         }
@@ -132,8 +150,8 @@ export function UrgentPrayerList({ onClose }: UrgentPrayerListProps) {
                                     onClick={() => handlePray(prayer)}
                                     disabled={isPrayed}
                                     className={`mt-3 w-full py-2 rounded-lg text-sm font-medium transition-colors ${isPrayed
-                                            ? 'bg-green-100 text-green-700 cursor-default'
-                                            : 'bg-primary/10 text-primary hover:bg-primary/20'
+                                        ? 'bg-green-100 text-green-700 cursor-default'
+                                        : 'bg-primary/10 text-primary hover:bg-primary/20'
                                         }`}
                                 >
                                     {isPrayed ? '함께 기도했어요 🙏' : '함께 기도하기 🙏'}
@@ -155,11 +173,22 @@ interface CreatePrayerModalProps {
 }
 
 export function CreateUrgentPrayerModal({ isOpen, onClose, onSuccess }: CreatePrayerModalProps) {
+    const { user, profile } = useAuth();
     const [title, setTitle] = useState('');
     const [content, setContent] = useState('');
     const [requesterName, setRequesterName] = useState('');
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
+
+    useEffect(() => {
+        if (isOpen) {
+            if (profile?.name) {
+                setRequesterName(profile.name);
+            } else if (user?.email) {
+                setRequesterName(user.email.split('@')[0]);
+            }
+        }
+    }, [isOpen, profile, user]);
 
     if (!isOpen) return null;
 

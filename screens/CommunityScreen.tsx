@@ -88,16 +88,27 @@ const CommunityScreen: React.FC<CommunityScreenProps> = ({ navigate, t }) => {
                         setMembers(validMembers as unknown as CellMember[]);
                     }
 
-                    // Get recent activities
+                    // Get recent activities (Unified Feed)
                     const { data: activitiesData } = await supabase
-                        .from('reading_activities')
-                        .select('*')
+                        .from('cell_activities')
+                        .select(`
+                            *,
+                            profile:profiles!cell_activities_user_id_fkey (name)
+                        `)
                         .eq('cell_id', cell.id)
                         .order('created_at', { ascending: false })
                         .limit(20);
 
                     if (activitiesData) {
-                        setActivities(activitiesData);
+                        // Map to Activity interface
+                        const formattedActivities = activitiesData.map((a: any) => ({
+                            id: a.id,
+                            user_name: a.profile?.name || '알 수 없음',
+                            type: a.type,
+                            title: a.title,
+                            created_at: a.created_at
+                        }));
+                        setActivities(formattedActivities);
                     }
                 }
             }
