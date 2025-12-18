@@ -42,16 +42,31 @@ export const BibleProvider = ({ children }: { children: ReactNode }) => {
     }, []);
 
     const getVerses = (book: string, chapter: number): [string, string][] => {
-        if (!bibleCache || !bibleCache[book]) return [];
-        const chData = bibleCache[book][chapter.toString()];
+        if (!bibleCache) return [];
+
+        // Map standard names to JSON keys if needed
+        let key = book;
+        if (book === '요한일서') key = '요한1서';
+        if (book === '요한이서') key = '요한2서';
+        if (book === '요한삼서') key = '요한3서';
+
+        if (!bibleCache[key]) return [];
+        const chData = bibleCache[key][chapter.toString()];
         if (!chData) return [];
         // Sort by verse number
         return Object.entries(chData as Record<string, string>).sort((a, b) => parseInt(a[0]) - parseInt(b[0]));
     };
 
     const getChapterCount = (book: string): number => {
-        if (!bibleCache || !bibleCache[book]) return 0;
-        return Object.keys(bibleCache[book]).length;
+        if (!bibleCache) return 0;
+
+        let key = book;
+        if (book === '요한일서') key = '요한1서';
+        if (book === '요한이서') key = '요한2서';
+        if (book === '요한삼서') key = '요한3서';
+
+        if (!bibleCache[key]) return 0;
+        return Object.keys(bibleCache[key]).length;
     };
 
     return (

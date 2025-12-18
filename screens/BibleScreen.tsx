@@ -338,12 +338,36 @@ const BibleScreen: React.FC<BibleScreenProps> = ({ navigate, t }) => {
                         이전
                     </button>
                     <button
-                        onClick={async () => {
-                            // Record reading activity
-                            try {
-                                const { data: { user } } = await supabase.auth.getUser();
-                                if (user) {
-                                    // 1. Get user's cell
+                        onClick={() => {
+                            // 1. Optimistic Navigation (Immediate UI Update)
+                            const nextChapter = selectedChapter + 1;
+                            const currentBookCount = getChapterCount(selectedBook);
+                            let hasNext = true;
+
+                            if (nextChapter <= currentBookCount) {
+                                setSelectedChapter(nextChapter);
+                            } else {
+                                const currentBookIndex = BIBLE_BOOKS.indexOf(selectedBook);
+                                if (currentBookIndex < BIBLE_BOOKS.length - 1) {
+                                    setSelectedBook(BIBLE_BOOKS[currentBookIndex + 1]);
+                                    setSelectedChapter(1);
+                                } else {
+                                    hasNext = false;
+                                }
+                            }
+
+                            if (hasNext) {
+                                window.scrollTo(0, 0);
+                                setActiveVerse(null); // Reset active verse
+                            }
+
+                            // 2. Async Recording (Fire and Forget - don't await)
+                            (async () => {
+                                try {
+                                    const { data: { user } } = await supabase.auth.getUser();
+                                    if (!user) return;
+
+                                    // Get cell
                                     const { data: cellMember } = await supabase
                                         .from('cell_members')
                                         .select('cell_id')
@@ -351,53 +375,31 @@ const BibleScreen: React.FC<BibleScreenProps> = ({ navigate, t }) => {
                                         .maybeSingle();
 
                                     if (cellMember) {
-                                        // 2. Add to Activity Feed
+                                        // Record Activity
                                         await supabase.from('cell_activities').insert({
                                             cell_id: cellMember.cell_id,
                                             user_id: user.id,
                                             type: 'READING',
                                             title: `${selectedBook} ${selectedChapter}장을 읽었습니다`,
-                                            data: {
-                                                book: selectedBook,
-                                                chapter: selectedChapter
-                                            }
+                                            data: { book: selectedBook, chapter: selectedChapter }
                                         });
 
-                                        // 3. Update Daily Reading (for Streak & Goal)
+                                        // Update Daily Reading
                                         const today = new Date().toISOString().split('T')[0];
-
-                                        // Use RPC to atomically increment chapters_read and duration
                                         await supabase.rpc('increment_daily_reading', {
                                             p_user_id: user.id,
                                             p_date: today,
                                             p_chapters: 1,
-                                            p_minutes: 5 // Assume 5 mins per chapter
+                                            p_minutes: 5
                                         });
-
-                                        // Fallback/Init if RPC fails or first time (though RPC handles upsert)
                                     }
-
-                                    // 3. Update User Reading Progress (Daily Goal)
-                                    // This assumes there's logic on Dashboard to count daily readings.
-                                    // For now, we just record the activity which triggers dashboard update on refresh.
+                                } catch (e) {
+                                    console.error('Error recording reading:', e);
                                 }
-                            } catch (e) {
-                                console.error('Error recording reading:', e);
-                            }
-
-                            if (selectedChapter < getChapterCount(selectedBook)) {
-                                setSelectedChapter(selectedChapter + 1);
-                            } else {
-                                const currentBookIndex = BIBLE_BOOKS.indexOf(selectedBook);
-                                if (currentBookIndex < BIBLE_BOOKS.length - 1) {
-                                    setSelectedBook(BIBLE_BOOKS[currentBookIndex + 1]);
-                                    setSelectedChapter(1);
-                                }
-                            }
-                            window.scrollTo(0, 0);
+                            })();
                         }}
                         disabled={selectedBook === '요한계시록' && selectedChapter === getChapterCount('요한계시록')}
-                        className="flex-1 py-3 px-4 bg-primary text-white rounded-xl font-medium flex items-center justify-center gap-2 disabled:opacity-50"
+                        className="flex-1 py-3 px-4 bg-primary text-white rounded-xl font-medium flex items-center justify-center gap-2 disabled:opacity-50 active:scale-95 transition-transform"
                     >
                         다음
                         <span className="material-symbols-outlined">chevron_right</span>
