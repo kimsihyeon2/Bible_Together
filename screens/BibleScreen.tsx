@@ -92,7 +92,7 @@ const BibleScreen: React.FC<BibleScreenProps> = ({ navigate, t }) => {
                     .eq('cell_id', myCell.cell_id);
 
                 if (members) {
-                    memberIds = members.map(m => m.user_id);
+                    memberIds = members.map((m: { user_id: string }) => m.user_id);
                 }
             }
 
@@ -107,7 +107,7 @@ const BibleScreen: React.FC<BibleScreenProps> = ({ navigate, t }) => {
             if (error) throw error;
 
             // Transform data to flatten profile name
-            const robustData = data?.map(h => ({
+            const robustData = data?.map((h: any) => ({
                 ...h,
                 user_name: (h.profiles as any)?.name || '알 수 없음'
             })) || [];
