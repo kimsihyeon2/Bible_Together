@@ -49,6 +49,8 @@ const BibleScreen: React.FC<BibleScreenProps> = ({ navigate, t }) => {
     const [lineHeight, setLineHeight] = useState(1.8);
     const [highlights, setHighlights] = useState<any[]>([]);
     const [activeVerse, setActiveVerse] = useState<number | null>(null);
+    const [isExpanded, setIsExpanded] = useState(false);
+    const [touchStart, setTouchStart] = useState(0);
 
     // Load Settings
     useEffect(() => {
