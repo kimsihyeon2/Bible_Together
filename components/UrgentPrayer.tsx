@@ -79,6 +79,14 @@ export function UrgentPrayerList({ onClose }: UrgentPrayerListProps) {
                 data: { prayer_id: prayer.id }
             });
         }
+
+        // 3. Mark related notifications as read (Self)
+        // If the user came here via notification, clear it.
+        await supabase
+            .from('notifications')
+            .update({ is_read: true })
+            .eq('user_id', user.id)
+            .contains('data', { prayer_id: prayer.id });
     };
 
     const formatTime = (dateStr: string) => {

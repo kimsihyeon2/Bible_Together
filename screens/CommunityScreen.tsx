@@ -31,8 +31,8 @@ interface CellInfo {
 interface Activity {
     id: string;
     user_name: string;
-    book: string;
-    chapter: number;
+    type: string;
+    title: string;
     created_at: string;
 }
 
@@ -272,13 +272,18 @@ const CommunityScreen: React.FC<CommunityScreenProps> = ({ navigate, t }) => {
                                     key={activity.id}
                                     className="flex items-start gap-4 p-4 bg-surface-light dark:bg-surface-dark rounded-2xl shadow-sm"
                                 >
-                                    <div className="w-10 h-10 rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center">
-                                        <span className="material-symbols-outlined text-green-600 dark:text-green-400">menu_book</span>
+                                    <div className={`w-10 h-10 rounded-full flex items-center justify-center ${activity.type === 'PRAYER'
+                                            ? 'bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400'
+                                            : 'bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400'
+                                        }`}>
+                                        <span className="material-symbols-outlined">
+                                            {activity.type === 'PRAYER' ? 'volunteer_activism' : 'menu_book'}
+                                        </span>
                                     </div>
                                     <div className="flex-1 min-w-0">
                                         <p className="text-sm">
                                             <span className="font-semibold">{activity.user_name}</span>님이{' '}
-                                            <span className="text-primary font-medium">{activity.book} {activity.chapter}장</span>을 읽었습니다
+                                            <span className="text-text-main dark:text-white">{activity.title}</span>
                                         </p>
                                         <p className="text-xs text-slate-400 mt-1">{formatTime(activity.created_at)}</p>
                                     </div>
