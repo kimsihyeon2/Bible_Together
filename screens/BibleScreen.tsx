@@ -42,8 +42,132 @@ const BibleScreen: React.FC<BibleScreenProps> = ({ navigate, t }) => {
     const [loading, setLoading] = useState(true); // Kept for initial setup
     const [selectedBook, setSelectedBook] = useState<string>('창세기');
     const [selectedChapter, setSelectedChapter] = useState<number>(1);
+    const [showBookPicker, setShowBookPicker] = useState(false);
+    const [showChapterPicker, setShowChapterPicker] = useState(false);
 
-    // ... (other states)
+    // New State for Settings & Highlights
+    const [showSettings, setShowSettings] = useState(false);
+    const [fontSize, setFontSize] = useState(18);
+    const [lineHeight, setLineHeight] = useState(1.8);
+    const [highlights, setHighlights] = useState<any[]>([]);
+    const [activeVerse, setActiveVerse] = useState<number | null>(null);
+    const [isExpanded, setIsExpanded] = useState(false);
+    const [touchStart, setTouchStart] = useState(0);
+
+    // Load Settings
+    useEffect(() => {
+        const savedFontSize = localStorage.getItem('bibleFontSize');
+        if (savedFontSize) setFontSize(parseInt(savedFontSize));
+        const savedLineHeight = localStorage.getItem('bibleLineHeight');
+        if (savedLineHeight) setLineHeight(parseFloat(savedLineHeight));
+    }, []);
+
+    // Save Settings
+    useEffect(() => {
+        localStorage.setItem('bibleFontSize', fontSize.toString());
+        localStorage.setItem('bibleLineHeight', lineHeight.toString());
+    }, [fontSize, lineHeight]);
+
+    // Fetch Highlights
+    useEffect(() => {
+        if (user && selectedBook && selectedChapter) {
+            fetchHighlights();
+        }
+    }, [user, selectedBook, selectedChapter]);
+
+    const fetchHighlights = async () => {
+        if (!user) return;
+
+        try {
+            // 1. Get my Cell ID
+            const { data: myCell } = await supabase
+                .from('cell_members')
+                .select('cell_id')
+                .eq('user_id', user.id)
+                .maybeSingle();
+
+            let memberIds = [user.id];
+
+            if (myCell) {
+                // 2. Get all members of this cell
+                const { data: members } = await supabase
+                    .from('cell_members')
+                    .select('user_id')
+                    .eq('cell_id', myCell.cell_id);
+
+                if (members) {
+                    memberIds = members.map((m: { user_id: string }) => m.user_id);
+                }
+            }
+
+            // 3. Fetch Highlights
+            const { data, error } = await supabase
+                .from('bible_highlights')
+                .select('*, profiles(name)')
+                .eq('book', selectedBook)
+                .eq('chapter', selectedChapter)
+                .in('user_id', memberIds);
+
+            if (error) throw error;
+
+            // Transform data to flatten profile name
+            const robustData = data?.map((h: any) => ({
+                ...h,
+                user_name: (h.profiles as any)?.name || '알 수 없음'
+            })) || [];
+
+            setHighlights(robustData);
+
+        } catch (error) {
+            console.error('Error fetching highlights:', error);
+        }
+    };
+
+    const handleHighlight = async (color: string) => {
+        if (!user || !activeVerse) return;
+        const myHighlight = highlights.find(h => h.verse === activeVerse && h.user_id === user.id);
+
+        if (myHighlight) {
+            await supabase.from('bible_highlights').update({ color }).eq('id', myHighlight.id);
+        } else {
+            await supabase.from('bible_highlights').insert({
+                user_id: user.id,
+                book: selectedBook,
+                chapter: selectedChapter,
+                verse: activeVerse,
+                color,
+                content: ''
+            });
+        }
+        setActiveVerse(null);
+        fetchHighlights();
+    };
+
+    const removeHighlight = async () => {
+        if (!user || !activeVerse) return;
+        await supabase.from('bible_highlights').delete()
+            .eq('user_id', user.id)
+            .eq('book', selectedBook)
+            .eq('chapter', selectedChapter)
+            .eq('verse', activeVerse);
+        setActiveVerse(null);
+        fetchHighlights();
+    };
+
+    useEffect(() => {
+        // localStorage에서 초기 책/장 설정 읽기
+        const savedBook = localStorage.getItem('selectedBook');
+        const savedChapter = localStorage.getItem('selectedChapter');
+        if (savedBook && BIBLE_BOOKS.includes(savedBook)) {
+            setSelectedBook(savedBook);
+            if (savedChapter) {
+                setSelectedChapter(parseInt(savedChapter) || 1);
+            }
+            // 읽은 후 삭제 (일회성)
+            localStorage.removeItem('selectedBook');
+            localStorage.removeItem('selectedChapter');
+        }
+    }, []);
 
     // Wait for Bible Load
     useEffect(() => {
