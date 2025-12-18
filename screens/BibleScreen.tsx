@@ -73,12 +73,50 @@ const BibleScreen: React.FC<BibleScreenProps> = ({ navigate, t }) => {
 
     const fetchHighlights = async () => {
         if (!user) return;
-        const { data, error } = await supabase.rpc('get_cell_highlights', {
-            p_book: selectedBook,
-            p_chapter: selectedChapter
-        });
-        if (data) setHighlights(data);
-        else if (error) console.error('Error fetching highlights:', error);
+
+        try {
+            // 1. Get my Cell ID
+            const { data: myCell } = await supabase
+                .from('cell_members')
+                .select('cell_id')
+                .eq('user_id', user.id)
+                .maybeSingle();
+
+            let memberIds = [user.id];
+
+            if (myCell) {
+                // 2. Get all members of this cell
+                const { data: members } = await supabase
+                    .from('cell_members')
+                    .select('user_id')
+                    .eq('cell_id', myCell.cell_id);
+
+                if (members) {
+                    memberIds = members.map(m => m.user_id);
+                }
+            }
+
+            // 3. Fetch Highlights
+            const { data, error } = await supabase
+                .from('bible_highlights')
+                .select('*, profiles(name)')
+                .eq('book', selectedBook)
+                .eq('chapter', selectedChapter)
+                .in('user_id', memberIds);
+
+            if (error) throw error;
+
+            // Transform data to flatten profile name
+            const robustData = data?.map(h => ({
+                ...h,
+                user_name: (h.profiles as any)?.name || '알 수 없음'
+            })) || [];
+
+            setHighlights(robustData);
+
+        } catch (error) {
+            console.error('Error fetching highlights:', error);
+        }
     };
 
     const handleHighlight = async (color: string) => {
