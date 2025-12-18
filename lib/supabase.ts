@@ -110,3 +110,14 @@ export async function createUrgentPrayer(prayer: {
         .single();
     return { data, error };
 }
+
+export interface BibleHighlight {
+    id: string;
+    user_id: string;
+    book: string;
+    chapter: number;
+    verse: number;
+    color: string;
+    content: string;
+    created_at: string;
+}
