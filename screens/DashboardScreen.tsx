@@ -54,13 +54,17 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({ navigate, isDarkMode,
   // Fetch urgent prayer count and user stats
   useEffect(() => {
     const fetchData = async () => {
-      // Urgent prayers
-      const { data: prayers } = await supabase
-        .from('urgent_prayers')
-        .select('id')
-        .eq('is_active', true);
-      if (prayers) {
-        setUrgentPrayerCount(prayers.length);
+      // Urgent prayers count -> Notifications count
+      if (user) {
+        const { data: notifications } = await supabase
+          .from('notifications')
+          .select('id')
+          .eq('user_id', user.id)
+          .eq('is_read', false);
+
+        if (notifications) {
+          setUrgentPrayerCount(notifications.length);
+        }
       }
 
       // User stats

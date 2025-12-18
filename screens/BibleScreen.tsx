@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { Screen } from '../types';
 import { Translations } from '../i18n';
+import { supabase } from '@/lib/supabase';
 
 interface BibleScreenProps {
     navigate: (screen: Screen) => void;
@@ -172,7 +173,53 @@ const BibleScreen: React.FC<BibleScreenProps> = ({ navigate, t }) => {
                         이전
                     </button>
                     <button
-                        onClick={() => {
+                        onClick={async () => {
+                            // Record reading activity
+                            try {
+                                const { data: { user } } = await supabase.auth.getUser();
+                                if (user) {
+                                    // 1. Get user's cell
+                                    const { data: cellMember } = await supabase
+                                        .from('cell_members')
+                                        .select('cell_id')
+                                        .eq('user_id', user.id)
+                                        .maybeSingle();
+
+                                    if (cellMember) {
+                                        // 2. Add to Activity Feed
+                                        await supabase.from('cell_activities').insert({
+                                            cell_id: cellMember.cell_id,
+                                            user_id: user.id,
+                                            type: 'READING',
+                                            title: `${selectedBook} ${selectedChapter}장을 읽었습니다`,
+                                            data: {
+                                                book: selectedBook,
+                                                chapter: selectedChapter
+                                            }
+                                        });
+
+                                        // 3. Update Daily Reading (for Streak & Goal)
+                                        const today = new Date().toISOString().split('T')[0];
+
+                                        // Use RPC to atomically increment chapters_read and duration
+                                        await supabase.rpc('increment_daily_reading', {
+                                            p_user_id: user.id,
+                                            p_date: today,
+                                            p_chapters: 1,
+                                            p_minutes: 5 // Assume 5 mins per chapter
+                                        });
+
+                                        // Fallback/Init if RPC fails or first time (though RPC handles upsert)
+                                    }
+
+                                    // 3. Update User Reading Progress (Daily Goal)
+                                    // This assumes there's logic on Dashboard to count daily readings.
+                                    // For now, we just record the activity which triggers dashboard update on refresh.
+                                }
+                            } catch (e) {
+                                console.error('Error recording reading:', e);
+                            }
+
                             if (selectedChapter < getChapterCount(selectedBook)) {
                                 setSelectedChapter(selectedChapter + 1);
                             } else {

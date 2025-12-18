@@ -300,21 +300,22 @@ const ProgressScreen: React.FC<ProgressScreenProps> = ({ navigate, t }) => {
                 <span className="text-xs font-semibold text-gray-500 dark:text-gray-400 mt-1 block">총 읽기 시간</span>
               </div>
             </div>
-            <div className="bg-ios-card-light dark:bg-ios-card-dark rounded-[20px] p-4 shadow-ios flex flex-col justify-between h-36">
-              <div className="flex items-center gap-2 mb-1">
+            <div className="bg-ios-card-light dark:bg-ios-card-dark rounded-[20px] p-4 shadow-ios flex flex-col justify-between h-36 border border-transparent dark:border-white/5">
+              <div className="flex items-center gap-2">
                 <div className="bg-purple-100 dark:bg-purple-500/20 p-2 rounded-full text-purple-500">
                   <span className="material-symbols-outlined text-xl">menu_book</span>
                 </div>
+                <span className="text-sm font-semibold text-slate-600 dark:text-slate-300">읽은 양</span>
               </div>
-              <div className="flex flex-col gap-3 mt-1">
+              <div className="flex justify-between items-end mt-2">
                 <div>
-                  <span className="text-xl font-bold block leading-none text-gray-900 dark:text-white">{stats.totalChapters}</span>
-                  <span className="text-[10px] text-gray-400 font-semibold uppercase tracking-wide">장</span>
+                  <span className="text-2xl font-bold text-gray-900 dark:text-white">{stats.totalChapters}</span>
+                  <span className="text-xs text-gray-400 font-medium ml-1">장</span>
                 </div>
-                <div className="w-full h-px bg-gray-100 dark:bg-gray-700/50"></div>
-                <div>
-                  <span className="text-xl font-bold block leading-none text-gray-900 dark:text-white">{stats.totalVerses}</span>
-                  <span className="text-[10px] text-gray-400 font-semibold uppercase tracking-wide">절 (추정)</span>
+                <div className="h-8 w-px bg-gray-200 dark:bg-gray-700 mx-2"></div>
+                <div className="text-right">
+                  <span className="text-2xl font-bold text-gray-900 dark:text-white">{stats.totalVerses}</span>
+                  <span className="text-xs text-gray-400 font-medium ml-1">절</span>
                 </div>
               </div>
             </div>
