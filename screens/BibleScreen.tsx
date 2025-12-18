@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { Screen } from '../types';
 import { Translations } from '../i18n';
 import { supabase } from '@/lib/supabase';
+import { useAuth } from '@/lib/auth-context';
 
 interface BibleScreenProps {
     navigate: (screen: Screen) => void;
@@ -34,12 +35,82 @@ type BibleData = {
 };
 
 const BibleScreen: React.FC<BibleScreenProps> = ({ navigate, t }) => {
+    const { user, profile } = useAuth();
     const [bibleData, setBibleData] = useState<BibleData | null>(null);
     const [loading, setLoading] = useState(true);
     const [selectedBook, setSelectedBook] = useState<string>('창세기');
     const [selectedChapter, setSelectedChapter] = useState<number>(1);
     const [showBookPicker, setShowBookPicker] = useState(false);
     const [showChapterPicker, setShowChapterPicker] = useState(false);
+
+    // New State for Settings & Highlights
+    const [showSettings, setShowSettings] = useState(false);
+    const [fontSize, setFontSize] = useState(18);
+    const [lineHeight, setLineHeight] = useState(1.8);
+    const [highlights, setHighlights] = useState<any[]>([]);
+    const [activeVerse, setActiveVerse] = useState<number | null>(null);
+
+    // Load Settings
+    useEffect(() => {
+        const savedFontSize = localStorage.getItem('bibleFontSize');
+        if (savedFontSize) setFontSize(parseInt(savedFontSize));
+        const savedLineHeight = localStorage.getItem('bibleLineHeight');
+        if (savedLineHeight) setLineHeight(parseFloat(savedLineHeight));
+    }, []);
+
+    // Save Settings
+    useEffect(() => {
+        localStorage.setItem('bibleFontSize', fontSize.toString());
+        localStorage.setItem('bibleLineHeight', lineHeight.toString());
+    }, [fontSize, lineHeight]);
+
+    // Fetch Highlights
+    useEffect(() => {
+        if (user && selectedBook && selectedChapter) {
+            fetchHighlights();
+        }
+    }, [user, selectedBook, selectedChapter]);
+
+    const fetchHighlights = async () => {
+        if (!user) return;
+        const { data, error } = await supabase.rpc('get_cell_highlights', {
+            p_book: selectedBook,
+            p_chapter: selectedChapter
+        });
+        if (data) setHighlights(data);
+        else if (error) console.error('Error fetching highlights:', error);
+    };
+
+    const handleHighlight = async (color: string) => {
+        if (!user || !activeVerse) return;
+        const myHighlight = highlights.find(h => h.verse === activeVerse && h.user_id === user.id);
+
+        if (myHighlight) {
+            await supabase.from('bible_highlights').update({ color }).eq('id', myHighlight.id);
+        } else {
+            await supabase.from('bible_highlights').insert({
+                user_id: user.id,
+                book: selectedBook,
+                chapter: selectedChapter,
+                verse: activeVerse,
+                color,
+                content: ''
+            });
+        }
+        setActiveVerse(null);
+        fetchHighlights();
+    };
+
+    const removeHighlight = async () => {
+        if (!user || !activeVerse) return;
+        await supabase.from('bible_highlights').delete()
+            .eq('user_id', user.id)
+            .eq('book', selectedBook)
+            .eq('chapter', selectedChapter)
+            .eq('verse', activeVerse);
+        setActiveVerse(null);
+        fetchHighlights();
+    };
 
     useEffect(() => {
         const loadBible = async () => {
@@ -125,7 +196,10 @@ const BibleScreen: React.FC<BibleScreenProps> = ({ navigate, t }) => {
                         </button>
                     </div>
 
-                    <button className="p-2 -mr-2 hover:bg-black/5 dark:hover:bg-white/10 rounded-full transition-colors">
+                    <button
+                        onClick={() => setShowSettings(true)}
+                        className="p-2 -mr-2 hover:bg-black/5 dark:hover:bg-white/10 rounded-full transition-colors"
+                    >
                         <span className="material-symbols-outlined text-2xl">settings</span>
                     </button>
                 </div>
@@ -137,17 +211,77 @@ const BibleScreen: React.FC<BibleScreenProps> = ({ navigate, t }) => {
                     {selectedBook} {selectedChapter}장
                 </h1>
 
-                <div className="space-y-4">
-                    {getVerses().map(([verseNum, text]) => (
-                        <div key={verseNum} className="flex gap-3">
-                            <span className="text-primary font-bold text-sm min-w-[24px] text-right pt-1">
-                                {verseNum}
-                            </span>
-                            <p className="text-lg leading-relaxed flex-1">
-                                {text}
-                            </p>
-                        </div>
-                    ))}
+                <div className="space-y-2">
+                    {getVerses().map(([verseNumStr, text]) => {
+                        const verseNum = parseInt(verseNumStr);
+                        const vHighlights = highlights.filter(h => h.verse === verseNum);
+                        const myHighlight = vHighlights.find(h => h.user_id === user?.id);
+                        const otherHighlights = vHighlights.filter(h => h.user_id !== user?.id);
+
+                        // Determine style
+                        const primaryHighlight = myHighlight || otherHighlights[0];
+
+                        // Map colors to tailwind classes for border/bg
+                        const getBorderColor = (c: string) => {
+                            switch (c) {
+                                case 'yellow': return 'border-yellow-400 dark:border-yellow-600';
+                                case 'green': return 'border-green-400 dark:border-green-600';
+                                case 'blue': return 'border-blue-400 dark:border-blue-600';
+                                case 'pink': return 'border-pink-400 dark:border-pink-600';
+                                default: return 'border-primary';
+                            }
+                        };
+
+                        const getBgColor = (c: string) => {
+                            switch (c) {
+                                case 'yellow': return 'bg-yellow-400/20 dark:bg-yellow-600/20';
+                                case 'green': return 'bg-green-400/20 dark:bg-green-600/20';
+                                case 'blue': return 'bg-blue-400/20 dark:bg-blue-600/20';
+                                case 'pink': return 'bg-pink-400/20 dark:bg-pink-600/20';
+                                default: return 'bg-primary/20';
+                            }
+                        };
+
+                        const borderColor = primaryHighlight ? getBorderColor(primaryHighlight.color) : 'border-transparent';
+                        const bgColor = primaryHighlight ? getBgColor(primaryHighlight.color) : 'bg-transparent';
+
+                        return (
+                            <div
+                                key={verseNum}
+                                className={`flex gap-3 py-1 px-2 rounded-lg transition-colors cursor-pointer ${primaryHighlight ? bgColor : 'hover:bg-slate-50 dark:hover:bg-white/5'}`}
+                                onClick={() => setActiveVerse(verseNum)}
+                            >
+                                <span className="text-slate-400 font-bold text-xs min-w-[20px] text-right pt-2 select-none">
+                                    {verseNum}
+                                </span>
+                                <div className="flex-1">
+                                    <p
+                                        className={`leading-relaxed transition-all`}
+                                        style={{
+                                            fontSize: `${fontSize}px`,
+                                            lineHeight: lineHeight,
+                                            // We use border-bottom on text for "reading mode" feel
+                                            borderBottomWidth: primaryHighlight ? '2px' : '0px',
+                                        }}
+                                    >
+                                        <span className={`${primaryHighlight ? borderColor : ''} border-b-0`}>
+                                            {text}
+                                        </span>
+                                    </p>
+                                    {/* Shared Indicators */}
+                                    {otherHighlights.length > 0 && (
+                                        <div className="flex items-center gap-1 mt-1">
+                                            {otherHighlights.map(h => (
+                                                <span key={h.id} className="text-[10px] bg-white/50 dark:bg-black/20 text-slate-500 px-1.5 py-0.5 rounded-full backdrop-blur-sm">
+                                                    {h.user_name}
+                                                </span>
+                                            ))}
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        );
+                    })}
                 </div>
 
                 {/* Navigation buttons */}
@@ -325,6 +459,132 @@ const BibleScreen: React.FC<BibleScreenProps> = ({ navigate, t }) => {
                                         {chapter}
                                     </button>
                                 ))}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+            {/* Highlight Action Sheet */}
+            {activeVerse && (
+                <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 backdrop-blur-sm" onClick={() => setActiveVerse(null)}>
+                    <div className="w-full bg-white dark:bg-[#1C1C1E] rounded-t-[32px] p-6 pb-12 animate-in slide-in-from-bottom duration-200" onClick={e => e.stopPropagation()}>
+                        <div className="flex items-center justify-between mb-6">
+                            <h3 className="text-xl font-bold text-slate-900 dark:text-white">
+                                {selectedBook} {selectedChapter}장 {activeVerse}절
+                            </h3>
+                            {highlights.find(h => h.verse === activeVerse && h.user_id === user?.id) && (
+                                <button
+                                    onClick={removeHighlight}
+                                    className="p-2 bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 rounded-full"
+                                >
+                                    <span className="material-symbols-outlined">delete</span>
+                                </button>
+                            )}
+                        </div>
+
+                        <div className="flex gap-4 mb-4">
+                            {['yellow', 'green', 'blue', 'pink'].map(color => (
+                                <button
+                                    key={color}
+                                    onClick={() => handleHighlight(color)}
+                                    className={`flex-1 h-14 rounded-2xl flex items-center justify-center transition-transform active:scale-95 ${color === 'yellow' ? 'bg-yellow-400 text-yellow-900' :
+                                        color === 'green' ? 'bg-green-400 text-green-900' :
+                                            color === 'blue' ? 'bg-blue-400 text-blue-900' :
+                                                'bg-pink-400 text-pink-900'
+                                        }`}
+                                >
+                                    <span className="material-symbols-outlined font-bold">format_ink_highlighter</span>
+                                </button>
+                            ))}
+                        </div>
+
+                        {/* Who highlighted */}
+                        {highlights.filter(h => h.verse === activeVerse).length > 0 && (
+                            <div className="mt-6 pt-6 border-t border-slate-100 dark:border-white/5">
+                                <h4 className="text-sm font-semibold text-slate-500 mb-3">함께 밑줄 친 멤버</h4>
+                                <div className="flex flex-wrap gap-2">
+                                    {highlights.filter(h => h.verse === activeVerse).map(h => (
+                                        <div key={h.id} className="flex items-center gap-2 px-3 py-1.5 bg-slate-100 dark:bg-slate-800 rounded-full">
+                                            <div className={`w-2 h-2 rounded-full ${h.color === 'yellow' ? 'bg-yellow-400' :
+                                                h.color === 'green' ? 'bg-green-400' :
+                                                    h.color === 'blue' ? 'bg-blue-400' :
+                                                        'bg-pink-400'
+                                                }`}></div>
+                                            <span className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                                                {h.user_name || '멤버'}
+                                            </span>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                </div>
+            )}
+
+            {/* Settings Modal */}
+            {showSettings && (
+                <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 backdrop-blur-sm" onClick={() => setShowSettings(false)}>
+                    <div className="w-full bg-white dark:bg-[#1C1C1E] rounded-t-[32px] p-6 pb-12" onClick={e => e.stopPropagation()}>
+                        <div className="flex items-center justify-between mb-8">
+                            <h3 className="text-xl font-bold">화면 설정</h3>
+                            <button onClick={() => setShowSettings(false)} className="p-2 bg-slate-100 dark:bg-slate-800 rounded-full">
+                                <span className="material-symbols-outlined">close</span>
+                            </button>
+                        </div>
+
+                        <div className="space-y-6">
+                            <div>
+                                <div className="flex justify-between mb-3">
+                                    <span className="text-sm font-semibold text-slate-500">글자 크기</span>
+                                    <span className="text-sm font-bold">{fontSize}px</span>
+                                </div>
+                                <div className="flex items-center gap-4 bg-slate-100 dark:bg-slate-800 rounded-2xl p-2">
+                                    <button
+                                        onClick={() => setFontSize(Math.max(14, fontSize - 2))}
+                                        className="w-12 h-12 flex items-center justify-center rounded-xl bg-white dark:bg-slate-700 shadow-sm"
+                                    >
+                                        <span className="text-xs font-bold">A</span>
+                                    </button>
+                                    <div className="flex-1 px-2">
+                                        <input
+                                            type="range"
+                                            min="14"
+                                            max="32"
+                                            step="2"
+                                            value={fontSize}
+                                            onChange={(e) => setFontSize(parseInt(e.target.value))}
+                                            className="w-full accent-primary"
+                                        />
+                                    </div>
+                                    <button
+                                        onClick={() => setFontSize(Math.min(32, fontSize + 2))}
+                                        className="w-12 h-12 flex items-center justify-center rounded-xl bg-white dark:bg-slate-700 shadow-sm"
+                                    >
+                                        <span className="text-xl font-bold">A</span>
+                                    </button>
+                                </div>
+                            </div>
+
+                            <div>
+                                <div className="flex justify-between mb-3">
+                                    <span className="text-sm font-semibold text-slate-500">줄 간격</span>
+                                    <span className="text-sm font-bold">{lineHeight}</span>
+                                </div>
+                                <div className="flex gap-2">
+                                    {[1.5, 1.8, 2.0, 2.2].map(lh => (
+                                        <button
+                                            key={lh}
+                                            onClick={() => setLineHeight(lh)}
+                                            className={`flex-1 py-3 rounded-xl font-medium transition-colors ${lineHeight === lh
+                                                ? 'bg-primary text-white shadow-lg shadow-primary/30'
+                                                : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400'
+                                                }`}
+                                        >
+                                            {lh}
+                                        </button>
+                                    ))}
+                                </div>
                             </div>
                         </div>
                     </div>

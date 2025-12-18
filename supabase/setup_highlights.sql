@@ -1,0 +1,77 @@
+-- Create bible_highlights table
+create table if not exists bible_highlights (
+  id uuid default gen_random_uuid() primary key,
+  user_id uuid references auth.users(id) on delete cascade not null,
+  book text not null,
+  chapter int not null,
+  verse int not null,
+  color text default 'yellow',
+  created_at timestamptz default now()
+);
+
+-- Enable RLS
+alter table bible_highlights enable row level security;
+
+-- Policies
+create policy "Users can view highlights from their cell members"
+  on bible_highlights for select
+  using (
+    auth.uid() = user_id or 
+    exists (
+      select 1 from cell_members cm1
+      join cell_members cm2 on cm1.cell_id = cm2.cell_id
+      where cm1.user_id = auth.uid() and cm2.user_id = bible_highlights.user_id
+    )
+  );
+
+create policy "Users can insert their own highlights"
+  on bible_highlights for insert
+  with check (auth.uid() = user_id);
+
+create policy "Users can delete their own highlights"
+  on bible_highlights for delete
+  using (auth.uid() = user_id);
+
+-- RPC to fetch highlights with user profiles for a chapter
+create or replace function get_cell_highlights(
+  p_book text,
+  p_chapter int
+)
+returns table (
+  id uuid,
+  user_id uuid,
+  verse int,
+  color text,
+  user_name text
+)
+language plpgsql
+security definer
+as $$
+declare
+  v_cell_id uuid;
+begin
+  -- Get user's cell_id
+  select cell_id into v_cell_id
+  from cell_members
+  where user_id = auth.uid()
+  limit 1;
+
+  if v_cell_id is null then
+    return;
+  end if;
+
+  return query
+  select 
+    h.id,
+    h.user_id,
+    h.verse,
+    h.color,
+    p.name as user_name
+  from bible_highlights h
+  join cell_members cm on h.user_id = cm.user_id
+  left join profiles p on h.user_id = p.id
+  where cm.cell_id = v_cell_id
+  and h.book = p_book
+  and h.chapter = p_chapter;
+end;
+$$;
