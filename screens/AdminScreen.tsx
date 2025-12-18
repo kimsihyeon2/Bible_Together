@@ -35,77 +35,115 @@ interface UrgentPrayer {
 
 const AdminScreen: React.FC<AdminScreenProps> = ({ navigate, t }) => {
     const { user, profile, isAdmin } = useAuth();
-    const [activeTab, setActiveTab] = useState<'cells' | 'members' | 'prayers'>('cells');
-    const [cells, setCells] = useState<Cell[]>([]);
-    const [members, setMembers] = useState<Member[]>([]);
+    const [activeTab, setActiveTab] = useState<'parishes' | 'members' | 'prayers'>('parishes');
+    const [parishes, setParishes] = useState<any[]>([]);
+    const [selectedParishId, setSelectedParishId] = useState<string | null>(null);
+    const [cells, setCells] = useState<any[]>([]); // Cells within selected Parish
+    const [members, setMembers] = useState<any[]>([]);
     const [prayers, setPrayers] = useState<UrgentPrayer[]>([]);
     const [loading, setLoading] = useState(true);
+
+    // Modal States
+    const [showCreateParish, setShowCreateParish] = useState(false);
+    const [newParishName, setNewParishName] = useState('');
+
     const [showCreateCell, setShowCreateCell] = useState(false);
-    const [showCreatePrayer, setShowCreatePrayer] = useState(false);
     const [newCellName, setNewCellName] = useState('');
+    const [newCellCode, setNewCellCode] = useState('');
+
+    const [showCreatePrayer, setShowCreatePrayer] = useState(false);
     const [newPrayerTitle, setNewPrayerTitle] = useState('');
     const [newPrayerContent, setNewPrayerContent] = useState('');
 
     useEffect(() => {
-        const fetchData = async () => {
-            // Fetch cells with member counts
-            const { data: cellsData } = await supabase.from('cells').select('*').order('name');
-            if (cellsData) {
-                // Get member counts for each cell
-                const cellsWithCounts = await Promise.all(
-                    cellsData.map(async (cell: { id: string; name: string; invite_code: string }) => {
-                        const { count } = await supabase
-                            .from('cell_members')
-                            .select('*', { count: 'exact', head: true })
-                            .eq('cell_id', cell.id);
-                        return { ...cell, member_count: count || 0 };
-                    })
-                );
-                setCells(cellsWithCounts);
-            }
-
-            // Fetch all members
-            const { data: membersData } = await supabase.from('profiles').select('*').order('name');
-            if (membersData) {
-                setMembers(membersData);
-            }
-
-            // Fetch urgent prayers
-            const { data: prayersData } = await supabase
-                .from('urgent_prayers')
-                .select('*')
-                .order('created_at', { ascending: false });
-            if (prayersData) {
-                setPrayers(prayersData);
-            }
-
-            setLoading(false);
-        };
-
         fetchData();
     }, []);
 
-    const handleCreateCell = async () => {
-        if (!newCellName.trim()) return;
+    const fetchData = async () => {
+        setLoading(true);
+        // 1. Fetch Parishes
+        const { data: parishesData } = await supabase.from('parishes').select('*').order('name');
+        if (parishesData) {
+            // Count members (approx) - actually counting via cell_members requires join
+            setParishes(parishesData);
+        }
 
-        const inviteCode = newCellName.toUpperCase().replace(/\s+/g, '_').slice(0, 10);
-        const { error } = await supabase.from('cells').insert({
-            name: newCellName,
-            invite_code: inviteCode,
-        });
+        // 2. Fetch Members
+        const { data: membersData } = await supabase.from('profiles').select('*').order('name');
+        if (membersData) setMembers(membersData);
 
+        // 3. Fetch Prayers
+        const { data: prayersData } = await supabase.from('urgent_prayers').select('*').order('created_at', { ascending: false });
+        if (prayersData) setPrayers(prayersData);
+
+        setLoading(false);
+    };
+
+    const fetchCellsObj = async (parishId: string) => {
+        const { data } = await supabase.from('cells').select('*').eq('parish_id', parishId).order('name');
+        if (data) setCells(data);
+    };
+
+    useEffect(() => {
+        if (selectedParishId) {
+            fetchCellsObj(selectedParishId);
+        }
+    }, [selectedParishId]);
+
+
+    // --- Actions ---
+
+    // Create Parish
+    const handleCreateParish = async () => {
+        if (!newParishName.trim()) return;
+        const { error } = await supabase.from('parishes').insert({ name: newParishName });
         if (!error) {
-            setNewCellName('');
-            setShowCreateCell(false);
-            // Refresh cells
-            const { data } = await supabase.from('cells').select('*').order('name');
-            if (data) setCells(data);
+            setNewParishName('');
+            setShowCreateParish(false);
+            fetchData();
+        } else {
+            alert('교구 생성 실패: ' + error.message);
         }
     };
 
+    // Create Cell
+    const handleCreateCell = async () => {
+        if (!newCellName.trim() || !newCellCode.trim() || !selectedParishId) return;
+        const { error } = await supabase.from('cells').insert({
+            parish_id: selectedParishId,
+            name: newCellName,
+            code: newCellCode
+        });
+        if (!error) {
+            setNewCellName('');
+            setNewCellCode('');
+            setShowCreateCell(false);
+            fetchCellsObj(selectedParishId);
+        } else {
+            alert('셀 생성 실패: ' + error.message);
+        }
+    };
+
+    // Delete Parish
+    const handleDeleteParish = async (id: string) => {
+        if (!confirm('정말 삭제하시겠습니까? 모든 하위 셀과 데이터가 삭제됩니다.')) return;
+        const { error } = await supabase.from('parishes').delete().eq('id', id);
+        if (!error) fetchData();
+        else alert('삭제 실패: ' + error.message);
+    };
+
+    // Delete Cell
+    const handleDeleteCell = async (id: string) => {
+        if (!confirm('정말 삭제하시겠습니까?')) return;
+        const { error } = await supabase.from('cells').delete().eq('id', id);
+        if (!error && selectedParishId) fetchCellsObj(selectedParishId);
+        else alert('삭제 실패: ' + error.message);
+    };
+
+
+    // ... (Member & Prayer functions same as before)
     const handleCreatePrayer = async () => {
         if (!newPrayerTitle.trim() || !newPrayerContent.trim()) return;
-
         const { error } = await supabase.from('urgent_prayers').insert({
             title: newPrayerTitle,
             content: newPrayerContent,
@@ -113,136 +151,102 @@ const AdminScreen: React.FC<AdminScreenProps> = ({ navigate, t }) => {
             created_by: user?.id,
             is_active: true,
         });
-
         if (!error) {
             setNewPrayerTitle('');
             setNewPrayerContent('');
             setShowCreatePrayer(false);
-            // Refresh prayers
-            const { data } = await supabase
-                .from('urgent_prayers')
-                .select('*')
-                .order('created_at', { ascending: false });
+            const { data } = await supabase.from('urgent_prayers').select('*').order('created_at', { ascending: false });
             if (data) setPrayers(data);
         }
     };
-
     const handleTogglePrayer = async (id: string, isActive: boolean) => {
         await supabase.from('urgent_prayers').update({ is_active: !isActive }).eq('id', id);
         setPrayers(prayers.map((p) => (p.id === id ? { ...p, is_active: !isActive } : p)));
     };
-
     const handleUpdateRole = async (memberId: string, newRole: string) => {
         await supabase.from('profiles').update({ role: newRole }).eq('id', memberId);
         setMembers(members.map((m) => (m.id === memberId ? { ...m, role: newRole } : m)));
     };
 
-    const getRoleBadgeColor = (role: string) => {
-        switch (role) {
-            case 'PASTOR': return 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400';
-            case 'LEADER': return 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400';
-            default: return 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400';
-        }
-    };
 
-    // Access control
-    if (!isAdmin) {
-        return (
-            <div className="min-h-screen bg-background-light dark:bg-background-dark pb-24 flex items-center justify-center">
-                <div className="text-center px-6">
-                    <div className="w-24 h-24 bg-red-100 dark:bg-red-900/20 rounded-full flex items-center justify-center mx-auto mb-6">
-                        <span className="material-symbols-outlined text-4xl text-red-500">block</span>
-                    </div>
-                    <h2 className="text-xl font-bold mb-2">접근 권한이 없습니다</h2>
-                    <p className="text-slate-500 dark:text-slate-400 mb-6">
-                        이 페이지는 관리자 전용입니다
-                    </p>
-                    <button
-                        onClick={() => navigate(Screen.DASHBOARD)}
-                        className="px-6 py-3 bg-primary text-white rounded-full font-medium"
-                    >
-                        홈으로 이동
-                    </button>
-                </div>
-            </div>
-        );
-    }
-
-    if (loading) {
-        return (
-            <div className="min-h-screen flex items-center justify-center bg-background-light dark:bg-background-dark">
-                <div className="flex flex-col items-center gap-4">
-                    <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin"></div>
-                    <p className="text-slate-600 dark:text-slate-400">관리자 데이터를 불러오는 중...</p>
-                </div>
-            </div>
-        );
-    }
+    if (!isAdmin) return <div className="p-10 text-center">접근 권한이 없습니다.</div>;
+    if (loading) return <div className="p-10 text-center">로딩 중...</div>;
 
     return (
         <div className="min-h-screen bg-background-light dark:bg-background-dark pb-24">
-            {/* Header */}
             <header className="sticky top-0 z-40 bg-background-light/95 dark:bg-background-dark/95 backdrop-blur-md border-b border-black/5 dark:border-white/10">
                 <div className="flex items-center justify-between px-5 py-4">
-                    <button
-                        onClick={() => navigate(Screen.DASHBOARD)}
-                        className="p-2 -ml-2 hover:bg-black/5 dark:hover:bg-white/10 rounded-full"
-                    >
+                    <button onClick={() => navigate(Screen.DASHBOARD)} className="p-2 -ml-2 rounded-full hover:bg-black/5">
                         <span className="material-symbols-outlined">arrow_back</span>
                     </button>
-                    <h1 className="text-xl font-bold">관리자</h1>
+                    <h1 className="text-xl font-bold">관리자 (SOTA v2.0)</h1>
                     <div className="w-10"></div>
                 </div>
-
                 {/* Tabs */}
                 <div className="flex border-t border-black/5 dark:border-white/10">
-                    {[
-                        { key: 'cells', label: '셀 관리', icon: 'groups' },
-                        { key: 'members', label: '멤버', icon: 'person' },
-                        { key: 'prayers', label: '기도', icon: 'favorite' },
-                    ].map((tab) => (
-                        <button
-                            key={tab.key}
-                            onClick={() => setActiveTab(tab.key as 'cells' | 'members' | 'prayers')}
-                            className={`flex-1 py-3 text-sm font-medium flex items-center justify-center gap-1 transition-colors ${activeTab === tab.key
-                                ? 'text-primary border-b-2 border-primary'
-                                : 'text-slate-500 dark:text-slate-400'
-                                }`}
-                        >
-                            <span className="material-symbols-outlined text-lg">{tab.icon}</span>
-                            {tab.label}
+                    {[{ key: 'parishes', label: '교구/셀 관리', icon: 'church' }, { key: 'members', label: '멤버', icon: 'person' }, { key: 'prayers', label: '기도', icon: 'favorite' }].map((tab) => (
+                        <button key={tab.key} onClick={() => setActiveTab(tab.key as any)} className={`flex-1 py-3 text-sm font-medium flex items-center justify-center gap-1 ${activeTab === tab.key ? 'text-primary border-b-2 border-primary' : 'text-slate-500'}`}>
+                            <span className="material-symbols-outlined">{tab.icon}</span> {tab.label}
                         </button>
                     ))}
                 </div>
             </header>
 
             <main className="p-5">
-                {/* Cells Tab */}
-                {activeTab === 'cells' && (
-                    <div className="space-y-4">
-                        <button
-                            onClick={() => setShowCreateCell(true)}
-                            className="w-full py-3 bg-primary text-white rounded-2xl font-medium flex items-center justify-center gap-2"
-                        >
-                            <span className="material-symbols-outlined">add</span>
-                            새 셀 만들기
-                        </button>
-
-                        {cells.map((cell) => (
-                            <div key={cell.id} className="p-4 bg-surface-light dark:bg-surface-dark rounded-2xl shadow-sm">
-                                <div className="flex items-center justify-between">
-                                    <div>
-                                        <h3 className="font-semibold">{cell.name}</h3>
-                                        <p className="text-sm text-slate-500 dark:text-slate-400">
-                                            초대 코드: {cell.invite_code}
-                                        </p>
-                                    </div>
-                                    <div className="px-3 py-1 bg-primary/10 rounded-full">
-                                        <span className="text-sm font-medium text-primary">{cell.member_count}명</span>
-                                    </div>
+                {/* Parish Tab */}
+                {activeTab === 'parishes' && (
+                    <div className="space-y-6">
+                        {/* Parish List */}
+                        {!selectedParishId ? (
+                            <div className="space-y-4">
+                                <div className="flex justify-between items-center mb-2">
+                                    <h2 className="text-lg font-bold">교구 목록</h2>
+                                    <button onClick={() => setShowCreateParish(true)} className="px-4 py-2 bg-primary text-white rounded-full text-sm font-bold flex items-center gap-1">
+                                        <span className="material-symbols-outlined text-sm">add</span> 추가
+                                    </button>
                                 </div>
+                                {parishes.map((parish) => (
+                                    <div key={parish.id} onClick={() => setSelectedParishId(parish.id)} className="p-4 bg-surface-light dark:bg-surface-dark rounded-2xl shadow-sm hover:ring-2 ring-primary cursor-pointer transition-all">
+                                        <div className="flex justify-between items-center">
+                                            <h3 className="font-bold text-lg">{parish.name}</h3>
+                                            <button onClick={(e) => { e.stopPropagation(); handleDeleteParish(parish.id); }} className="p-2 text-red-500 hover:bg-red-50 rounded-full">
+                                                <span className="material-symbols-outlined">delete</span>
+                                            </button>
+                                        </div>
+                                    </div>
+                                ))}
                             </div>
-                        ))}
+                        ) : (
+                            // Selected Parish View (Manage Cells)
+                            <div className="space-y-4">
+                                <button onClick={() => setSelectedParishId(null)} className="text-sm text-slate-500 flex items-center mb-2">
+                                    <span className="material-symbols-outlined text-sm">arrow_back</span> 교구 목록으로
+                                </button>
+                                <div className="flex justify-between items-center">
+                                    <h2 className="text-xl font-bold text-primary">{parishes.find(p => p.id === selectedParishId)?.name} 셀 목록</h2>
+                                    <button onClick={() => setShowCreateCell(true)} className="px-4 py-2 bg-primary text-white rounded-full text-sm font-bold">
+                                        + 셀 추가
+                                    </button>
+                                </div>
+                                {cells.length === 0 ? (
+                                    <p className="text-slate-500 text-center py-10">등록된 셀이 없습니다.</p>
+                                ) : (
+                                    cells.map(cell => (
+                                        <div key={cell.id} className="p-4 bg-white dark:bg-slate-800 rounded-xl shadow-sm flex justify-between items-center">
+                                            <div>
+                                                <h4 className="font-bold">{cell.name}</h4>
+                                                <div className="text-xs text-slate-500 bg-slate-100 dark:bg-slate-700 px-2 py-1 rounded-md inline-block mt-1">
+                                                    코드: {cell.code}
+                                                </div>
+                                            </div>
+                                            <button onClick={() => handleDeleteCell(cell.id)} className="text-red-500 p-2">
+                                                <span className="material-symbols-outlined">delete</span>
+                                            </button>
+                                        </div>
+                                    ))
+                                )}
+                            </div>
+                        )}
                     </div>
                 )}
 
@@ -250,25 +254,21 @@ const AdminScreen: React.FC<AdminScreenProps> = ({ navigate, t }) => {
                 {activeTab === 'members' && (
                     <div className="space-y-3">
                         {members.map((member) => (
-                            <div key={member.id} className="p-4 bg-surface-light dark:bg-surface-dark rounded-2xl shadow-sm">
-                                <div className="flex items-center gap-4">
-                                    <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold">
-                                        {member.name.slice(0, 2)}
+                            <div key={member.id} className="p-4 bg-surface-light dark:bg-surface-dark rounded-2xl shadow-sm flex items-center justify-between">
+                                <div className="flex items-center gap-3">
+                                    <div className="w-10 h-10 bg-primary/10 rounded-full flex items-center justify-center text-primary font-bold">
+                                        {member.name.slice(0, 1)}
                                     </div>
-                                    <div className="flex-1 min-w-0">
-                                        <h3 className="font-semibold truncate">{member.name}</h3>
-                                        <p className="text-sm text-slate-500 dark:text-slate-400 truncate">{member.email}</p>
+                                    <div>
+                                        <div className="font-bold">{member.name}</div>
+                                        <div className="text-xs text-slate-500">{member.email}</div>
                                     </div>
-                                    <select
-                                        value={member.role}
-                                        onChange={(e) => handleUpdateRole(member.id, e.target.value)}
-                                        className={`px-3 py-1.5 rounded-full text-xs font-medium cursor-pointer ${getRoleBadgeColor(member.role)}`}
-                                    >
-                                        <option value="MEMBER">멤버</option>
-                                        <option value="LEADER">리더</option>
-                                        <option value="PASTOR">목사</option>
-                                    </select>
                                 </div>
+                                <select value={member.role} onChange={(e) => handleUpdateRole(member.id, e.target.value)} className="text-xs p-1 rounded border dark:bg-slate-800">
+                                    <option value="MEMBER">멤버</option>
+                                    <option value="LEADER">리더</option>
+                                    <option value="PASTOR">목사</option>
+                                </select>
                             </div>
                         ))}
                     </div>
@@ -277,36 +277,17 @@ const AdminScreen: React.FC<AdminScreenProps> = ({ navigate, t }) => {
                 {/* Prayers Tab */}
                 {activeTab === 'prayers' && (
                     <div className="space-y-4">
-                        <button
-                            onClick={() => setShowCreatePrayer(true)}
-                            className="w-full py-3 bg-red-500 text-white rounded-2xl font-medium flex items-center justify-center gap-2"
-                        >
-                            <span className="material-symbols-outlined">priority_high</span>
-                            긴급 기도 요청
+                        <button onClick={() => setShowCreatePrayer(true)} className="w-full py-3 bg-red-500 text-white rounded-2xl font-bold flex items-center justify-center gap-2">
+                            <span className="material-symbols-outlined">campaign</span> 긴급 기도 발송
                         </button>
-
-                        {prayers.map((prayer) => (
-                            <div
-                                key={prayer.id}
-                                className={`p-4 rounded-2xl shadow-sm ${prayer.is_active
-                                    ? 'bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800'
-                                    : 'bg-surface-light dark:bg-surface-dark opacity-60'
-                                    }`}
-                            >
-                                <div className="flex items-start justify-between gap-3">
-                                    <div className="flex-1">
-                                        <h3 className="font-semibold">{prayer.title}</h3>
-                                        <p className="text-sm text-slate-600 dark:text-slate-400 mt-1">{prayer.content}</p>
-                                        <p className="text-xs text-slate-400 mt-2">
-                                            {new Date(prayer.created_at).toLocaleDateString('ko-KR')}
-                                        </p>
-                                    </div>
-                                    <button
-                                        onClick={() => handleTogglePrayer(prayer.id, prayer.is_active)}
-                                        className={`px-3 py-1.5 rounded-full text-xs font-medium ${prayer.is_active ? 'bg-red-500 text-white' : 'bg-slate-200 dark:bg-slate-700'
-                                            }`}
-                                    >
-                                        {prayer.is_active ? '활성' : '종료'}
+                        {prayers.map(p => (
+                            <div key={p.id} className={`p-4 rounded-xl border ${p.is_active ? 'border-red-500 bg-red-50 dark:bg-red-900/10' : 'border-slate-200 opacity-60'}`}>
+                                <h4 className="font-bold">{p.title}</h4>
+                                <p className="text-sm mt-1">{p.content}</p>
+                                <div className="flex justify-between items-center mt-3">
+                                    <span className="text-xs text-slate-400">{new Date(p.created_at).toLocaleDateString()}</span>
+                                    <button onClick={() => handleTogglePrayer(p.id, p.is_active)} className="text-xs px-3 py-1 bg-white dark:bg-slate-700 rounded-full shadow-sm">
+                                        {p.is_active ? '종료하기' : '다시 활성화'}
                                     </button>
                                 </div>
                             </div>
@@ -315,74 +296,49 @@ const AdminScreen: React.FC<AdminScreenProps> = ({ navigate, t }) => {
                 )}
             </main>
 
-            {/* Create Cell Modal */}
-            {showCreateCell && (
+            {/* Modals */}
+            {showCreateParish && (
                 <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
-                    <div className="w-full max-w-sm bg-white dark:bg-slate-900 rounded-3xl p-6">
-                        <h3 className="text-lg font-bold mb-4">새 셀 만들기</h3>
-                        <input
-                            type="text"
-                            placeholder="셀 이름"
-                            value={newCellName}
-                            onChange={(e) => setNewCellName(e.target.value)}
-                            className="w-full px-4 py-3 bg-slate-100 dark:bg-slate-800 rounded-xl mb-4"
-                        />
-                        <div className="flex gap-3">
-                            <button
-                                onClick={() => setShowCreateCell(false)}
-                                className="flex-1 py-3 bg-slate-100 dark:bg-slate-800 rounded-xl font-medium"
-                            >
-                                취소
-                            </button>
-                            <button
-                                onClick={handleCreateCell}
-                                className="flex-1 py-3 bg-primary text-white rounded-xl font-medium"
-                            >
-                                만들기
-                            </button>
+                    <div className="bg-white dark:bg-slate-900 p-6 rounded-2xl w-full max-w-sm">
+                        <h3 className="font-bold text-lg mb-4">새 교구 추가</h3>
+                        <input value={newParishName} onChange={e => setNewParishName(e.target.value)} placeholder="교구 이름 (예: 믿음교구)" className="w-full p-3 bg-slate-100 dark:bg-slate-800 rounded-xl mb-4" />
+                        <div className="flex gap-2">
+                            <button onClick={() => setShowCreateParish(false)} className="flex-1 py-3 bg-slate-200 rounded-xl">취소</button>
+                            <button onClick={handleCreateParish} className="flex-1 py-3 bg-primary text-white rounded-xl">생성</button>
                         </div>
                     </div>
                 </div>
             )}
 
-            {/* Create Prayer Modal */}
-            {showCreatePrayer && (
+            {showCreateCell && (
                 <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
-                    <div className="w-full max-w-sm bg-white dark:bg-slate-900 rounded-3xl p-6">
-                        <h3 className="text-lg font-bold mb-4">긴급 기도 요청</h3>
-                        <input
-                            type="text"
-                            placeholder="제목"
-                            value={newPrayerTitle}
-                            onChange={(e) => setNewPrayerTitle(e.target.value)}
-                            className="w-full px-4 py-3 bg-slate-100 dark:bg-slate-800 rounded-xl mb-3"
-                        />
-                        <textarea
-                            placeholder="기도 내용"
-                            value={newPrayerContent}
-                            onChange={(e) => setNewPrayerContent(e.target.value)}
-                            rows={4}
-                            className="w-full px-4 py-3 bg-slate-100 dark:bg-slate-800 rounded-xl mb-4 resize-none"
-                        />
-                        <div className="flex gap-3">
-                            <button
-                                onClick={() => setShowCreatePrayer(false)}
-                                className="flex-1 py-3 bg-slate-100 dark:bg-slate-800 rounded-xl font-medium"
-                            >
-                                취소
-                            </button>
-                            <button
-                                onClick={handleCreatePrayer}
-                                className="flex-1 py-3 bg-red-500 text-white rounded-xl font-medium"
-                            >
-                                보내기
-                            </button>
+                    <div className="bg-white dark:bg-slate-900 p-6 rounded-2xl w-full max-w-sm">
+                        <h3 className="font-bold text-lg mb-4">새 셀 추가</h3>
+                        <input value={newCellName} onChange={e => setNewCellName(e.target.value)} placeholder="셀 이름 (예: 여호수아 1셀)" className="w-full p-3 bg-slate-100 dark:bg-slate-800 rounded-xl mb-2" />
+                        <input value={newCellCode} onChange={e => setNewCellCode(e.target.value)} placeholder="입장 코드 (예: JOSHUA1)" className="w-full p-3 bg-slate-100 dark:bg-slate-800 rounded-xl mb-4" />
+                        <div className="flex gap-2">
+                            <button onClick={() => setShowCreateCell(false)} className="flex-1 py-3 bg-slate-200 rounded-xl">취소</button>
+                            <button onClick={handleCreateCell} className="flex-1 py-3 bg-primary text-white rounded-xl">생성</button>
                         </div>
                     </div>
                 </div>
             )}
+
+            {showCreatePrayer && (
+                <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
+                    <div className="bg-white dark:bg-slate-900 p-6 rounded-2xl w-full max-w-sm">
+                        <h3 className="font-bold text-lg mb-4">긴급 기도 요청</h3>
+                        <input value={newPrayerTitle} onChange={e => setNewPrayerTitle(e.target.value)} placeholder="제목" className="w-full p-3 bg-slate-100 dark:bg-slate-800 rounded-xl mb-2" />
+                        <textarea value={newPrayerContent} onChange={e => setNewPrayerContent(e.target.value)} placeholder="내용" className="w-full p-3 bg-slate-100 dark:bg-slate-800 rounded-xl mb-4 h-32" />
+                        <div className="flex gap-2">
+                            <button onClick={() => setShowCreatePrayer(false)} className="flex-1 py-3 bg-slate-200 rounded-xl">취소</button>
+                            <button onClick={handleCreatePrayer} className="flex-1 py-3 bg-red-500 text-white rounded-xl">전송</button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
         </div>
     );
 };
-
 export default AdminScreen;

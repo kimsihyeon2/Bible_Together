@@ -36,10 +36,19 @@ export interface Profile {
     created_at: string;
 }
 
-export interface Cell {
+export interface Parish {
     id: string;
     name: string;
-    invite_code: string;
+    description?: string;
+    created_at: string;
+}
+
+export interface Cell {
+    id: string;
+    parish_id: string;
+    name: string;
+    code: string; // Invite Code
+    leader_id?: string;
     created_at: string;
 }
 
