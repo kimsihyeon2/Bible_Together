@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { motion, useAnimation, PanInfo } from 'framer-motion';
+import { motion, useAnimation, PanInfo, useMotionValue, useTransform } from 'framer-motion';
 import { Screen } from '../types';
 import { Translations } from '../i18n';
 import { useAuth } from '@/lib/auth-context';
@@ -146,6 +146,11 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({ navigate, isDarkMode,
     };
     fetchData();
   }, [user]);
+
+  const navY = useMotionValue(0);
+  const navOpacity = useTransform(navY, [0, -50], [1, 0]);
+  const chatHintOpacity = useTransform(navY, [-10, -60], [0, 1]);
+  const chatHintScale = useTransform(navY, [-10, -80], [0.8, 1]);
 
   return (
     <div className="bg-gradient-to-b from-sky-100 via-sky-50 to-green-100 dark:from-slate-900 dark:to-slate-800 font-sans transition-colors duration-300 antialiased relative selection:bg-green-200 selection:text-green-900 overflow-hidden min-h-screen">
@@ -326,45 +331,54 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({ navigate, isDarkMode,
         </main>
 
         <motion.nav
-          className="fixed bottom-0 left-0 right-0 bg-white/95 dark:bg-slate-900/95 backdrop-blur-xl border-t border-slate-100 dark:border-slate-800 pb-8 pt-6 px-6 z-50 rounded-t-[2.5rem] shadow-[0_-5px_30px_-5px_rgba(0,0,0,0.1)] max-w-md mx-auto"
+          className="fixed bottom-0 left-0 right-0 bg-white/95 dark:bg-slate-900/95 backdrop-blur-xl border-t border-slate-100 dark:border-slate-800 pb-8 pt-6 px-6 z-50 rounded-t-[2.5rem] shadow-[0_-5px_30px_-5px_rgba(0,0,0,0.1)] max-w-md mx-auto overflow-hidden"
+          style={{ y: navY, touchAction: "none" }}
+          drag="y"
+          dragConstraints={{ top: 0, bottom: 0 }}
+          dragElastic={{ top: 0.4, bottom: 0 }}
+          onDragEnd={(event, info) => {
+            if (info.offset.y < -60) {
+              navigate(Screen.CHAT);
+            }
+          }}
         >
           {/* Enhanced Grip Handle */}
-          <motion.div
-            drag="y"
-            dragConstraints={{ top: 0, bottom: 0 }}
-            dragElastic={{ top: 0.5, bottom: 0 }}
-            onDragEnd={(event, info) => {
-              if (info.offset.y < -60) {
-                navigate(Screen.CHAT);
-              }
-            }}
-          >
-            {/* Enhanced Grip Handle */}
-            <div className="absolute top-3 left-1/2 -translate-x-1/2 w-12 h-1.5 bg-slate-200 dark:bg-slate-700 rounded-full cursor-grab active:cursor-grabbing hover:bg-slate-300 transition-colors"></div>
+          <div className="absolute top-3 left-1/2 -translate-x-1/2 w-12 h-1.5 bg-slate-300 dark:bg-slate-600 rounded-full cursor-grab active:cursor-grabbing hover:bg-slate-400 transition-colors z-20"></div>
 
-            <div className="flex justify-around items-center">
-              <button
-                onClick={() => navigate(Screen.PLAN_DETAIL)}
-                className="flex flex-col items-center space-y-1 group text-slate-400 hover:text-green-600 dark:hover:text-green-400 transition-colors"
-              >
-                <span className="material-symbols-outlined text-2xl group-hover:scale-110 transition-transform">menu_book</span>
-                <span className="text-[10px] font-medium tracking-wide">Plan</span>
-              </button>
-              <button
-                onClick={() => navigate(Screen.CHAT)}
-                className="flex flex-col items-center space-y-1 group text-slate-400 hover:text-sky-500 dark:hover:text-sky-400 transition-colors"
-              >
-                <span className="material-symbols-outlined text-2xl group-hover:scale-110 transition-transform">forum</span>
-                <span className="text-[10px] font-medium tracking-wide">Community</span>
-              </button>
-              <button
-                onClick={() => navigate(Screen.PROGRESS)}
-                className="flex flex-col items-center space-y-1 group text-slate-400 hover:text-purple-500 dark:hover:text-purple-400 transition-colors"
-              >
-                <span className="material-symbols-outlined text-2xl group-hover:scale-110 transition-transform">person</span>
-                <span className="text-[10px] font-medium tracking-wide">Profile</span>
-              </button>
+          {/* Chat Hint (Visible on drag) */}
+          <motion.div
+            style={{ opacity: chatHintOpacity, scale: chatHintScale }}
+            className="absolute inset-0 flex items-center justify-center pointer-events-none pb-4"
+          >
+            <div className="flex flex-col items-center gap-1 text-primary dark:text-sky-400">
+              <span className="material-symbols-outlined text-3xl animate-bounce">chat_bubble</span>
+              <span className="font-bold text-sm tracking-widest uppercase">Release to Chat</span>
             </div>
+          </motion.div>
+
+          {/* Navigation Buttons (Fade out on drag) */}
+          <motion.div style={{ opacity: navOpacity }} className="flex justify-around items-center relative z-10">
+            <button
+              onClick={() => navigate(Screen.PLAN_DETAIL)}
+              className="flex flex-col items-center space-y-1 group text-slate-400 hover:text-green-600 dark:hover:text-green-400 transition-colors"
+            >
+              <span className="material-symbols-outlined text-2xl group-hover:scale-110 transition-transform">menu_book</span>
+              <span className="text-[10px] font-medium tracking-wide">Plan</span>
+            </button>
+            <button
+              onClick={() => navigate(Screen.CHAT)}
+              className="flex flex-col items-center space-y-1 group text-slate-400 hover:text-sky-500 dark:hover:text-sky-400 transition-colors"
+            >
+              <span className="material-symbols-outlined text-2xl group-hover:scale-110 transition-transform">forum</span>
+              <span className="text-[10px] font-medium tracking-wide">Community</span>
+            </button>
+            <button
+              onClick={() => navigate(Screen.PROGRESS)}
+              className="flex flex-col items-center space-y-1 group text-slate-400 hover:text-purple-500 dark:hover:text-purple-400 transition-colors"
+            >
+              <span className="material-symbols-outlined text-2xl group-hover:scale-110 transition-transform">person</span>
+              <span className="text-[10px] font-medium tracking-wide">Profile</span>
+            </button>
           </motion.div>
         </motion.nav>
 

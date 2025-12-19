@@ -207,11 +207,11 @@ const ChatScreen: React.FC<ChatScreenProps> = ({ navigate, t }) => {
   const messageGroups = groupMessagesByDate(messages);
 
   return (
-    <div className="bg-gradient-to-b from-[#e0f7fa] via-[#e8f5e9] to-[#dcedc8] dark:from-slate-900 dark:to-slate-800 font-sans h-[100dvh] flex flex-col overflow-hidden text-slate-800 dark:text-white antialiased selection:bg-primary/30 relative">
-      <div className="absolute inset-0 pointer-events-none opacity-20 mix-blend-multiply bg-repeat" style={{ backgroundImage: 'url("https://lh3.googleusercontent.com/aida-public/AB6AXuBP7GnKpLhzPcoLqR3baowWcP2ure8_eWRORYP3V3Q_dfAogk42n3x1RPkpeoWvuotEuC8YQGUcnwRqGzfpobs7M_gvjq2NAvBEYUGfAdJFj-CctqvDaWLoc4kvewFfdosbOXJ_RL9Q54bQ0Y1f79cly8rlf2RQMFP1gBnEcJDtStNzAtOpTMEzEgTrEAOh6k7aky5223tQ6Qr9bwBTXuvLf6fF5VnjiXuIbRX5aCku3iJEaVMW_4WeKol09T7vqfzAU9CnI7SKteGB")', backgroundSize: '400px' }}></div>
+    <div className="bg-gradient-to-b from-[#e0f7fa] via-[#e8f5e9] to-[#dcedc8] dark:from-slate-900 dark:to-slate-800 font-sans min-h-[100dvh] flex flex-col relative text-slate-800 dark:text-white antialiased selection:bg-primary/30">
+      <div className="fixed inset-0 pointer-events-none opacity-20 mix-blend-multiply bg-repeat z-0" style={{ backgroundImage: 'url("https://lh3.googleusercontent.com/aida-public/AB6AXuBP7GnKpLhzPcoLqR3baowWcP2ure8_eWRORYP3V3Q_dfAogk42n3x1RPkpeoWvuotEuC8YQGUcnwRqGzfpobs7M_gvjq2NAvBEYUGfAdJFj-CctqvDaWLoc4kvewFfdosbOXJ_RL9Q54bQ0Y1f79cly8rlf2RQMFP1gBnEcJDtStNzAtOpTMEzEgTrEAOh6k7aky5223tQ6Qr9bwBTXuvLf6fF5VnjiXuIbRX5aCku3iJEaVMW_4WeKol09T7vqfzAU9CnI7SKteGB")', backgroundSize: '400px' }}></div>
 
-      {/* Header */}
-      <header className="flex-none bg-white/60 dark:bg-gray-900/70 backdrop-blur-md border-b border-white/40 dark:border-gray-800 pt-12 pb-3 px-2 flex items-center justify-between sticky top-0 z-40 transition-all duration-300">
+      {/* Header - Fixed Top with Safe Area */}
+      <header className="fixed top-0 left-0 right-0 z-50 bg-white/60 dark:bg-gray-900/70 backdrop-blur-md border-b border-white/40 dark:border-gray-800 pt-[max(env(safe-area-inset-top),1.5rem)] pb-3 px-2 flex items-center justify-between transition-all duration-300">
         <button
           onClick={() => navigate(Screen.DASHBOARD)}
           className="flex items-center text-slate-700 dark:text-gray-200 hover:text-primary px-2 py-1 rounded-full hover:bg-white/40 dark:hover:bg-gray-800 transition-colors"
@@ -234,10 +234,10 @@ const ChatScreen: React.FC<ChatScreenProps> = ({ navigate, t }) => {
         </button>
       </header>
 
-      {/* Messages */}
-      <main className="flex-1 overflow-y-auto px-4 py-2 flex flex-col gap-3 scroll-smooth relative z-10 no-scrollbar">
+      {/* Main Messages Area */}
+      <main className="flex-1 overflow-y-auto px-4 py-2 flex flex-col gap-3 scroll-smooth relative z-10 no-scrollbar pt-24 pb-24">
         {messages.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-full text-slate-400">
+          <div className="flex flex-col items-center justify-center flex-1 min-h-[50vh] text-slate-400">
             <p>No messages yet.</p>
           </div>
         ) : (
@@ -280,11 +280,11 @@ const ChatScreen: React.FC<ChatScreenProps> = ({ navigate, t }) => {
             </div>
           ))
         )}
-        <div ref={messagesEndRef} className="h-6" />
+        <div ref={messagesEndRef} className="h-2" />
       </main>
 
-      {/* Footer Input */}
-      <footer className="flex-none bg-white/70 dark:bg-gray-900/80 backdrop-blur-xl border-t border-white/50 dark:border-gray-800 p-2 pb-8 z-40 shadow-[0_-8px_30px_rgba(0,0,0,0.03)]">
+      {/* Footer Input - Fixed Bottom with Safe Area */}
+      <footer className="fixed bottom-0 left-0 right-0 z-50 bg-white/70 dark:bg-gray-900/80 backdrop-blur-xl border-t border-white/50 dark:border-gray-800 p-2 pb-[max(env(safe-area-inset-bottom),2rem)] shadow-[0_-8px_30px_rgba(0,0,0,0.03)]">
         <div className="flex items-end gap-2 max-w-4xl mx-auto w-full px-1">
           <button className="shrink-0 size-10 rounded-full bg-slate-50 dark:bg-gray-800 text-slate-400 dark:text-gray-300 flex items-center justify-center hover:bg-slate-100 dark:hover:bg-gray-700 transition-colors mb-[2px] active:scale-95 shadow-sm border border-slate-100">
             <span className="material-symbols-outlined text-[24px]">add</span>
@@ -315,5 +315,6 @@ const ChatScreen: React.FC<ChatScreenProps> = ({ navigate, t }) => {
     </div>
   );
 };
+
 
 export default ChatScreen;
