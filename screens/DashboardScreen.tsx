@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import { motion, useAnimation, PanInfo } from 'framer-motion';
 import { Screen } from '../types';
 import { Translations } from '../i18n';
 import { useAuth } from '@/lib/auth-context';
@@ -296,9 +297,23 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({ navigate, isDarkMode,
               The new UI shows a list. I'll keep the UI with the user's activity as one item. */}
           <div className="pb-6">
             <h3 className="text-lg font-bold text-text-main-light dark:text-text-main-dark mb-4">{t.dashboard.latestActivity}</h3>
-            <div className="backdrop-blur-xl bg-white/70 dark:bg-slate-800/60 border border-white/60 dark:border-white/10 rounded-2xl shadow-sm divide-y divide-gray-100/50 dark:divide-gray-700">
+            <motion.div
+              drag="y"
+              dragConstraints={{ top: 0, bottom: 0 }}
+              dragElastic={{ top: 0.2, bottom: 0.05 }}
+              onDragEnd={(event, info) => {
+                if (info.offset.y < -50) {
+                  navigate(Screen.CHAT);
+                }
+              }}
+              className="backdrop-blur-xl bg-white/70 dark:bg-slate-800/60 border border-white/60 dark:border-white/10 rounded-2xl shadow-sm divide-y divide-gray-100/50 dark:divide-gray-700 cursor-grab active:cursor-grabbing hover:shadow-md relative overflow-hidden"
+              whileTap={{ scale: 0.98 }}
+            >
+              {/* Grip Handle for Swipe Hint */}
+              <div className="absolute top-2 left-1/2 -translate-x-1/2 w-12 h-1 bg-slate-200 dark:bg-slate-600 rounded-full opacity-50"></div>
+
               {/* Item 1: User's latest activity (if read today) */}
-              <div className="p-4 flex items-start space-x-3">
+              <div className="p-4 pt-6 flex items-center space-x-3 select-none">
                 <div className="w-10 h-10 rounded-full bg-green-100 dark:bg-green-900/40 flex items-center justify-center flex-shrink-0 text-green-700 dark:text-green-300 font-bold text-sm shadow-sm">
                   {getUserName().charAt(0).toUpperCase()}
                 </div>
@@ -307,7 +322,7 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({ navigate, isDarkMode,
                     <h5 className="text-sm font-bold text-text-main-light dark:text-text-main-dark">{getUserName()}</h5>
                     <span className="text-xs text-text-sub-light dark:text-text-sub-dark">오늘</span>
                   </div>
-                  <p className="text-sm text-text-sub-light dark:text-text-sub-dark mt-0.5">
+                  <p className="text-sm text-text-sub-light dark:text-text-sub-dark mt-0.5 truncate">
                     {userStats.todayRead ? (
                       <>모임 <span className="text-primary font-bold">읽기 완료</span>: {userStats.todayReading}</>
                     ) : (
@@ -315,9 +330,20 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({ navigate, isDarkMode,
                     )}
                   </p>
                 </div>
+                <motion.div
+                  className="text-slate-400"
+                  animate={{ y: [0, -3, 0] }}
+                  transition={{ repeat: Infinity, duration: 1.5, ease: "easeInOut" }}
+                >
+                  <span className="material-symbols-outlined rotate-90">chevron_right</span>
+                </motion.div>
               </div>
-              {/* Fake Item to match UI abundance if needed, or keep clean. Let's keep it clean for now since dynamic data is limited. */}
-            </div>
+
+              {/* Swipe Up Hint Text */}
+              <div className="absolute bottom-1 w-full text-center opacity-0 hover:opacity-100 transition-opacity">
+                <span className="text-[10px] text-slate-400 font-medium">Swipe up to chat</span>
+              </div>
+            </motion.div>
           </div>
         </main>
 

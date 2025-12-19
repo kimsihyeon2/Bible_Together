@@ -590,9 +590,9 @@ const BibleScreen: React.FC<BibleScreenProps> = ({ navigate, t }) => {
 
             {/* Settings Modal */}
             {showSettings && (
-                <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 backdrop-blur-sm" onClick={() => setShowSettings(false)}>
-                    <div className="w-full bg-white dark:bg-[#1C1C1E] rounded-t-[32px] p-6 pb-12" onClick={e => e.stopPropagation()}>
-                        <div className="flex items-center justify-between mb-8">
+                <div className="fixed inset-0 z-[100] flex items-end justify-center bg-black/40 backdrop-blur-sm animate-in fade-in duration-200" onClick={() => setShowSettings(false)}>
+                    <div className="w-full bg-white dark:bg-[#1C1C1E] rounded-t-[32px] p-6 pb-32 animate-in slide-in-from-bottom duration-300 max-h-[85vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+                        <div className="flex items-center justify-between mb-8 sticky top-0 bg-white/50 dark:bg-[#1C1C1E]/50 backdrop-blur-md -mx-6 px-6 py-2 z-10">
                             <h3 className="text-xl font-bold">화면 설정</h3>
                             <button onClick={() => setShowSettings(false)} className="p-2 bg-slate-100 dark:bg-slate-800 rounded-full">
                                 <span className="material-symbols-outlined">close</span>
