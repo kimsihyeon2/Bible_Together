@@ -6,13 +6,13 @@ import { LoadingProvider } from "@/lib/loading-context";
 import { GlobalLoader } from "@/components/GlobalLoader";
 
 export const metadata: Metadata = {
-    title: "함께 성경 | Bible Together",
+    title: "그린 바이블 | Green Bible",
     description: "매일 말씀 읽기와 묵상을 함께하는 커뮤니티",
     manifest: "/manifest.json",
     appleWebApp: {
         capable: true,
         statusBarStyle: "default",
-        title: "함께 성경",
+        title: "그린 바이블",
     },
 };
 

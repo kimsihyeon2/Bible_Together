@@ -4,11 +4,11 @@ export type Language = 'en' | 'ko';
 export const translations = {
     en: {
         // App general
-        appName: 'Bible Together',
+        appName: 'Green Bible',
 
         // Login Screen
         login: {
-            title: 'Bible Together',
+            title: 'Green Bible',
             subtitle: 'Join your community in daily\nreading and reflection.',
             emailPlaceholder: 'Email Address',
             passwordPlaceholder: 'Password',
@@ -77,7 +77,7 @@ export const translations = {
             helpCenter: 'Help Center',
             privacyPolicy: 'Privacy Policy',
             logOut: 'Log Out',
-            version: 'Bible Together v2.4.1',
+            version: 'Green Bible v2.4.1',
             language: 'Language',
         },
 
@@ -100,11 +100,11 @@ export const translations = {
 
     ko: {
         // App general
-        appName: '함께 성경',
+        appName: '그린 바이블',
 
         // Login Screen
         login: {
-            title: '함께 성경',
+            title: '그린 바이블',
             subtitle: '매일 말씀 읽기와 묵상을\n함께하는 커뮤니티입니다.',
             emailPlaceholder: '이메일 주소',
             passwordPlaceholder: '비밀번호',
@@ -173,7 +173,7 @@ export const translations = {
             helpCenter: '도움말',
             privacyPolicy: '개인정보 처리방침',
             logOut: '로그아웃',
-            version: '함께 성경 v2.4.1',
+            version: '그린 바이블 v2.4.1',
             language: '언어',
         },
 
