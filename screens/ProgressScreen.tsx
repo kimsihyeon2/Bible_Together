@@ -37,7 +37,7 @@ const ProgressScreen: React.FC<ProgressScreenProps> = ({ navigate, t }) => {
 
   // 목표 설정
   const [showGoalModal, setShowGoalModal] = useState(false);
-  const [dailyGoal, setDailyGoal] = useState(1); // 일일 읽기 목표 (장)
+  const [dailyGoal, setDailyGoal] = useState(1);
   const [savedGoal, setSavedGoal] = useState(1);
 
   // 성경 전체 장 수 (1189장)
@@ -54,21 +54,18 @@ const ProgressScreen: React.FC<ProgressScreenProps> = ({ navigate, t }) => {
     setLoading(true);
 
     try {
-      // 1. 사용자의 읽기 기록 조회
       const { data: readings } = await supabase
         .from('reading_activities')
         .select('*')
         .eq('user_id', user.id)
         .order('created_at', { ascending: false });
 
-      // 2. 일일 읽기 기록 조회 (streak 계산용)
       const { data: dailyReadings } = await supabase
         .from('daily_readings')
         .select('*')
         .eq('user_id', user.id)
         .order('reading_date', { ascending: false });
 
-      // 3. 셀 멤버의 진행률 조회
       const { data: cellMembership } = await supabase
         .from('cell_members')
         .select('cell_id')
@@ -81,7 +78,6 @@ const ProgressScreen: React.FC<ProgressScreenProps> = ({ navigate, t }) => {
           .select('user_id, user_name')
           .eq('cell_id', cellMembership.cell_id);
 
-        // 멤버별 읽은 장 수 집계
         if (cellReadings) {
           const memberCounts: { [key: string]: { name: string; count: number } } = {};
           cellReadings.forEach((r: { user_id: string; user_name: string | null }) => {
@@ -105,21 +101,16 @@ const ProgressScreen: React.FC<ProgressScreenProps> = ({ navigate, t }) => {
         }
       }
 
-      // 통계 계산
       const totalChapters = readings?.length || 0;
-      const totalVerses = totalChapters * 25; // 평균 25절
+      const totalVerses = totalChapters * 25;
       const completionPercent = Math.round((totalChapters / TOTAL_BIBLE_CHAPTERS) * 100);
 
-      // 총 읽기 시간 계산
       const totalMinutes = dailyReadings?.reduce((acc: number, r: { minutes_read?: number }) => acc + (r.minutes_read || 0), 0) || 0;
 
-      // Streak 계산
       const streak = calculateStreak(dailyReadings || []);
 
-      // 주간 활동 계산
       const weekly = calculateWeeklyActivity(dailyReadings || []);
 
-      // 월간 캘린더 데이터 계산
       const readDays = new Set<number>();
       const now = new Date();
       if (dailyReadings) {
@@ -189,226 +180,184 @@ const ProgressScreen: React.FC<ProgressScreenProps> = ({ navigate, t }) => {
   };
 
   const getMaxActivity = () => Math.max(...weeklyActivity, 1);
-  const dayLabels = ['월', '화', '수', '목', '금', '토', '일'];
+  const dayLabels = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
-  // 원형 차트 계산
   const circumference = 2 * Math.PI * 42;
   const strokeDashoffset = circumference - (stats.completionPercent / 100) * circumference;
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-screen bg-ios-bg-light dark:bg-ios-bg-dark">
-        <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin"></div>
+      <div className="flex items-center justify-center min-h-screen bg-gradient-to-b from-[#e0f2fe] to-[#ecfccb] dark:from-slate-900 dark:to-slate-800">
+        <div className="w-12 h-12 border-4 border-green-500 border-t-transparent rounded-full animate-spin"></div>
       </div>
     );
   }
 
   return (
-    <div className="bg-ios-bg-light dark:bg-ios-bg-dark text-slate-900 dark:text-white antialiased transition-colors duration-200">
-      <div className="relative flex h-full min-h-screen w-full flex-col max-w-md mx-auto bg-ios-bg-light dark:bg-ios-bg-dark pb-28 overflow-x-hidden">
+    <div className="bg-gradient-to-b from-[#e0f2fe] to-[#ecfccb] dark:from-slate-900 dark:to-slate-800 text-slate-800 dark:text-slate-100 font-sans antialiased min-h-screen pb-28">
+      <div className="relative flex flex-col h-full max-w-md mx-auto">
 
-        <div className="flex items-center justify-between px-4 py-2 sticky top-0 z-30 bg-ios-bg-light/80 dark:bg-ios-bg-dark/80 backdrop-blur-md border-b border-black/5 dark:border-white/10">
+        {/* Header */}
+        <div className="flex items-center justify-between px-6 pt-4 pb-2 sticky top-0 z-30 backdrop-blur-sm">
           <button
             onClick={() => navigate(Screen.DASHBOARD)}
-            className="flex items-center gap-1 text-ios-blue active:opacity-60 transition-opacity"
+            className="w-10 h-10 rounded-full bg-white/50 dark:bg-slate-700/50 flex items-center justify-center text-slate-600 dark:text-slate-200 hover:bg-white dark:hover:bg-slate-700 transition-colors"
           >
-            <span className="material-symbols-outlined text-2xl">chevron_left</span>
-            <span className="text-[17px] leading-none -ml-1">뒤로</span>
+            <span className="material-symbols-outlined text-xl">arrow_back</span>
           </button>
-          <span className="text-[17px] font-semibold text-center">내 진행률</span>
-          <button className="flex items-center justify-center text-ios-blue active:opacity-60 transition-opacity" onClick={fetchProgressData}>
+          <span className="text-lg font-bold text-slate-800 dark:text-white">My Progress</span>
+          <button
+            onClick={fetchProgressData}
+            className="w-10 h-10 rounded-full bg-white/50 dark:bg-slate-700/50 flex items-center justify-center text-slate-600 dark:text-slate-200 hover:bg-white dark:hover:bg-slate-700 transition-colors"
+          >
             <span className="material-symbols-outlined text-xl">refresh</span>
           </button>
         </div>
 
         <div className="flex flex-col gap-5 px-4 pt-4">
-          {/* Header with Streak */}
+
+          {/* Main Title & Streak */}
           <div className="flex flex-col gap-4">
-            <div className="flex justify-between items-end">
-              <h1 className="text-[34px] font-bold tracking-tight leading-tight text-gray-900 dark:text-white">진행 현황</h1>
-              <div className="h-10 w-10 rounded-full border border-gray-200 dark:border-gray-700 shadow-sm bg-primary flex items-center justify-center text-white font-bold">
+            <div className="flex justify-between items-end px-2">
+              <h1 className="text-3xl font-bold tracking-tight text-slate-900 dark:text-white">Overview</h1>
+              <div className="h-10 w-10 rounded-full border-2 border-white dark:border-slate-700 shadow-sm bg-green-500 flex items-center justify-center text-white font-bold text-lg">
                 {profile?.name?.charAt(0) || '?'}
               </div>
             </div>
-            <div className="flex items-center gap-3 bg-white dark:bg-ios-card-dark p-3 rounded-2xl shadow-ios">
-              <div className="bg-orange-100 dark:bg-orange-900/30 p-2 rounded-full text-ios-orange">
-                <span className="material-symbols-outlined filled">local_fire_department</span>
+
+            <div className="flex items-center gap-4 bg-white dark:bg-slate-800 p-4 rounded-[2rem] shadow-sm border border-slate-100 dark:border-slate-700">
+              <div className="bg-orange-100 dark:bg-orange-900/30 p-3 rounded-full text-orange-500">
+                <span className="material-symbols-outlined text-2xl filled">local_fire_department</span>
               </div>
               <div>
-                <p className="text-sm font-semibold text-gray-900 dark:text-white">연속 읽기</p>
-                <p className="text-xs text-gray-500 dark:text-gray-400">
-                  {stats.streak > 0 ? `${stats.streak}일 연속으로 읽고 있어요! 🔥` : '오늘 첫 장을 읽어보세요!'}
+                <p className="text-sm font-bold text-slate-900 dark:text-white">Current Streak</p>
+                <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">
+                  {stats.streak > 0 ? `${stats.streak} day streak! Keep it up! 🔥` : 'Start your streak today!'}
                 </p>
               </div>
             </div>
           </div>
 
-          {/* Completion Chart */}
-          <div className="bg-ios-card-light dark:bg-ios-card-dark rounded-[24px] p-6 shadow-ios flex flex-col items-center justify-center relative overflow-hidden">
-            <div className="flex justify-between w-full mb-4 items-center">
-              <h2 className="text-lg font-semibold text-gray-900 dark:text-white">성경 통독</h2>
-              <span className="text-sm font-medium text-gray-400">{TOTAL_BIBLE_CHAPTERS}장 중</span>
+          {/* Completion Chart (Circular) */}
+          <div className="bg-white dark:bg-slate-800 rounded-[2.5rem] p-8 shadow-sm border border-slate-100 dark:border-slate-700 relative overflow-hidden flex flex-col items-center">
+            <div className="flex justify-between w-full mb-6 items-center px-2">
+              <h2 className="text-lg font-bold text-slate-800 dark:text-white">Bible Reading</h2>
+              <span className="text-xs font-bold bg-green-100 dark:bg-green-900 text-green-700 dark:text-green-300 px-3 py-1 rounded-full">
+                {TOTAL_BIBLE_CHAPTERS} Chaps
+              </span>
             </div>
-            <div className="relative size-48">
+
+            <div className="relative size-56 mb-4">
               <svg className="size-full -rotate-90" viewBox="0 0 100 100">
-                <circle className="text-gray-100 dark:text-gray-800" cx="50" cy="50" fill="none" r="42" stroke="currentColor" strokeLinecap="round" strokeWidth="8"></circle>
+                <circle className="text-slate-100 dark:text-slate-700" cx="50" cy="50" fill="none" r="42" stroke="currentColor" strokeLinecap="round" strokeWidth="6"></circle>
                 <defs>
-                  <linearGradient id="gradient" x1="0%" x2="100%" y1="0%" y2="100%">
-                    <stop offset="0%" stopColor="#34C759"></stop>
-                    <stop offset="100%" stopColor="#32ADE6"></stop>
+                  <linearGradient id="progressGradient" x1="0%" x2="100%" y1="0%" y2="100%">
+                    <stop offset="0%" stopColor="#4ade80"></stop>
+                    <stop offset="100%" stopColor="#3b82f6"></stop>
                   </linearGradient>
                 </defs>
                 <circle
-                  className="drop-shadow-[0_0_4px_rgba(52,199,89,0.3)]"
+                  className="drop-shadow-lg"
                   cx="50" cy="50" fill="none" r="42"
-                  stroke="url(#gradient)"
+                  stroke="url(#progressGradient)"
                   strokeDasharray={circumference}
                   strokeDashoffset={strokeDashoffset}
                   strokeLinecap="round"
-                  strokeWidth="8"
+                  strokeWidth="6"
                 ></circle>
               </svg>
               <div className="absolute inset-0 flex flex-col items-center justify-center">
-                <span className="text-4xl font-bold tracking-tighter text-gray-900 dark:text-white">
-                  {stats.completionPercent}<span className="text-xl align-top text-gray-400">%</span>
+                <span className="text-5xl font-bold tracking-tighter text-slate-900 dark:text-white">
+                  {stats.completionPercent}<span className="text-2xl text-slate-400">%</span>
                 </span>
-                <span className="text-xs text-gray-500">{stats.totalChapters}장 읽음</span>
+                <span className="text-xs font-semibold text-slate-400 mt-1">{stats.totalChapters} Read</span>
               </div>
             </div>
-            <p className="mt-2 text-sm text-gray-500 dark:text-gray-400 text-center px-4 font-medium">
-              {stats.completionPercent === 0 ? '성경 읽기를 시작해보세요!' :
-                stats.completionPercent < 25 ? '좋은 시작이에요! 계속 읽어보세요.' :
-                  stats.completionPercent < 50 ? '잘 하고 있어요! 절반에 가까워지고 있어요.' :
-                    stats.completionPercent < 75 ? '대단해요! 절반을 넘었어요!' :
-                      stats.completionPercent < 100 ? '거의 다 왔어요! 조금만 더!' :
-                        '축하합니다! 성경 통독을 완료했어요! 🎉'}
+            <p className="text-center text-sm font-medium text-slate-500 dark:text-slate-400 max-w-[80%]">
+              {stats.completionPercent === 0 ? 'Start your journey today!' :
+                stats.completionPercent < 25 ? 'Great start! Keep going.' :
+                  stats.completionPercent < 50 ? 'You are doing amazing!' :
+                    stats.completionPercent < 75 ? 'More than halfway there!' :
+                      stats.completionPercent < 100 ? 'Almost there!' :
+                        'Bible Competed! 🎉'}
             </p>
           </div>
 
-          {/* Mini Stats */}
-          <div className="grid grid-cols-2 gap-3">
-            <div className="bg-ios-card-light dark:bg-ios-card-dark rounded-[20px] p-4 shadow-ios flex flex-col justify-between h-36">
-              <div className="flex items-start justify-between">
-                <div className="bg-blue-100 dark:bg-blue-500/20 p-2 rounded-full text-ios-blue">
-                  <span className="material-symbols-outlined text-xl">schedule</span>
-                </div>
+          {/* Stats Grid */}
+          <div className="grid grid-cols-2 gap-4">
+            <div className="bg-white dark:bg-slate-800 p-5 rounded-[2rem] shadow-sm border border-slate-100 dark:border-slate-700 flex flex-col justify-between h-40">
+              <div className="w-10 h-10 rounded-full bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center text-blue-500">
+                <span className="material-symbols-outlined">schedule</span>
               </div>
               <div>
-                <span className="text-3xl font-bold block text-gray-900 dark:text-white">
-                  {Math.floor(stats.totalMinutes / 60)}<span className="text-lg text-gray-400 font-medium ml-0.5">시간</span>
-                </span>
-                <span className="text-xs font-semibold text-gray-500 dark:text-gray-400 mt-1 block">총 읽기 시간</span>
+                <span className="text-3xl font-bold text-slate-900 dark:text-white">{Math.floor(stats.totalMinutes / 60)}<span className="text-lg text-slate-400 ml-1">h</span></span>
+                <p className="text-xs font-bold text-slate-400 uppercase tracking-wide mt-1">Total Time</p>
               </div>
             </div>
-            <div className="bg-ios-card-light dark:bg-ios-card-dark rounded-[20px] p-4 shadow-ios flex flex-col justify-between h-36 border border-transparent dark:border-white/5">
-              <div className="flex items-center gap-2">
-                <div className="bg-purple-100 dark:bg-purple-500/20 p-2 rounded-full text-purple-500">
-                  <span className="material-symbols-outlined text-xl">menu_book</span>
-                </div>
-                <span className="text-sm font-semibold text-slate-600 dark:text-slate-300">읽은 양</span>
+            <div className="bg-white dark:bg-slate-800 p-5 rounded-[2rem] shadow-sm border border-slate-100 dark:border-slate-700 flex flex-col justify-between h-40">
+              <div className="w-10 h-10 rounded-full bg-purple-100 dark:bg-purple-900/30 flex items-center justify-center text-purple-500">
+                <span className="material-symbols-outlined">menu_book</span>
               </div>
-              <div className="flex justify-between items-end mt-2">
-                <div>
-                  <span className="text-2xl font-bold text-gray-900 dark:text-white">{stats.totalChapters}</span>
-                  <span className="text-xs text-gray-400 font-medium ml-1">장</span>
-                </div>
-                <div className="h-8 w-px bg-gray-200 dark:bg-gray-700 mx-2"></div>
-                <div className="text-right">
-                  <span className="text-2xl font-bold text-gray-900 dark:text-white">{stats.totalVerses}</span>
-                  <span className="text-xs text-gray-400 font-medium ml-1">절</span>
-                </div>
+              <div>
+                <span className="text-3xl font-bold text-slate-900 dark:text-white">{stats.totalChapters}</span>
+                <p className="text-xs font-bold text-slate-400 uppercase tracking-wide mt-1">Chapters</p>
               </div>
             </div>
           </div>
 
           {/* Weekly Activity */}
-          <div className="bg-ios-card-light dark:bg-ios-card-dark rounded-[24px] p-5 shadow-ios">
+          <div className="bg-white dark:bg-slate-800 rounded-[2.5rem] p-6 shadow-sm border border-slate-100 dark:border-slate-700">
             <div className="flex justify-between items-center mb-6">
-              <h3 className="text-lg font-bold text-gray-900 dark:text-white">주간 활동</h3>
-              <span className="text-xs font-semibold text-gray-500 bg-gray-100 dark:bg-gray-800 px-2 py-1 rounded-md">최근 7일</span>
+              <h3 className="text-lg font-bold text-slate-900 dark:text-white">Weekly Activity</h3>
+              <span className="text-[10px] font-bold bg-slate-100 dark:bg-slate-700 text-slate-500 px-2 py-1 rounded-lg">Last 7 Days</span>
             </div>
             <div className="flex items-end justify-between h-32 gap-3">
               {weeklyActivity.map((value, idx) => (
                 <div key={idx} className="flex flex-col items-center gap-2 flex-1 group">
-                  <div className="w-full bg-gray-100 dark:bg-gray-800 rounded-full h-full relative overflow-hidden">
+                  <div className="w-full bg-slate-100 dark:bg-slate-700 rounded-full h-full relative overflow-hidden">
                     <div
-                      className={`absolute bottom-0 w-full rounded-full transition-colors ${value > 0 ? 'bg-primary shadow-[0_0_10px_rgba(52,199,89,0.3)]' : 'bg-gray-200 dark:bg-gray-700'}`}
-                      style={{ height: value > 0 ? `${(value / getMaxActivity()) * 100}%` : '5%' }}
+                      className={`absolute bottom-0 w-full rounded-full transition-all duration-500 ${value > 0 ? 'bg-green-500 shadow-[0_0_10px_rgba(74,222,128,0.4)]' : 'bg-transparent'}`}
+                      style={{ height: value > 0 ? `${(value / getMaxActivity()) * 100}%` : '4px' }}
                     ></div>
                   </div>
-                  <span className={`text-[10px] font-semibold ${value > 0 ? 'text-gray-900 dark:text-white font-bold' : 'text-gray-400'}`}>
-                    {dayLabels[idx]}
-                  </span>
+                  <span className="text-[10px] font-bold text-slate-400">{dayLabels[idx].charAt(0)}</span>
                 </div>
               ))}
             </div>
           </div>
 
-          {/* Cell Leaderboard */}
+          {/* Leaderboard */}
           {cellLeaderboard.length > 0 && (
-            <div className="bg-ios-card-light dark:bg-ios-card-dark rounded-[24px] p-5 shadow-ios mb-4">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-bold text-gray-900 dark:text-white">🏆 셀 리더보드</h3>
-              </div>
-              <div className="flex flex-col gap-3">
+            <div className="bg-white dark:bg-slate-800 rounded-[2.5rem] p-6 shadow-sm border border-slate-100 dark:border-slate-700">
+              <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-4">Cell Leaderboard 🏆</h3>
+              <div className="space-y-4">
                 {cellLeaderboard.map((member, idx) => (
-                  <div key={member.user_id} className="flex items-center gap-3">
-                    <span className={`text-lg font-bold ${idx === 0 ? 'text-yellow-500' : idx === 1 ? 'text-gray-400' : idx === 2 ? 'text-amber-700' : 'text-gray-500'}`}>
-                      {idx + 1}
-                    </span>
-                    <div className="h-8 w-8 rounded-full bg-primary/20 flex items-center justify-center text-primary font-bold text-sm">
+                  <div key={member.user_id} className="flex items-center gap-4">
+                    <span className={`text-base font-bold w-4 text-center ${idx === 0 ? 'text-yellow-500' : idx === 1 ? 'text-slate-400' : idx === 2 ? 'text-orange-700' : 'text-slate-300'}`}>{idx + 1}</span>
+                    <div className="h-10 w-10 rounded-full bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400 flex items-center justify-center font-bold">
                       {member.user_name.charAt(0)}
                     </div>
                     <div className="flex-1">
-                      <p className="text-sm font-medium text-gray-900 dark:text-white">
+                      <p className="text-sm font-bold text-slate-900 dark:text-white">
                         {member.user_name}
-                        {member.user_id === user?.id && <span className="text-xs text-primary ml-1">(나)</span>}
+                        {member.user_id === user?.id && <span className="text-xs text-green-500 ml-1">(You)</span>}
                       </p>
                     </div>
-                    <span className="text-sm font-bold text-primary">{member.chapters_count}장</span>
+                    <span className="text-sm font-bold text-slate-900 dark:text-white">{member.chapters_count} ch</span>
                   </div>
                 ))}
               </div>
             </div>
           )}
 
-          {/* Awards */}
-          <div className="bg-ios-card-light dark:bg-ios-card-dark rounded-[24px] p-5 shadow-ios mb-4">
+          {/* Monthly Calendar */}
+          <div className="bg-white dark:bg-slate-800 rounded-[2.5rem] p-6 shadow-sm border border-slate-100 dark:border-slate-700">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-bold text-gray-900 dark:text-white">🏅 업적</h3>
+              <h3 className="text-lg font-bold text-slate-900 dark:text-white">Consistency</h3>
+              <span className="text-xs font-bold text-green-600 bg-green-100 px-2 py-1 rounded-lg">{monthlyReadDays.size} days</span>
             </div>
-            <div className="flex gap-4 overflow-x-auto no-scrollbar pb-1 -mx-2 px-2">
-              <div className={`flex flex-col items-center gap-2 min-w-[76px] ${stats.streak >= 7 ? '' : 'opacity-40'}`}>
-                <div className="size-[68px] rounded-full bg-gradient-to-b from-yellow-300 to-yellow-600 shadow-sm flex items-center justify-center">
-                  <span className="material-symbols-outlined text-white text-3xl">local_fire_department</span>
-                </div>
-                <span className="text-[10px] font-semibold text-center text-gray-600 dark:text-gray-300">7일 연속</span>
-              </div>
-              <div className={`flex flex-col items-center gap-2 min-w-[76px] ${stats.totalChapters >= 50 ? '' : 'opacity-40'}`}>
-                <div className="size-[68px] rounded-full bg-gradient-to-b from-green-400 to-green-700 shadow-sm flex items-center justify-center">
-                  <span className="material-symbols-outlined text-white text-3xl">auto_stories</span>
-                </div>
-                <span className="text-[10px] font-semibold text-center text-gray-600 dark:text-gray-300">50장 읽기</span>
-              </div>
-              <div className={`flex flex-col items-center gap-2 min-w-[76px] ${stats.completionPercent >= 50 ? '' : 'opacity-40'}`}>
-                <div className="size-[68px] rounded-full bg-gradient-to-b from-blue-300 to-blue-600 shadow-sm flex items-center justify-center">
-                  <span className="material-symbols-outlined text-white text-3xl">emoji_events</span>
-                </div>
-                <span className="text-[10px] font-semibold text-center text-gray-600 dark:text-gray-300">절반 통독</span>
-              </div>
-            </div>
-          </div>
-
-          {/* Monthly Attendance Calendar */}
-          <div className="bg-ios-card-light dark:bg-ios-card-dark rounded-[24px] p-5 shadow-ios mb-4">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-bold text-gray-900 dark:text-white">📅 이번 달 출석</h3>
-              <span className="text-sm text-primary font-semibold">{monthlyReadDays.size}일</span>
-            </div>
-            <div className="grid grid-cols-7 gap-1 text-center">
-              {['일', '월', '화', '수', '목', '금', '토'].map((d) => (
-                <span key={d} className="text-[10px] text-gray-400 font-semibold py-1">{d}</span>
-              ))}
+            <div className="grid grid-cols-7 gap-y-3 gap-x-1 text-center">
+              {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map(d => <span key={d} className="text-[10px] font-bold text-slate-400">{d}</span>)}
               {(() => {
                 const now = new Date();
                 const firstDay = new Date(now.getFullYear(), now.getMonth(), 1).getDay();
@@ -416,23 +365,16 @@ const ProgressScreen: React.FC<ProgressScreenProps> = ({ navigate, t }) => {
                 const today = now.getDate();
                 const cells = [];
 
-                // Empty cells for days before first of month
                 for (let i = 0; i < firstDay; i++) {
-                  cells.push(<div key={`empty-${i}`} className="h-8"></div>);
+                  cells.push(<div key={`e-${i}`} />);
                 }
-
-                // Days of the month
                 for (let day = 1; day <= daysInMonth; day++) {
                   const isRead = monthlyReadDays.has(day);
                   const isToday = day === today;
                   cells.push(
-                    <div
-                      key={day}
-                      className={`h-8 w-8 rounded-full flex items-center justify-center text-xs font-medium mx-auto
-                        ${isRead ? 'bg-primary text-white' : 'text-gray-500 dark:text-gray-400'}
-                        ${isToday && !isRead ? 'ring-2 ring-primary ring-offset-2 dark:ring-offset-gray-900' : ''}
-                      `}
-                    >
+                    <div key={day} className={`h-8 w-8 rounded-full flex items-center justify-center text-xs font-bold mx-auto transition-all ${isRead ? 'bg-green-500 text-white shadow-md shadow-green-500/30' :
+                        isToday ? 'border-2 border-green-500 text-green-600' : 'text-slate-400'
+                      }`}>
                       {day}
                     </div>
                   );
@@ -442,31 +384,24 @@ const ProgressScreen: React.FC<ProgressScreenProps> = ({ navigate, t }) => {
             </div>
           </div>
 
-          {/* Goal Setting Card */}
-          <div className="bg-ios-card-light dark:bg-ios-card-dark rounded-[24px] p-5 shadow-ios mb-4">
+          {/* Goal Setting */}
+          <div className="bg-white dark:bg-slate-800 rounded-[2.5rem] p-6 shadow-sm border border-slate-100 dark:border-slate-700 mb-6">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-bold text-gray-900 dark:text-white">🎯 일일 목표</h3>
-              <button
-                onClick={() => setShowGoalModal(true)}
-                className="text-primary text-sm font-semibold"
-              >
-                수정
-              </button>
+              <h3 className="text-lg font-bold text-slate-900 dark:text-white">Daily Goal</h3>
+              <button onClick={() => setShowGoalModal(true)} className="text-xs font-bold text-green-600 bg-green-50 hover:bg-green-100 px-3 py-1.5 rounded-full transition-colors">Edit</button>
             </div>
-            <div className="flex items-center justify-between bg-gray-50 dark:bg-gray-800/50 rounded-2xl p-4">
-              <div className="flex items-center gap-3">
-                <div className="w-12 h-12 rounded-full bg-primary/20 flex items-center justify-center text-primary">
-                  <span className="material-symbols-outlined">menu_book</span>
-                </div>
-                <div>
-                  <p className="text-sm text-gray-500">매일 읽기 목표</p>
-                  <p className="text-xl font-bold text-gray-900 dark:text-white">{savedGoal}장</p>
-                </div>
+            <div className="flex items-center gap-4 bg-slate-50 dark:bg-slate-700/50 p-4 rounded-[1.5rem]">
+              <div className="w-12 h-12 rounded-full bg-white dark:bg-slate-600 flex items-center justify-center text-green-500 shadow-sm">
+                <span className="material-symbols-outlined">flag</span>
               </div>
-              <div className="text-right">
-                <p className="text-xs text-gray-400">오늘 진행률</p>
-                <p className="text-lg font-bold text-primary">
-                  {weeklyActivity[6] >= savedGoal ? '완료! ✅' : `${weeklyActivity[6]}/${savedGoal}`}
+              <div>
+                <p className="text-xs font-bold text-slate-400 uppercase">Target</p>
+                <p className="text-xl font-bold text-slate-900 dark:text-white">{savedGoal} Chapters</p>
+              </div>
+              <div className="ml-auto text-right">
+                <p className="text-xs font-bold text-slate-400 uppercase">Today</p>
+                <p className="text-lg font-bold text-green-600">
+                  {weeklyActivity[6] >= savedGoal ? 'Done! ✅' : `${weeklyActivity[6]}/${savedGoal}`}
                 </p>
               </div>
             </div>
@@ -475,49 +410,40 @@ const ProgressScreen: React.FC<ProgressScreenProps> = ({ navigate, t }) => {
         </div>
       </div>
 
-      {/* Goal Setting Modal */}
+      {/* Modal */}
       {showGoalModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="w-full max-w-sm bg-white dark:bg-[#1C1C1E] rounded-[24px] p-6">
-            <div className="flex items-center justify-between mb-6">
-              <h2 className="text-xl font-bold text-gray-900 dark:text-white">일일 목표 설정</h2>
-              <button onClick={() => setShowGoalModal(false)} className="text-gray-400">
-                <span className="material-symbols-outlined">close</span>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
+          <div className="w-full max-w-sm bg-white dark:bg-slate-800 rounded-[2.5rem] p-8 shadow-2xl animate-pop">
+            <div className="flex justify-between items-center mb-6">
+              <h2 className="text-xl font-bold text-slate-900 dark:text-white">Set Daily Goal</h2>
+              <button onClick={() => setShowGoalModal(false)} className="w-8 h-8 rounded-full bg-slate-100 dark:bg-slate-700 flex items-center justify-center text-slate-500">
+                <span className="material-symbols-outlined text-lg">close</span>
               </button>
             </div>
-            <div className="mb-6">
-              <label className="block text-sm font-medium text-gray-600 dark:text-gray-400 mb-3">
-                하루에 몇 장을 읽으실 건가요?
-              </label>
-              <div className="flex items-center justify-center gap-4">
-                <button
-                  onClick={() => setDailyGoal(Math.max(1, dailyGoal - 1))}
-                  className="w-12 h-12 rounded-full bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 flex items-center justify-center text-2xl"
-                >
-                  -
+
+            <div className="flex flex-col items-center gap-6 mb-8">
+              <p className="text-slate-500 text-sm font-medium">How many chapters per day?</p>
+              <div className="flex items-center gap-6">
+                <button onClick={() => setDailyGoal(Math.max(1, dailyGoal - 1))} className="w-14 h-14 rounded-full border-2 border-slate-200 dark:border-slate-600 flex items-center justify-center text-2xl text-slate-400 hover:bg-slate-50 transition-colors">
+                  <span className="material-symbols-outlined">remove</span>
                 </button>
-                <span className="text-4xl font-bold text-gray-900 dark:text-white w-16 text-center">{dailyGoal}</span>
-                <button
-                  onClick={() => setDailyGoal(dailyGoal + 1)}
-                  className="w-12 h-12 rounded-full bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 flex items-center justify-center text-2xl"
-                >
-                  +
+                <span className="text-5xl font-bold text-slate-900 dark:text-white tabular-nums">{dailyGoal}</span>
+                <button onClick={() => setDailyGoal(dailyGoal + 1)} className="w-14 h-14 rounded-full border-2 border-slate-200 dark:border-slate-600 flex items-center justify-center text-2xl text-slate-400 hover:bg-slate-50 transition-colors">
+                  <span className="material-symbols-outlined">add</span>
                 </button>
               </div>
-              <p className="text-center text-sm text-gray-500 mt-2">장 / 일</p>
             </div>
+
             <button
-              onClick={() => {
-                setSavedGoal(dailyGoal);
-                setShowGoalModal(false);
-              }}
-              className="w-full bg-primary text-white py-3 rounded-xl font-medium"
+              onClick={() => { setSavedGoal(dailyGoal); setShowGoalModal(false); }}
+              className="w-full h-14 bg-green-500 text-white rounded-[1.5rem] font-bold text-lg shadow-lg shadow-green-500/30 hover:scale-[1.02] active:scale-[0.98] transition-all"
             >
-              저장하기
+              Save Goal
             </button>
           </div>
         </div>
       )}
+
     </div>
   );
 };

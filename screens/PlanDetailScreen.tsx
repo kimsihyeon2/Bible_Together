@@ -5,6 +5,7 @@ import { Screen } from '../types';
 import { Translations } from '../i18n';
 import { useAuth } from '@/lib/auth-context';
 import { supabase } from '@/lib/supabase';
+import { useLoading } from '@/lib/loading-context';
 
 interface PlanDetailScreenProps {
   navigate: (screen: Screen) => void;
@@ -61,14 +62,9 @@ const JOHN_READING_SCHEDULE = [
   { day: 30, title: '대제사장의 기도', verses: '요한복음 17:1-26', chapter: 17 },
 ];
 
-import { useLoading } from '@/lib/loading-context';
-
-/* ... interfaces ... */
-
 const PlanDetailScreen: React.FC<PlanDetailScreenProps> = ({ navigate, t }) => {
   const { user, profile } = useAuth();
   const { showLoading, hideLoading } = useLoading();
-  // const [loading, setLoading] = useState(true); // Removed local state
   const [plan, setPlan] = useState<ReadingPlan | null>(null);
   const [userProgress, setUserProgress] = useState<UserProgress | null>(null);
   const [completing, setCompleting] = useState(false);
@@ -82,15 +78,11 @@ const PlanDetailScreen: React.FC<PlanDetailScreenProps> = ({ navigate, t }) => {
 
   const fetchPlanData = async () => {
     if (!user) return;
-    showLoading('오늘의 말씀을 불러오고 있어요...'); // Show global loader
+    showLoading('오늘의 말씀을 불러오고 있어요...');
 
     try {
-      // 1. 선택된 플랜 ID 확인
       const selectedPlanId = localStorage.getItem('selectedPlanId');
-
-      let query = supabase
-        .from('reading_plans')
-        .select('*');
+      let query = supabase.from('reading_plans').select('*');
 
       if (selectedPlanId) {
         query = query.eq('id', selectedPlanId).single();
@@ -103,7 +95,6 @@ const PlanDetailScreen: React.FC<PlanDetailScreenProps> = ({ navigate, t }) => {
       if (plans) {
         setPlan(plans);
 
-        // 2. 사용자 진행 상황 조회
         const { data: progress } = await supabase
           .from('user_reading_progress')
           .select('*')
@@ -114,7 +105,6 @@ const PlanDetailScreen: React.FC<PlanDetailScreenProps> = ({ navigate, t }) => {
         if (progress) {
           setUserProgress(progress);
         } else {
-          // 진행 상황이 없으면 생성
           const { data: newProgress } = await supabase
             .from('user_reading_progress')
             .insert({
@@ -130,7 +120,6 @@ const PlanDetailScreen: React.FC<PlanDetailScreenProps> = ({ navigate, t }) => {
           }
         }
 
-        // 3. 셀 멤버들의 진행 상황 조회
         const { data: membership } = await supabase
           .from('cell_members')
           .select('cell_id')
@@ -155,7 +144,7 @@ const PlanDetailScreen: React.FC<PlanDetailScreenProps> = ({ navigate, t }) => {
     } catch (error) {
       console.error('Error fetching plan:', error);
     } finally {
-      hideLoading(); // Hide global loader
+      hideLoading();
     }
   };
 
@@ -167,7 +156,6 @@ const PlanDetailScreen: React.FC<PlanDetailScreenProps> = ({ navigate, t }) => {
     const reading = JOHN_READING_SCHEDULE[currentDay - 1];
 
     try {
-      // 1. reading_activities에 기록 추가
       await supabase.from('reading_activities').insert({
         user_id: user.id,
         user_name: profile?.name || '익명',
@@ -176,7 +164,6 @@ const PlanDetailScreen: React.FC<PlanDetailScreenProps> = ({ navigate, t }) => {
         translation: 'KRV',
       });
 
-      // 2. daily_readings에 기록 추가
       await supabase.from('daily_readings').upsert({
         user_id: user.id,
         reading_date: new Date().toISOString().split('T')[0],
@@ -184,7 +171,6 @@ const PlanDetailScreen: React.FC<PlanDetailScreenProps> = ({ navigate, t }) => {
         minutes_read: 10,
       }, { onConflict: 'user_id,reading_date' });
 
-      // 3. 진행 상황 업데이트
       const nextDay = Math.min(currentDay + 1, plan.total_days);
       const isCompleted = nextDay > plan.total_days;
 
@@ -210,155 +196,145 @@ const PlanDetailScreen: React.FC<PlanDetailScreenProps> = ({ navigate, t }) => {
   };
 
   const openBibleScreen = () => {
-    // todayReading에서 책 이름과 장 정보를 localStorage에 저장
     const reading = JOHN_READING_SCHEDULE[currentDay - 1] || JOHN_READING_SCHEDULE[0];
     localStorage.setItem('selectedBook', '요한복음');
     localStorage.setItem('selectedChapter', String(reading.chapter));
     navigate(Screen.BIBLE);
   };
 
-  //   if (loading) { ... } removed
-
   const currentDay = userProgress?.current_day || 1;
   const progressPercent = Math.round((currentDay / (plan?.total_days || 30)) * 100);
   const todayReading = JOHN_READING_SCHEDULE[currentDay - 1];
 
   return (
-    <div className="bg-background-light dark:bg-background-dark text-slate-900 dark:text-white font-display selection:bg-primary/30">
-      <div className="relative min-h-screen w-full max-w-md mx-auto bg-background-light dark:bg-black overflow-hidden shadow-2xl pb-24">
-
+    <div className="bg-gradient-to-b from-[#e0f2fe] to-[#dcfce7] dark:from-slate-900 dark:to-slate-800 text-slate-800 dark:text-slate-100 font-sans antialiased pb-24 selection:bg-green-200 min-h-screen">
+      <div className="relative z-10 flex flex-col h-full max-w-md mx-auto">
         {/* Header */}
-        <header className="sticky top-0 z-30 flex items-center justify-between px-4 py-3 bg-background-light/80 dark:bg-black/80 backdrop-blur-xl border-b border-gray-200/50 dark:border-white/10">
+        <div className="h-14 w-full flex items-center justify-between px-6 pt-2">
           <button
             onClick={() => navigate(Screen.DASHBOARD)}
-            className="size-9 flex items-center justify-center rounded-full bg-white/50 dark:bg-white/10 text-primary active:scale-95 transition-transform backdrop-blur-md"
+            className="w-10 h-10 rounded-full bg-white/50 dark:bg-slate-700/50 flex items-center justify-center text-slate-600 dark:text-slate-200 hover:bg-white dark:hover:bg-slate-700 transition-colors"
           >
-            <span className="material-symbols-outlined">arrow_back_ios_new</span>
+            <span className="material-symbols-outlined text-xl">arrow_back</span>
           </button>
-          <h1 className="text-sm font-semibold uppercase tracking-wide opacity-70">읽기 플랜</h1>
-          <button
-            onClick={fetchPlanData}
-            className="size-9 flex items-center justify-center rounded-full bg-white/50 dark:bg-white/10 text-primary active:scale-95 transition-transform backdrop-blur-md"
-          >
-            <span className="material-symbols-outlined">refresh</span>
+          <span className="text-sm font-bold opacity-0">Plan Details</span>
+          <button className="w-10 h-10 rounded-full bg-white/50 dark:bg-slate-700/50 flex items-center justify-center text-slate-600 dark:text-slate-200 hover:bg-white dark:hover:bg-slate-700 transition-colors">
+            <span className="material-symbols-outlined text-xl">more_horiz</span>
           </button>
-        </header>
+        </div>
 
-        <main className="flex flex-col gap-6 px-5 pt-4">
-
-          {/* Main Card */}
-          <div className="relative w-full aspect-[4/5] max-h-[360px] rounded-[36px] overflow-hidden shadow-apple group">
-            <div
-              className="absolute inset-0 bg-cover bg-center transition-transform duration-700 group-hover:scale-105"
-              style={{ backgroundImage: 'url("https://images.unsplash.com/photo-1504052434569-70ad5836ab65?w=600")' }}
-            ></div>
-            <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent"></div>
-            <div className="absolute bottom-0 left-0 right-0 p-8 flex flex-col items-start gap-3">
-              <span className="px-3 py-1.5 rounded-full bg-white/20 backdrop-blur-md text-white text-[11px] font-bold uppercase tracking-wider border border-white/10 shadow-lg">
-                {plan?.total_days || 30}일 플랜
-              </span>
-              <h2 className="text-white text-4xl font-bold leading-tight tracking-tight drop-shadow-md">
-                {plan?.name || '요한복음 30일'}
-              </h2>
-              <p className="text-white/90 text-sm font-medium leading-relaxed max-w-[80%]">
-                {plan?.description || '예수님의 삶을 따라가는 30일간의 여정'}
+        <main className="px-4 md:px-6 space-y-6">
+          {/* Hero Card */}
+          <div className="relative w-full h-[26rem] rounded-[2.5rem] overflow-hidden shadow-xl shadow-green-900/10 group">
+            <img
+              alt={plan?.name || "Reading Plan"}
+              className="absolute inset-0 w-full h-full object-cover transition-transform duration-1000 group-hover:scale-110"
+              src={plan?.cover_image_url || "https://lh3.googleusercontent.com/aida-public/AB6AXuBRrxKSZI-whRkX1_ZZ8aM7IxOaMImVYwN2rYjxGGMXxY3RiGk1_F6EGISytyLj6Rc6GS6scjAnYa9joDqfHoaet6su03mFbswvLtrv5gMWl27QWDfv7vPw_bBnTqEbJXpCsBPEBdFhzo58thxHyGPjBU0zy0bAbRcZqGRnsS-qAJjx0HDlnfggMYJCGcZ7YD5iC9n7y9CfPLcTiTFtak_3Y7W5ypExTEBTBVGgrM72abO2mxXQWohZVSDjaRwLa31goahaXVMDV-Qv"}
+            />
+            <div className="absolute inset-0 bg-gradient-to-t from-green-950/80 via-green-900/20 to-transparent mix-blend-multiply"></div>
+            <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent"></div>
+            <div className="absolute inset-0 p-8 flex flex-col justify-end pb-10">
+              <div className="absolute top-6 left-6 bg-white/25 backdrop-blur-md border border-white/40 text-white text-xs font-bold px-4 py-2 rounded-full uppercase tracking-wider shadow-sm">
+                {plan?.total_days || 30} Day Challenge
+              </div>
+              <h1 className="text-5xl font-bold text-white mb-3 drop-shadow-lg tracking-tight leading-none">{plan?.name || 'Gospel of\nJohn'}</h1>
+              <p className="text-green-50 text-sm font-medium leading-relaxed max-w-[90%] drop-shadow-md">
+                {plan?.description || 'A journey through the life of Jesus, discovering love and truth in the green pastures of His word.'}
               </p>
             </div>
           </div>
 
           {/* Stats Grid */}
           <div className="grid grid-cols-2 gap-4">
-            <div className="bg-surface-light dark:bg-surface-dark p-5 rounded-[28px] shadow-apple flex flex-col justify-between h-40 relative overflow-hidden">
-              <div className="z-10 flex flex-col">
-                <p className="text-gray-400 dark:text-gray-500 text-[10px] font-bold uppercase tracking-wider mb-1">전체 진행률</p>
-                <div className="flex items-baseline gap-1">
-                  <span className="text-3xl font-bold text-slate-900 dark:text-white">{progressPercent}</span>
-                  <span className="text-sm font-bold text-gray-400">%</span>
+            {/* Total Progress */}
+            <div className="col-span-2 bg-white dark:bg-slate-800 p-6 rounded-[2rem] flex items-center justify-between relative overflow-hidden shadow-sm border border-slate-100 dark:border-slate-700">
+              <div className="absolute bottom-0 left-0 right-0 h-16 bg-gradient-to-t from-pasture-green/50 to-transparent opacity-50"></div>
+              <div className="z-10 w-2/3">
+                <p className="text-xs font-bold text-slate-400 dark:text-slate-400 uppercase tracking-wider mb-1">Total Progress</p>
+                <div className="flex items-baseline space-x-1.5 mb-3">
+                  <span className="text-5xl font-bold text-slate-800 dark:text-white tracking-tighter">{progressPercent}</span>
+                  <span className="text-2xl text-slate-400 dark:text-slate-500 font-medium">%</span>
+                </div>
+                <p className="text-sm text-slate-500 dark:text-slate-400 mb-3 font-medium">Day {currentDay} of {plan?.total_days || 30}</p>
+                <div className="w-full h-3 bg-slate-100 dark:bg-slate-700 rounded-full overflow-hidden">
+                  <div className="h-full bg-gradient-to-r from-green-400 to-green-600 rounded-full shadow-[0_0_10px_rgba(74,222,128,0.5)]" style={{ width: `${progressPercent}%` }}></div>
                 </div>
               </div>
-              <div className="z-10 mt-auto">
-                <div className="w-full bg-gray-100 dark:bg-white/10 rounded-full h-1.5 mb-2 overflow-hidden">
-                  <div className="bg-primary h-full rounded-full shadow-glow transition-all duration-500" style={{ width: `${progressPercent}%` }}></div>
-                </div>
-                <p className="text-xs text-gray-400 font-medium">Day {currentDay} of {plan?.total_days || 30}</p>
+              <div className="absolute right-5 top-1/2 -translate-y-1/2 w-24 h-24">
+                <svg className="w-full h-full -rotate-90" viewBox="0 0 36 36">
+                  <path className="text-slate-100 dark:text-slate-700" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="currentColor" strokeWidth="3"></path>
+                  <path className="text-green-500 drop-shadow-sm" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="currentColor" strokeDasharray={`${progressPercent}, 100`} strokeLinecap="round" strokeWidth="3"></path>
+                </svg>
               </div>
             </div>
 
-            <div className="bg-surface-light dark:bg-surface-dark p-5 rounded-[28px] shadow-apple flex flex-col justify-between h-40">
+            {/* Community */}
+            <div className="bg-pasture-sky dark:bg-slate-800 p-5 rounded-[2rem] flex flex-col justify-between h-40 relative shadow-sm hover:shadow-md transition-shadow">
               <div className="flex justify-between items-start">
-                <p className="text-gray-400 dark:text-gray-500 text-[10px] font-bold uppercase tracking-wider">함께 읽는 멤버</p>
+                <span className="text-[10px] font-bold text-sky-700 dark:text-slate-400 uppercase tracking-wide">Community</span>
+                <button className="w-8 h-8 rounded-full bg-white dark:bg-slate-700 flex items-center justify-center text-sky-500 dark:text-sky-300 shadow-sm">
+                  <span className="material-symbols-outlined text-lg">add</span>
+                </button>
               </div>
-              <div className="flex -space-x-3 mt-2 pl-1 py-1">
+              <div className="flex -space-x-3 items-center mt-2 pl-1">
                 {cellMembers.slice(0, 3).map((member, idx) => (
-                  <div key={idx} className="relative size-11 rounded-full border-[3px] border-white dark:border-[#1C1C1E] bg-primary/20 flex items-center justify-center text-primary font-bold text-sm">
+                  <div key={idx} className="w-11 h-11 rounded-full border-[3px] border-white dark:border-slate-800 bg-sky-200 flex items-center justify-center text-sky-800 font-bold text-xs ring-2 ring-sky-200 dark:ring-sky-900 shadow-sm relative z-10">
                     {member.name.charAt(0)}
                   </div>
                 ))}
-                {cellMembers.length > 3 && (
-                  <div className="relative size-11 rounded-full border-[3px] border-white dark:border-[#1C1C1E] flex items-center justify-center bg-gray-100 dark:bg-white/10 text-xs font-bold text-gray-500">
-                    +{cellMembers.length - 3}
-                  </div>
-                )}
               </div>
-              <p className="text-xs text-gray-400 font-medium">
-                {cellMembers.length > 0 ? `${cellMembers.length}명이 함께 읽어요` : '아직 참여자가 없어요'}
-              </p>
+              <p className="text-xs text-sky-800 dark:text-sky-200 font-semibold">{cellMembers.length} friends active</p>
+            </div>
+
+            {/* Prayer */}
+            <div className="bg-pasture-green dark:bg-slate-800 p-5 rounded-[2rem] flex flex-col justify-between h-40 relative shadow-sm hover:shadow-md transition-shadow">
+              <div className="flex justify-between items-start">
+                <span className="text-[10px] font-bold text-green-700 dark:text-slate-400 uppercase tracking-wide">Prayer</span>
+                <button className="w-8 h-8 rounded-full bg-white dark:bg-slate-700 flex items-center justify-center text-green-600 dark:text-green-300 shadow-sm">
+                  <span className="material-symbols-outlined text-lg">add</span>
+                </button>
+              </div>
+              <p className="text-3xl font-bold text-green-800 dark:text-white mt-4">5</p>
+              <p className="text-xs text-green-800 dark:text-green-200 font-semibold">prayers today</p>
             </div>
           </div>
 
-          {/* Today's Reading */}
+          {/* Up Next */}
           <section>
-            <div className="flex items-center justify-between mb-4 px-1">
-              <h3 className="text-xl font-bold tracking-tight text-slate-900 dark:text-white">오늘의 읽기</h3>
-              <span className="px-2.5 py-1 rounded-lg bg-primary/10 text-primary text-xs font-bold">Day {currentDay}</span>
+            <div className="flex justify-between items-center mb-4 px-2">
+              <h2 className="text-xl font-bold text-slate-900 dark:text-white">Up Next</h2>
+              <span className="bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300 text-xs font-bold px-3 py-1.5 rounded-full">Day {currentDay}</span>
             </div>
-            <div className="bg-surface-light dark:bg-surface-dark rounded-[32px] p-1.5 shadow-apple border border-gray-100/50 dark:border-white/5">
-              <div className="flex flex-col">
-                <div
-                  className="h-36 w-full rounded-[28px] bg-cover bg-center relative overflow-hidden"
-                  style={{ backgroundImage: 'url("https://images.unsplash.com/photo-1507692049790-de58290a4334?w=400")' }}
-                >
-                  <div className="absolute inset-0 bg-black/30"></div>
-                  <div className="absolute top-3 left-3 px-3 py-1 rounded-full bg-black/40 backdrop-blur-md border border-white/10">
-                    <div className="flex items-center gap-1.5">
-                      <span className="material-symbols-outlined text-white text-[12px]">schedule</span>
-                      <span className="text-[10px] font-bold text-white uppercase tracking-wide">약 10분</span>
-                    </div>
-                  </div>
+            <div className="w-full bg-white dark:bg-slate-800 rounded-[2.5rem] p-4 shadow-lg shadow-green-900/5 border border-green-50 dark:border-slate-700">
+              <div className="relative w-full h-40 rounded-[1.8rem] overflow-hidden mb-4 shadow-sm group">
+                <img alt="Sheep" className="absolute inset-0 w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBn3FLve9NbrlC-sAC0-Ew1e04rYP54bnVXHo56pmRr88pJvemgxtva3GkogRNZretszOhYViVxhGiacEl1SsxBjc4Yh4jFyFMNHGEao0MHbZ5BHuZeXxg4lYm-1GCNQKcn_LOSzBBfExfjB8TvA1ohCYtOYvpa5iw7Ijhvolh4mHpuCFi_vNbfvhU8EvTWQWEcLKhEcSqjKAUOz715QWcCREF5oWN1MjJ4om1OKa-6ropfW-hxVIDJ3WmGLn-vdc31keM63YZzysxy" />
+                <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent"></div>
+                <div className="absolute top-4 left-4 bg-white/90 backdrop-blur text-green-800 text-[10px] font-bold px-2.5 py-1 rounded-full flex items-center shadow-sm">
+                  <span className="material-symbols-outlined text-xs mr-1">schedule</span> 10 MIN
                 </div>
-                <div className="p-5 flex flex-col gap-4">
+              </div>
+              <div className="px-2 pb-1">
+                <div className="flex items-start justify-between">
                   <div>
-                    <h4 className="text-xl font-bold leading-tight text-slate-900 dark:text-white">
-                      {todayReading?.title || `Day ${currentDay} 읽기`}
-                    </h4>
-                    <p className="text-gray-500 dark:text-gray-400 text-sm font-medium mt-1">
-                      {todayReading?.verses || `요한복음 ${currentDay}장`}
+                    <h3 className="text-xl font-bold text-slate-900 dark:text-white mb-1 leading-tight">{todayReading?.title || "Reading"}</h3>
+                    <p className="text-slate-500 dark:text-slate-400 text-sm font-medium flex items-center mt-1">
+                      <span className="material-symbols-outlined text-base text-green-500 mr-1">menu_book</span>
+                      {todayReading?.verses}
                     </p>
                   </div>
                   <div className="flex gap-2">
                     <button
                       onClick={openBibleScreen}
-                      className="flex-1 h-14 rounded-[20px] bg-gray-100 dark:bg-white/10 text-slate-900 dark:text-white font-bold text-[15px] active:scale-[0.98] transition-all flex items-center justify-center gap-2"
+                      className="w-12 h-12 rounded-full bg-green-500 text-white flex items-center justify-center shadow-lg shadow-green-500/40 hover:scale-105 transition-transform"
                     >
-                      <span className="material-symbols-outlined">menu_book</span>
-                      읽으러 가기
+                      <span className="material-symbols-outlined text-2xl">play_arrow</span>
                     </button>
                     <button
                       onClick={completeToday}
                       disabled={completing}
-                      className={`flex-1 h-14 rounded-[20px] font-bold text-[15px] shadow-lg active:scale-[0.98] transition-all flex items-center justify-center gap-2 ${completing
-                        ? 'bg-gray-300 text-gray-500'
-                        : 'bg-primary hover:bg-[#2dbd43] text-white shadow-primary/30'
-                        }`}
+                      className={`w-12 h-12 rounded-full text-white flex items-center justify-center shadow-lg transition-transform ${completing ? 'bg-gray-300' : 'bg-blue-500 hover:scale-105 shadow-blue-500/40'}`}
                     >
-                      {completing ? (
-                        <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                      ) : (
-                        <>
-                          <span className="material-symbols-outlined">check_circle</span>
-                          완료
-                        </>
-                      )}
+                      {completing ? <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" /> : <span className="material-symbols-outlined text-2xl">check</span>}
                     </button>
                   </div>
                 </div>
@@ -368,43 +344,38 @@ const PlanDetailScreen: React.FC<PlanDetailScreenProps> = ({ navigate, t }) => {
 
           {/* Schedule */}
           <section>
-            <h3 className="text-xl font-bold tracking-tight mb-4 px-1 text-slate-900 dark:text-white">읽기 일정</h3>
-            <div className="bg-surface-light dark:bg-surface-dark rounded-[24px] shadow-apple overflow-hidden">
+            <h2 className="text-xl font-bold text-slate-900 dark:text-white mb-5 px-2">Schedule</h2>
+            <div className="space-y-3 relative">
+              <div className="absolute left-[2.25rem] top-6 bottom-6 w-0.5 bg-slate-200 dark:bg-slate-700 rounded-full -z-10"></div>
               {JOHN_READING_SCHEDULE.slice(Math.max(0, currentDay - 3), currentDay + 3).map((item) => {
                 const isCompleted = item.day < currentDay;
                 const isCurrent = item.day === currentDay;
                 const isLocked = item.day > currentDay;
 
-                return (
-                  <div
-                    key={item.day}
-                    className={`flex items-center gap-4 p-4 pl-5 border-b border-gray-100 dark:border-white/5 relative ${isCurrent ? 'bg-primary/5' : isCompleted ? 'opacity-50' : isLocked ? 'opacity-60' : ''
-                      }`}
-                  >
-                    {isCurrent && <div className="absolute left-0 top-0 bottom-0 w-1 bg-primary"></div>}
-                    <div className={`size-6 rounded-full flex items-center justify-center shrink-0 ${isCompleted ? 'bg-primary/20 text-primary' :
-                      isCurrent ? 'bg-primary text-white shadow-glow' :
-                        'border border-gray-300 dark:border-gray-600 text-gray-400'
-                      }`}>
-                      {isCompleted ? (
-                        <span className="material-symbols-outlined text-[14px] font-bold">check</span>
-                      ) : isCurrent ? (
-                        <span className="material-symbols-outlined text-[14px] font-bold">play_arrow</span>
-                      ) : (
-                        <span className="text-[10px] font-bold">{item.day}</span>
-                      )}
+                return isCurrent ? (
+                  <div key={item.day} className="flex items-center p-4 bg-white dark:bg-slate-800 rounded-3xl border border-green-100 dark:border-green-900 shadow-md shadow-green-900/5 relative z-10 transform scale-105 transition-transform">
+                    <div className="flex-shrink-0 mr-4">
+                      <div className="w-10 h-10 rounded-full bg-green-500 flex items-center justify-center text-white shadow-lg shadow-green-500/30 ring-4 ring-green-50 dark:ring-green-900">
+                        <span className="material-symbols-outlined text-xl">play_arrow</span>
+                      </div>
                     </div>
-                    <div className="flex-1 min-w-0">
-                      <p className={`text-[15px] truncate ${isCurrent ? 'font-bold text-slate-900 dark:text-white' : 'font-medium'}`}>
-                        {item.title}
-                      </p>
-                      <p className={`text-xs ${isCurrent ? 'text-primary font-semibold' : 'text-gray-500'}`}>
-                        Day {item.day} {isCurrent && '• 오늘'}
-                      </p>
+                    <div className="flex-grow">
+                      <h4 className="text-base font-bold text-slate-900 dark:text-white">{item.title}</h4>
+                      <p className="text-xs text-green-600 dark:text-green-400 font-bold uppercase tracking-wide mt-0.5">Today • Day {item.day}</p>
                     </div>
-                    {isLocked && (
-                      <span className="material-symbols-outlined text-gray-300 text-[16px]">lock</span>
-                    )}
+                  </div>
+                ) : (
+                  <div key={item.day} className={`flex items-center p-3 rounded-2xl border border-transparent ${isCompleted ? 'bg-white/60 dark:bg-slate-800/60' : 'opacity-60'}`}>
+                    <div className="flex-shrink-0 mr-4 z-0">
+                      <div className={`w-10 h-10 rounded-full flex items-center justify-center ring-4 ring-white dark:ring-slate-900 ${isCompleted ? 'bg-sky-100 dark:bg-sky-900 text-sky-600 dark:text-sky-300' : 'border-2 border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-400'}`}>
+                        {isCompleted ? <span className="material-symbols-outlined text-lg">check</span> : <span className="text-xs font-bold">{item.day}</span>}
+                      </div>
+                    </div>
+                    <div className="flex-grow">
+                      <h4 className={`text-sm font-bold text-slate-700 dark:text-slate-300 ${isCompleted ? 'line-through decoration-slate-400' : ''}`}>{item.title}</h4>
+                      <p className="text-xs text-slate-400 dark:text-slate-500">Day {item.day}</p>
+                    </div>
+                    {isLocked && <span className="material-symbols-outlined text-slate-300 text-sm">lock</span>}
                   </div>
                 );
               })}

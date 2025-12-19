@@ -10,22 +10,36 @@ const config: Config = {
     theme: {
         extend: {
             colors: {
-                "primary": "#34C759",
-                "primary-hover": "#30B753",
-                "primary-dark": "#248A3D",
+                "primary": "#4CAF50", // Updated to new vivid green
+                "primary-hover": "#43A047",
+                "primary-dark": "#2E7D32", // Updated
 
+                // New UI Palette
+                "sky-soft": "#E0F7FA",
+                "grass-light": "#DCEDC8",
+                "grass-vivid": "#AED581",
+                "background-light": "#F1F8E9", // Updated: Light green tint
+                "background-dark": "#0F172A", // Updated: Slate 900
+                "card-light": "#FFFFFF",
+                "card-dark": "#1E293B",
+                "text-main-light": "#1B3B1F",
+                "text-main-dark": "#F3F4F6",
+                "text-sub-light": "#558B2F",
+                "text-sub-dark": "#9CA3AF",
+
+                // Plan Detail Palette
+                "pasture-sky": "#e0f2fe",
+                "pasture-green": "#dcfce7",
+                "pasture-green-dark": "#166534",
+                "pasture-blue-dark": "#0369a1",
+
+                // Legacy iOS Compatibility (Keep for un-migrated screens)
                 "ios-green": "#34C759",
                 "ios-blue": "#007AFF",
                 "ios-orange": "#FF9500",
                 "ios-red": "#FF3B30",
                 "ios-purple": "#AF52DE",
                 "ios-teal": "#30B0C7",
-
-                "background-light": "#F2F2F7",
-                "background-dark": "#000000",
-
-                "surface-light": "#ffffff",
-                "surface-dark": "#1C1C1E",
 
                 "ios-bg-light": "#F2F2F7",
                 "ios-bg-dark": "#000000",
@@ -38,7 +52,6 @@ const config: Config = {
 
                 "bubble-rec-light": "#E9E9EB",
                 "bubble-rec-dark": "#262626",
-
                 "separator-light": "#C6C6C8",
                 "separator-dark": "#38383A",
             },
