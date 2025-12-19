@@ -6,6 +6,7 @@ import { Translations } from '../i18n';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/lib/auth-context';
 import { useBible } from '@/lib/bible-context';
+import { useAudio } from '@/lib/audio-context';
 
 interface BibleScreenProps {
     navigate: (screen: Screen) => void;
@@ -38,6 +39,7 @@ type BibleData = {
 const BibleScreen: React.FC<BibleScreenProps> = ({ navigate, t }) => {
     const { isLoaded, getVerses: getVersesFromContext, getChapterCount: getChapterCountFromContext } = useBible();
     const { user, profile } = useAuth();
+    const { playChapter, isPlaying, currentBook, currentChapter } = useAudio();
     // const [bibleData, setBibleData] = useState<BibleData | null>(null); // Removed
     const [loading, setLoading] = useState(true); // Kept for initial setup
     const [selectedBook, setSelectedBook] = useState<string>('창세기');
@@ -227,12 +229,35 @@ const BibleScreen: React.FC<BibleScreenProps> = ({ navigate, t }) => {
                         </button>
                     </div>
 
-                    <button
-                        onClick={() => setShowSettings(true)}
-                        className="p-2 -mr-2 hover:bg-black/5 dark:hover:bg-white/10 rounded-full transition-colors"
-                    >
-                        <span className="material-symbols-outlined text-2xl">settings</span>
-                    </button>
+                    <div className="flex items-center gap-1">
+                        {/* Audio Button */}
+                        <button
+                            onClick={() => playChapter(selectedBook, selectedChapter)}
+                            className="p-2 hover:bg-black/5 dark:hover:bg-white/10 rounded-full transition-colors relative"
+                        >
+                            <span className={`material-symbols-outlined text-2xl ${isPlaying && currentBook === selectedBook && currentChapter === selectedChapter
+                                ? 'text-primary'
+                                : ''
+                                }`}>
+                                headphones
+                            </span>
+                            {/* Equalizer animation when playing this chapter */}
+                            {isPlaying && currentBook === selectedBook && currentChapter === selectedChapter && (
+                                <span className="absolute top-2 right-2 flex gap-0.5 items-end h-3">
+                                    <span className="w-0.5 bg-primary animate-[bounce_1s_infinite] h-2"></span>
+                                    <span className="w-0.5 bg-primary animate-[bounce_1.2s_infinite] h-3"></span>
+                                    <span className="w-0.5 bg-primary animate-[bounce_0.8s_infinite] h-1.5"></span>
+                                </span>
+                            )}
+                        </button>
+
+                        <button
+                            onClick={() => setShowSettings(true)}
+                            className="p-2 -mr-2 hover:bg-black/5 dark:hover:bg-white/10 rounded-full transition-colors"
+                        >
+                            <span className="material-symbols-outlined text-2xl">settings</span>
+                        </button>
+                    </div>
                 </div>
             </header>
 

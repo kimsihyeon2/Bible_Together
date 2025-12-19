@@ -4,6 +4,8 @@ import { AuthProvider } from "@/lib/auth-context";
 import { BibleProvider } from "@/lib/bible-context";
 import { LoadingProvider } from "@/lib/loading-context";
 import { GlobalLoader } from "@/components/GlobalLoader";
+import { AudioProvider } from "@/lib/audio-context";
+import { GlobalAudioPlayer } from "@/components/GlobalAudioPlayer";
 
 export const metadata: Metadata = {
     title: "그린 바이블 | Green Bible",
@@ -31,6 +33,7 @@ export default function RootLayout({
 }>) {
     return (
         <html lang="ko" className="light" suppressHydrationWarning>
+            {/* ... head ... */}
             <head>
                 <link
                     href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;600;700;800&display=swap"
@@ -45,9 +48,12 @@ export default function RootLayout({
                 <AuthProvider>
                     <BibleProvider>
                         <LoadingProvider>
-                            <GlobalLoader>
-                                {children}
-                            </GlobalLoader>
+                            <AudioProvider>
+                                <GlobalLoader>
+                                    {children}
+                                </GlobalLoader>
+                                <GlobalAudioPlayer />
+                            </AudioProvider>
                         </LoadingProvider>
                     </BibleProvider>
                 </AuthProvider>
