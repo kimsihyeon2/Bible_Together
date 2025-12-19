@@ -98,7 +98,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                     setProfile(null);
                 }
 
-                setLoading(false);
+                // Do not set loading(false) here. Let initializeAuth handle the initial load completion.
+                // This prevents race conditions where the listener fires before the profile fetch or initial check is fully done.
             }
         );
 
