@@ -108,12 +108,13 @@ export default function HomePage() {
 
         // Set initial screen based on auth state
         const initialScreen = getScreenFromHash();
-        if (user || initialScreen === Screen.LOGIN) {
+        // Allow setting screen if user exists OR if we are still loading (optimistic) OR if it's public (Login)
+        if (user || authLoading || initialScreen === Screen.LOGIN) {
             setCurrentScreen(initialScreen);
         }
 
         return () => window.removeEventListener('hashchange', handleHashChange);
-    }, [mounted, user]);
+    }, [mounted, user, authLoading]);
 
     // Dark mode effect
     useEffect(() => {
