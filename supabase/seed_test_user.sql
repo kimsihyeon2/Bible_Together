@@ -8,14 +8,47 @@
 -- IMPORTANT: Since Supabase auth.users is managed by the Auth service,
 -- we cannot directly insert into it via SQL. Instead, you should:
 -- 
+-- 1. Go to Supabase Dashboard > SQL Editor
+-- 2. Run this script completely.
+-- 3. It will DELETE the existing 'testuser@example.com' if it exists.
+-- 4. Then follow the manual steps below to recreate it.
+
+-- =============================================
+-- PART 1: CLEANUP (Auto-run)
+-- =============================================
+DO $$
+DECLARE
+    v_old_user_id uuid;
+BEGIN
+    SELECT id INTO v_old_user_id FROM auth.users WHERE email = 'testuser@example.com';
+    IF v_old_user_id IS NOT NULL THEN
+        -- Delete from dependent tables first
+        DELETE FROM public.cell_members WHERE user_id = v_old_user_id;
+        DELETE FROM public.profiles WHERE id = v_old_user_id;
+        
+        -- Finally delete from auth.users
+        DELETE FROM auth.users WHERE id = v_old_user_id;
+        RAISE NOTICE 'Cleaned up old test user';
+    END IF;
+END $$;
+
+-- =============================================
+-- PART 2: MANUAL CREATION REQURIED
+-- =============================================
+-- IMPORTANT: Since Supabase auth.users is managed by the Auth service,
+-- we cannot directly insert into it via SQL. Please:
+-- 
 -- 1. Go to Supabase Dashboard > Authentication > Users
 -- 2. Click "Add User" > "Create new user"
--- 3. Enter the following credentials:
---    - Email: testuser@bibletogether.com
+-- 3. Enter credentials:
+--    - Email: testuser@example.com
 --    - Password: TestPass123!
---    - (Check "Auto Confirm" if available, or confirm via email)
 -- 
--- After creating the user, run this script to add them to a cell:
+-- 4. THEN Run PART 3 (Select text below and run)
+
+-- =============================================
+-- PART 3: ASSIGN TO CELL
+-- =============================================
 -- 
 
 DO $$

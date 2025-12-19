@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import { AuthProvider } from "@/lib/auth-context";
 import { BibleProvider } from "@/lib/bible-context";
+import { GlobalLoader } from "@/components/GlobalLoader";
 
 export const metadata: Metadata = {
     title: "함께 성경 | Bible Together",
@@ -28,7 +29,7 @@ export default function RootLayout({
     children: React.ReactNode;
 }>) {
     return (
-        <html lang="ko" className="light">
+        <html lang="ko" className="light" suppressHydrationWarning>
             <head>
                 <link
                     href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;600;700;800&display=swap"
@@ -39,10 +40,12 @@ export default function RootLayout({
                     href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=swap"
                 />
             </head>
-            <body className="font-sans antialiased bg-background-light dark:bg-background-dark text-slate-900 dark:text-white">
+            <body className="font-sans antialiased bg-background-light dark:bg-background-dark text-slate-900 dark:text-white" suppressHydrationWarning>
                 <AuthProvider>
                     <BibleProvider>
-                        {children}
+                        <GlobalLoader>
+                            {children}
+                        </GlobalLoader>
                     </BibleProvider>
                 </AuthProvider>
             </body>
