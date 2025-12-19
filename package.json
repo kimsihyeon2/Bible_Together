@@ -20,8 +20,7 @@
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "ts-node": "^10.9.2",
-    "ytdl-core": "^4.11.5",
-    "ytpl": "^2.3.0"
+    "ytdl-core": "^4.11.5"
   },
   "devDependencies": {
     "@types/node": "^22.19.3",
