@@ -20,7 +20,7 @@ const messaging = firebase.messaging();
 messaging.onBackgroundMessage((payload) => {
     console.log('[firebase-messaging-sw.js] Received background message:', payload);
 
-    const notificationTitle = payload.notification?.title || '함께 성경';
+    const notificationTitle = payload.notification?.title || '그린 바이블';
     const notificationOptions = {
         body: payload.notification?.body || '새로운 알림이 있습니다.',
         icon: '/icons/icon-192x192.png',

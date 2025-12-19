@@ -78,7 +78,7 @@ export const LoadingScreen: React.FC<LoadingScreenProps> = ({ isLoading, message
                         <img src="/icon.png" className="w-full h-full object-contain relative z-10 drop-shadow-sm" alt="App Logo" />
                     </div>
                     <h1 className="text-slate-900 dark:text-white tracking-tight text-[32px] font-bold leading-tight text-center">
-                        함께 성경
+                        그린 바이블
                     </h1>
                     <p className="text-slate-500 dark:text-slate-400 text-sm font-medium mt-1">
                         공동체와 함께하는 말씀 묵상
