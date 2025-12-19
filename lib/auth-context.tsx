@@ -59,6 +59,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     useEffect(() => {
         // Get initial session with timeout
         const initializeAuth = async () => {
+            console.log('[Auth] initializeAuth started');
+            let session: Session | null = null;
             try {
                 const sessionPromise = supabase.auth.getSession();
                 const timeoutPromise = new Promise((_, reject) =>
@@ -67,10 +69,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
                 // Race between session check and timeout
                 const { data } = await Promise.race([sessionPromise, timeoutPromise]) as any;
-                const session = data?.session;
+                session = data?.session;
 
                 setSession(session);
                 setUser(session?.user ?? null);
+                console.log('[Auth] initializeAuth found session:', session?.user?.email);
                 if (session?.user) {
                     await fetchProfile(session.user.id);
                 }
@@ -80,7 +83,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                 setSession(null);
                 setUser(null);
             } finally {
-                setLoading(false);
+                if (session) {
+                    setLoading(false);
+                } else {
+                    // Slight delay to allow any pending auth state changes to fire
+                    console.log('[Auth] No session found in getSession, waiting 2000ms...');
+                    setTimeout(() => {
+                        console.log('[Auth] Setting loading=false after delay');
+                        setLoading(false);
+                    }, 2000);
+                }
             }
         };
 
@@ -89,6 +101,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         // Listen for auth changes
         const { data: { subscription } } = supabase.auth.onAuthStateChange(
             async (event, session) => {
+                console.log('[Auth] onAuthStateChange:', event, session?.user?.email);
+                // Ignore null sessions during initial load to prevent race conditions with getSession
+                if (loading && !session) {
+                    console.log('[Auth] Ignoring null session because loading=true');
+                    return;
+                }
+
                 setSession(session);
                 setUser(session?.user ?? null);
 
