@@ -10,23 +10,28 @@ interface LoadingScreenProps {
 }
 
 const VERSES = [
-    { text: "He makes me lie down in green pastures, he leads me beside quiet waters.", ref: "Psalm 23:2" },
-    { text: "For I know the plans I have for you, plans to prosper you and not to harm you, plans to give you hope and a future.", ref: "Jeremiah 29:11" },
-    { text: "I can do all this through him who gives me strength.", ref: "Philippians 4:13" },
-    { text: "But those who hope in the Lord will renew their strength. They will soar on wings like eagles.", ref: "Isaiah 40:31" },
-    { text: "Trust in the Lord with all your heart and lean not on your own understanding.", ref: "Proverbs 3:5" },
+    { text: "여호와는 나의 목자시니 내게 부족함이 없으리로다", ref: "시편 23:1" },
+    { text: "내게 능력 주시는 자 안에서 내가 모든 것을 할 수 있느니라", ref: "빌립보서 4:13" },
+    { text: "두려워하지 말라 내가 너와 함께 함이라 놀라지 말라 나는 네 하나님이 됨이라", ref: "이사야 41:10" },
+    { text: "사람이 마음으로 자기의 길을 계획할지라도 그의 걸음을 인도하시는 이는 여호와시니라", ref: "잠언 16:9" },
+    { text: "오직 여호와를 앙망하는 자는 새 힘을 얻으리니 독수리가 날개치며 올라감 같을 것이요", ref: "이사야 40:31" },
+    { text: "하나님이 세상을 이처럼 사랑하사 독생자를 주셨으니 이는 그를 믿는 자마다 멸망하지 않고 영생을 얻게 하려 하심이라", ref: "요한복음 3:16" },
+    { text: "항상 기뻐하라 쉬지 말고 기도하라 범사에 감사하라", ref: "데살로니가전서 5:16-18" },
 ];
 
 export const LoadingScreen: React.FC<LoadingScreenProps> = ({ isLoading, message }) => {
     const [verseIndex, setVerseIndex] = useState(0);
     const [progress, setProgress] = useState(0);
 
-    // Verse rotation timer
+    // Random initial verse + Rotation
     useEffect(() => {
         if (!isLoading) {
             setProgress(100);
             return;
         }
+
+        // Start with a random verse variation
+        setVerseIndex(Math.floor(Math.random() * VERSES.length));
 
         const interval = setInterval(() => {
             setVerseIndex((prev) => (prev + 1) % VERSES.length);
@@ -72,14 +77,14 @@ export const LoadingScreen: React.FC<LoadingScreenProps> = ({ isLoading, message
                         <span className="material-symbols-outlined text-primary text-4xl">local_library</span>
                     </div>
                     <h1 className="text-slate-900 dark:text-white tracking-tight text-[32px] font-bold leading-tight text-center">
-                        Bible Together
+                        함께 성경
                     </h1>
                     <p className="text-slate-500 dark:text-slate-400 text-sm font-medium mt-1">
-                        Loading your community...
+                        공동체와 함께하는 말씀 묵상
                     </p>
                 </div>
 
-                {/* Stitch Illustration Card */}
+                {/* Dynamic Illustration Card */}
                 <motion.div
                     initial={{ scale: 0.9, opacity: 0 }}
                     animate={{ scale: 1, opacity: 1 }}
@@ -88,10 +93,21 @@ export const LoadingScreen: React.FC<LoadingScreenProps> = ({ isLoading, message
                 >
                     <div
                         className="absolute inset-0 bg-cover bg-center transition-transform duration-1000"
-                        style={{ backgroundImage: 'url("/loading-stitch.png")', backgroundSize: 'contain', backgroundRepeat: 'no-repeat', backgroundPosition: 'center', backgroundColor: '#f0f9ff' }} // Added background color to match typical stitch aesthetics if transparency issues exist
+                        style={{
+                            backgroundImage: 'url("/loading-church.png")',
+                            backgroundSize: 'cover',
+                            backgroundRepeat: 'no-repeat',
+                            backgroundPosition: 'center',
+                        }}
                     />
                     {/* Gentle Overlay */}
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/10 to-transparent" />
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/30 to-transparent" />
+
+                    {/* Optional Badge */}
+                    <div className="absolute top-4 right-4 bg-white/90 dark:bg-slate-900/90 backdrop-blur-sm py-1 px-3 rounded-full flex items-center gap-1 shadow-sm">
+                        <span className="material-symbols-outlined text-primary text-sm">church</span>
+                        <span className="text-xs font-bold text-slate-700 dark:text-slate-200">Worship</span>
+                    </div>
                 </motion.div>
 
                 {/* Loading & Scripture Section */}
@@ -101,7 +117,7 @@ export const LoadingScreen: React.FC<LoadingScreenProps> = ({ isLoading, message
                     <div className="flex flex-col gap-3">
                         <div className="flex justify-between items-center">
                             <p className="text-slate-700 dark:text-slate-200 text-sm font-medium leading-normal">
-                                {message || "Loading daily scripture..."}
+                                {message || "말씀을 불러오고 있어요..."}
                             </p>
                             <span className="text-primary text-xs font-bold bg-primary/10 px-2 py-0.5 rounded-full">
                                 {Math.min(100, Math.round(progress))}%
@@ -118,7 +134,7 @@ export const LoadingScreen: React.FC<LoadingScreenProps> = ({ isLoading, message
                     </div>
 
                     {/* Rotating Scripture */}
-                    <div className="relative p-6 bg-white dark:bg-slate-800 rounded-xl border border-slate-100 dark:border-slate-700 shadow-sm min-h-[140px] flex flex-col justify-center">
+                    <div className="relative p-6 bg-white dark:bg-slate-800 rounded-xl border border-slate-100 dark:border-slate-700 shadow-sm min-h-[160px] flex flex-col justify-center">
                         <span className="material-symbols-outlined absolute top-4 left-4 text-primary/20 text-4xl select-none">format_quote</span>
                         <AnimatePresence mode="wait">
                             <motion.div
@@ -127,12 +143,12 @@ export const LoadingScreen: React.FC<LoadingScreenProps> = ({ isLoading, message
                                 animate={{ opacity: 1, y: 0 }}
                                 exit={{ opacity: 0, y: -10 }}
                                 transition={{ duration: 0.5 }}
-                                className="relative z-10"
+                                className="relative z-10 px-2"
                             >
-                                <p className="text-slate-800 dark:text-slate-100 text-lg font-medium leading-relaxed text-center italic">
+                                <p className="text-slate-800 dark:text-slate-100 text-lg font-medium leading-relaxed text-center break-keep">
                                     "{VERSES[verseIndex].text}"
                                 </p>
-                                <p className="text-slate-400 dark:text-slate-500 text-xs font-bold text-center mt-3 uppercase tracking-wider">
+                                <p className="text-slate-400 dark:text-slate-500 text-xs font-bold text-center mt-4 uppercase tracking-wider">
                                     {VERSES[verseIndex].ref}
                                 </p>
                             </motion.div>
