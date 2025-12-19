@@ -207,7 +207,7 @@ const PlanDetailScreen: React.FC<PlanDetailScreenProps> = ({ navigate, t }) => {
   const todayReading = JOHN_READING_SCHEDULE[currentDay - 1];
 
   return (
-    <div className="bg-gradient-to-b from-[#e0f2fe] to-[#dcfce7] dark:from-slate-900 dark:to-slate-800 text-slate-800 dark:text-slate-100 font-sans antialiased pb-24 selection:bg-green-200 min-h-screen">
+    <div className="bg-gradient-to-b from-[#e0f2fe] to-[#dcfce7] dark:from-slate-900 dark:to-slate-800 text-slate-800 dark:text-slate-100 font-sans antialiased pb-32 selection:bg-green-200 min-h-screen">
       <div className="relative z-10 flex flex-col h-full max-w-md mx-auto">
         {/* Header */}
         <div className="h-14 w-full flex items-center justify-between px-6 pt-2">

@@ -72,6 +72,20 @@ const config: Config = {
                 "ios": "0 4px 20px rgba(0, 0, 0, 0.05)",
                 "ios-lg": "0 10px 30px rgba(0, 0, 0, 0.08)",
                 "apple": "0 4px 12px rgba(0,0,0,0.05)",
+            },
+            keyframes: {
+                float: {
+                    '0%, 100%': { transform: 'translateY(0)' },
+                    '50%': { transform: 'translateY(-10px)' },
+                },
+                pop: {
+                    '0%': { transform: 'scale(0.95)', opacity: '0' },
+                    '100%': { transform: 'scale(1)', opacity: '1' },
+                },
+            },
+            animation: {
+                float: 'float 3s ease-in-out infinite',
+                pop: 'pop 0.3s ease-out forwards',
             }
         },
     },

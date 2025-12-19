@@ -145,9 +145,12 @@ export default function HomePage() {
     if (!mounted || authLoading) {
         return (
             <div className="min-h-screen flex items-center justify-center bg-background-light dark:bg-background-dark">
-                <div className="flex flex-col items-center gap-4">
-                    <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin"></div>
-                    <div className="text-primary text-xl font-semibold">함께 성경</div>
+                <div className="relative z-10 flex flex-col h-full max-w-md mx-auto min-h-screen pb-32">
+                    <div className="w-16 h-16 relative">
+                        <div className="absolute inset-0 border-4 border-gray-200 dark:border-gray-700 rounded-full"></div>
+                        <div className="absolute inset-0 border-4 border-primary border-t-transparent rounded-full animate-spin"></div>
+                        <img src="/icon.png" className="absolute inset-0 w-full h-full p-3 object-contain animate-pulse" alt="Logo" />
+                    </div>
                 </div>
             </div>
         );
@@ -184,7 +187,7 @@ export default function HomePage() {
         Screen.COMMUNITY,
         Screen.SETTINGS,
         Screen.PROGRESS,
-        Screen.CHAT,
+        // Screen.CHAT, // Hide BottomNav in Chat to allowing typed input
     ].includes(currentScreen);
 
     return (

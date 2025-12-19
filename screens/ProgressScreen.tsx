@@ -194,7 +194,7 @@ const ProgressScreen: React.FC<ProgressScreenProps> = ({ navigate, t }) => {
   }
 
   return (
-    <div className="bg-gradient-to-b from-[#e0f2fe] to-[#ecfccb] dark:from-slate-900 dark:to-slate-800 text-slate-800 dark:text-slate-100 font-sans antialiased min-h-screen pb-28">
+    <div className="bg-gradient-to-b from-[#e0f2fe] to-[#ecfccb] dark:from-slate-900 dark:to-slate-800 text-slate-800 dark:text-slate-100 font-sans antialiased min-h-screen pb-32">
       <div className="relative flex flex-col h-full max-w-md mx-auto">
 
         {/* Header */}
@@ -373,7 +373,7 @@ const ProgressScreen: React.FC<ProgressScreenProps> = ({ navigate, t }) => {
                   const isToday = day === today;
                   cells.push(
                     <div key={day} className={`h-8 w-8 rounded-full flex items-center justify-center text-xs font-bold mx-auto transition-all ${isRead ? 'bg-green-500 text-white shadow-md shadow-green-500/30' :
-                        isToday ? 'border-2 border-green-500 text-green-600' : 'text-slate-400'
+                      isToday ? 'border-2 border-green-500 text-green-600' : 'text-slate-400'
                       }`}>
                       {day}
                     </div>

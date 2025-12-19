@@ -73,8 +73,9 @@ export const LoadingScreen: React.FC<LoadingScreenProps> = ({ isLoading, message
 
                 {/* Logo Section */}
                 <div className="flex flex-col items-center mb-10">
-                    <div className="h-16 w-16 bg-white dark:bg-slate-800 rounded-2xl shadow-lg flex items-center justify-center mb-4 ring-1 ring-slate-100 dark:ring-slate-700">
-                        <span className="material-symbols-outlined text-primary text-4xl">local_library</span>
+                    <div className="h-20 w-20 relative mb-4 animate-float">
+                        <div className="absolute inset-0 bg-green-500/20 blur-xl rounded-full"></div>
+                        <img src="/icon.png" className="w-full h-full object-contain relative z-10 drop-shadow-sm" alt="App Logo" />
                     </div>
                     <h1 className="text-slate-900 dark:text-white tracking-tight text-[32px] font-bold leading-tight text-center">
                         함께 성경
