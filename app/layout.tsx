@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import { AuthProvider } from "@/lib/auth-context";
 import { BibleProvider } from "@/lib/bible-context";
+import { LoadingProvider } from "@/lib/loading-context";
 import { GlobalLoader } from "@/components/GlobalLoader";
 
 export const metadata: Metadata = {
@@ -43,9 +44,11 @@ export default function RootLayout({
             <body className="font-sans antialiased bg-background-light dark:bg-background-dark text-slate-900 dark:text-white" suppressHydrationWarning>
                 <AuthProvider>
                     <BibleProvider>
-                        <GlobalLoader>
-                            {children}
-                        </GlobalLoader>
+                        <LoadingProvider>
+                            <GlobalLoader>
+                                {children}
+                            </GlobalLoader>
+                        </LoadingProvider>
                     </BibleProvider>
                 </AuthProvider>
             </body>

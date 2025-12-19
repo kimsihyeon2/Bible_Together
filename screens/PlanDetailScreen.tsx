@@ -61,9 +61,14 @@ const JOHN_READING_SCHEDULE = [
   { day: 30, title: '대제사장의 기도', verses: '요한복음 17:1-26', chapter: 17 },
 ];
 
+import { useLoading } from '@/lib/loading-context';
+
+/* ... interfaces ... */
+
 const PlanDetailScreen: React.FC<PlanDetailScreenProps> = ({ navigate, t }) => {
   const { user, profile } = useAuth();
-  const [loading, setLoading] = useState(true);
+  const { showLoading, hideLoading } = useLoading();
+  // const [loading, setLoading] = useState(true); // Removed local state
   const [plan, setPlan] = useState<ReadingPlan | null>(null);
   const [userProgress, setUserProgress] = useState<UserProgress | null>(null);
   const [completing, setCompleting] = useState(false);
@@ -77,7 +82,7 @@ const PlanDetailScreen: React.FC<PlanDetailScreenProps> = ({ navigate, t }) => {
 
   const fetchPlanData = async () => {
     if (!user) return;
-    setLoading(true);
+    showLoading('오늘의 말씀을 불러오고 있어요...'); // Show global loader
 
     try {
       // 1. 선택된 플랜 ID 확인
@@ -150,7 +155,7 @@ const PlanDetailScreen: React.FC<PlanDetailScreenProps> = ({ navigate, t }) => {
     } catch (error) {
       console.error('Error fetching plan:', error);
     } finally {
-      setLoading(false);
+      hideLoading(); // Hide global loader
     }
   };
 
@@ -212,13 +217,7 @@ const PlanDetailScreen: React.FC<PlanDetailScreenProps> = ({ navigate, t }) => {
     navigate(Screen.BIBLE);
   };
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-screen bg-background-light dark:bg-background-dark">
-        <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin"></div>
-      </div>
-    );
-  }
+  //   if (loading) { ... } removed
 
   const currentDay = userProgress?.current_day || 1;
   const progressPercent = Math.round((currentDay / (plan?.total_days || 30)) * 100);
