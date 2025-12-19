@@ -120,9 +120,9 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ navigate, t }) => {
         {/* Logo & Title */}
         <div className="flex flex-col items-center mb-8 text-center">
           <div className="relative mb-6 group">
-            <div className="absolute inset-0 bg-primary rounded-[28px] blur-xl opacity-20"></div>
-            <div className="relative w-[88px] h-[88px] bg-surface-light dark:bg-surface-dark rounded-[28px] shadow-card flex items-center justify-center">
-              <span className="material-symbols-outlined text-primary text-[44px]">menu_book</span>
+            <div className="absolute inset-0 bg-primary rounded-[28px] blur-xl opacity-20 transition-opacity duration-500 group-hover:opacity-30"></div>
+            <div className="relative w-[88px] h-[88px] bg-surface-light dark:bg-surface-dark rounded-[28px] shadow-card flex items-center justify-center overflow-hidden ring-1 ring-black/5 dark:ring-white/10">
+              <img src="/icon.png" alt="Bible Together Logo" className="w-full h-full object-cover" />
             </div>
           </div>
           <h1 className="text-[28px] font-bold tracking-tight mb-2">
