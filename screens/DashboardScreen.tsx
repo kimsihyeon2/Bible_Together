@@ -297,24 +297,13 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({ navigate, isDarkMode,
               The new UI shows a list. I'll keep the UI with the user's activity as one item. */}
           <div className="pb-6">
             <h3 className="text-lg font-bold text-text-main-light dark:text-text-main-dark mb-4">{t.dashboard.latestActivity}</h3>
-            <motion.div
-              drag="y"
-              dragConstraints={{ top: 0, bottom: 0 }}
-              dragElastic={{ top: 0.2, bottom: 0.05 }}
-              onDragEnd={(event, info) => {
-                if (info.offset.y < -50) {
-                  navigate(Screen.CHAT);
-                }
-              }}
-              className="backdrop-blur-xl bg-white/70 dark:bg-slate-800/60 border border-white/60 dark:border-white/10 rounded-2xl shadow-sm divide-y divide-gray-100/50 dark:divide-gray-700 cursor-grab active:cursor-grabbing hover:shadow-md relative overflow-hidden"
-              whileTap={{ scale: 0.98 }}
+            <div
+              className="backdrop-blur-xl bg-white/70 dark:bg-slate-800/60 border border-white/60 dark:border-white/10 rounded-2xl shadow-sm divide-y divide-gray-100/50 dark:divide-gray-700 cursor-pointer group active:scale-95 transition-all duration-200 hover:shadow-md"
+              onClick={() => navigate(Screen.CHAT)}
             >
-              {/* Grip Handle for Swipe Hint */}
-              <div className="absolute top-2 left-1/2 -translate-x-1/2 w-12 h-1 bg-slate-200 dark:bg-slate-600 rounded-full opacity-50"></div>
-
               {/* Item 1: User's latest activity (if read today) */}
-              <div className="p-4 pt-6 flex items-center space-x-3 select-none">
-                <div className="w-10 h-10 rounded-full bg-green-100 dark:bg-green-900/40 flex items-center justify-center flex-shrink-0 text-green-700 dark:text-green-300 font-bold text-sm shadow-sm">
+              <div className="p-4 flex items-center space-x-3">
+                <div className="w-10 h-10 rounded-full bg-green-100 dark:bg-green-900/40 flex items-center justify-center flex-shrink-0 text-green-700 dark:text-green-300 font-bold text-sm shadow-sm group-hover:scale-110 transition-transform">
                   {getUserName().charAt(0).toUpperCase()}
                 </div>
                 <div className="flex-1">
@@ -330,48 +319,54 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({ navigate, isDarkMode,
                     )}
                   </p>
                 </div>
-                <motion.div
-                  className="text-slate-400"
-                  animate={{ y: [0, -3, 0] }}
-                  transition={{ repeat: Infinity, duration: 1.5, ease: "easeInOut" }}
-                >
-                  <span className="material-symbols-outlined rotate-90">chevron_right</span>
-                </motion.div>
+                <span className="material-symbols-outlined text-slate-400 group-hover:text-primary group-hover:translate-x-1 transition-all">chevron_right</span>
               </div>
-
-              {/* Swipe Up Hint Text */}
-              <div className="absolute bottom-1 w-full text-center opacity-0 hover:opacity-100 transition-opacity">
-                <span className="text-[10px] text-slate-400 font-medium">Swipe up to chat</span>
-              </div>
-            </motion.div>
+            </div>
           </div>
         </main>
 
-        <nav className="fixed bottom-0 left-0 right-0 bg-white/95 dark:bg-slate-900/95 backdrop-blur-xl border-t border-slate-100 dark:border-slate-800 pb-8 pt-4 px-6 z-50 rounded-t-[2rem] shadow-[0_-5px_20px_-5px_rgba(0,0,0,0.05)] max-w-md mx-auto">
-          <div className="flex justify-around items-center">
-            <button
-              onClick={() => navigate(Screen.PLAN_DETAIL)}
-              className="flex flex-col items-center space-y-1 group text-slate-400 hover:text-green-600 dark:hover:text-green-400 transition-colors"
-            >
-              <span className="material-symbols-outlined text-2xl group-hover:scale-110 transition-transform">menu_book</span>
-              <span className="text-[10px] font-medium tracking-wide">Plan</span>
-            </button>
-            <button
-              onClick={() => navigate(Screen.CHAT)}
-              className="flex flex-col items-center space-y-1 group text-slate-400 hover:text-sky-500 dark:hover:text-sky-400 transition-colors"
-            >
-              <span className="material-symbols-outlined text-2xl group-hover:scale-110 transition-transform">forum</span>
-              <span className="text-[10px] font-medium tracking-wide">Community</span>
-            </button>
-            <button
-              onClick={() => navigate(Screen.PROGRESS)}
-              className="flex flex-col items-center space-y-1 group text-slate-400 hover:text-purple-500 dark:hover:text-purple-400 transition-colors"
-            >
-              <span className="material-symbols-outlined text-2xl group-hover:scale-110 transition-transform">person</span>
-              <span className="text-[10px] font-medium tracking-wide">Profile</span>
-            </button>
-          </div>
-        </nav>
+        <motion.nav
+          className="fixed bottom-0 left-0 right-0 bg-white/95 dark:bg-slate-900/95 backdrop-blur-xl border-t border-slate-100 dark:border-slate-800 pb-8 pt-6 px-6 z-50 rounded-t-[2.5rem] shadow-[0_-5px_30px_-5px_rgba(0,0,0,0.1)] max-w-md mx-auto"
+        >
+          {/* Enhanced Grip Handle */}
+          <motion.div
+            drag="y"
+            dragConstraints={{ top: 0, bottom: 0 }}
+            dragElastic={{ top: 0.5, bottom: 0 }}
+            onDragEnd={(event, info) => {
+              if (info.offset.y < -60) {
+                navigate(Screen.CHAT);
+              }
+            }}
+          >
+            {/* Enhanced Grip Handle */}
+            <div className="absolute top-3 left-1/2 -translate-x-1/2 w-12 h-1.5 bg-slate-200 dark:bg-slate-700 rounded-full cursor-grab active:cursor-grabbing hover:bg-slate-300 transition-colors"></div>
+
+            <div className="flex justify-around items-center">
+              <button
+                onClick={() => navigate(Screen.PLAN_DETAIL)}
+                className="flex flex-col items-center space-y-1 group text-slate-400 hover:text-green-600 dark:hover:text-green-400 transition-colors"
+              >
+                <span className="material-symbols-outlined text-2xl group-hover:scale-110 transition-transform">menu_book</span>
+                <span className="text-[10px] font-medium tracking-wide">Plan</span>
+              </button>
+              <button
+                onClick={() => navigate(Screen.CHAT)}
+                className="flex flex-col items-center space-y-1 group text-slate-400 hover:text-sky-500 dark:hover:text-sky-400 transition-colors"
+              >
+                <span className="material-symbols-outlined text-2xl group-hover:scale-110 transition-transform">forum</span>
+                <span className="text-[10px] font-medium tracking-wide">Community</span>
+              </button>
+              <button
+                onClick={() => navigate(Screen.PROGRESS)}
+                className="flex flex-col items-center space-y-1 group text-slate-400 hover:text-purple-500 dark:hover:text-purple-400 transition-colors"
+              >
+                <span className="material-symbols-outlined text-2xl group-hover:scale-110 transition-transform">person</span>
+                <span className="text-[10px] font-medium tracking-wide">Profile</span>
+              </button>
+            </div>
+          </motion.div>
+        </motion.nav>
 
         {/* Toggle Dark Mode Floating (Since we removed header button) */}
         {/* Actually the original had it in header. I removed it from header in new design to match "Downtown Cell" text. 
