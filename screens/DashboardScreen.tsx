@@ -6,6 +6,7 @@ import { Screen } from '../types';
 import { Translations } from '../i18n';
 import { useAuth } from '@/lib/auth-context';
 import { UrgentPrayerList, CreateUrgentPrayerModal } from '@/components/UrgentPrayer';
+import { NotificationBell } from '@/components/NotificationBell';
 import { supabase } from '@/lib/supabase';
 
 interface DashboardScreenProps {
@@ -172,14 +173,9 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({ navigate, isDarkMode,
             <p className="text-xs font-bold tracking-wider text-primary uppercase drop-shadow-sm">{t.dashboard.cellName}</p>
             <h1 className="text-2xl font-bold text-text-main-light dark:text-text-main-dark">{t.dashboard.communityTitle}</h1>
           </div>
-          <div className="flex items-center space-x-4">
-            <button
-              onClick={() => setShowUrgentPrayers(true)}
-              className="relative text-text-sub-light dark:text-text-sub-dark hover:text-primary transition-colors"
-            >
-              <span className="material-symbols-outlined text-2xl">notifications</span>
-              {urgentPrayerCount > 0 && <span className="absolute top-0 right-0 w-2.5 h-2.5 bg-red-500 rounded-full border-2 border-white dark:border-background-dark"></span>}
-            </button>
+          <div className="flex items-center space-x-3">
+            {/* SOTA Notification Bell */}
+            <NotificationBell onPrayerClick={() => setShowUrgentPrayers(true)} />
             <div className="w-10 h-10 rounded-full bg-gradient-to-br from-green-300 to-green-500 p-0.5 shadow-md cursor-pointer" onClick={() => navigate(Screen.SETTINGS)}>
               <div className="w-full h-full rounded-full bg-surface-light flex items-center justify-center text-primary font-bold border-2 border-white dark:border-gray-800">
                 {getUserName().charAt(0).toUpperCase()}
