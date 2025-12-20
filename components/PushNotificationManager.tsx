@@ -3,6 +3,8 @@
 import { useEffect } from 'react';
 import { useAuth } from '@/lib/auth-context';
 
+import { UrgentAlertOverlay } from './UrgentAlertOverlay';
+
 // Component that handles automatic push notification registration
 // Runs AFTER login completes, does NOT block the login process
 export function PushNotificationManager() {
@@ -25,8 +27,10 @@ export function PushNotificationManager() {
         try {
             // Check if already registered
             const isRegistered = localStorage.getItem('push_registered') === 'true';
+
+            // Still set up listener even if registered
             if (isRegistered) {
-                console.log('Push already registered, skipping');
+                console.log('Push already registered, skipping registration but setting up listener');
                 setupForegroundListener();
                 return;
             }
@@ -38,7 +42,7 @@ export function PushNotificationManager() {
             }
 
             // Dynamic import to avoid blocking
-            const { requestNotificationPermission, onForegroundMessage } = await import('@/lib/firebase');
+            const { requestNotificationPermission } = await import('@/lib/firebase');
 
             // Add timeout to prevent endless waiting
             const tokenPromise = requestNotificationPermission();
@@ -77,7 +81,19 @@ export function PushNotificationManager() {
     const setupForegroundListener = async () => {
         try {
             const { onForegroundMessage } = await import('@/lib/firebase');
-            onForegroundMessage((payload) => {
+            onForegroundMessage((payload: any) => {
+                console.log('Foreground message:', payload);
+
+                // Check if urgent
+                const isUrgent = payload.data?.type === 'urgent_prayer' ||
+                    payload.data?.type === 'URGENT_PRAYER' ||
+                    payload.notification?.title?.includes('긴급');
+
+                if (isUrgent && (window as any).triggerUrgentAlert) {
+                    (window as any).triggerUrgentAlert(payload);
+                    return;
+                }
+
                 if (payload.notification) {
                     showInAppNotification(
                         payload.notification.title || '알림',
@@ -87,10 +103,11 @@ export function PushNotificationManager() {
             });
         } catch (e) {
             // Ignore
+            console.error('Foreground listener setup failed', e);
         }
     };
 
-    return null;
+    return <UrgentAlertOverlay />;
 }
 
 // Show in-app notification toast
