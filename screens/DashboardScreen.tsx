@@ -54,40 +54,68 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({ navigate, isDarkMode,
     return '좋은 저녁이에요,';
   };
 
-  // Fetch urgent prayer count and user stats
+  // Fetch data with PARALLEL queries for performance
   useEffect(() => {
     const fetchData = async () => {
-      // Urgent prayers count -> Notifications count
-      if (user) {
-        const { data: notifications } = await supabase
-          .from('notifications')
-          .select('id')
-          .eq('user_id', user.id)
-          .eq('is_read', false);
+      if (!user) return;
 
-        if (notifications) {
-          setUrgentPrayerCount(notifications.length);
+      try {
+        // Execute ALL queries in parallel (not sequential)
+        const [
+          notificationsResult,
+          cellMembershipResult,
+          dailyReadingsResult,
+          planProgressResult,
+          activitiesResult
+        ] = await Promise.all([
+          // 1. Notifications count
+          supabase
+            .from('notifications')
+            .select('id')
+            .eq('user_id', user.id)
+            .eq('is_read', false),
+
+          // 2. Cell membership check
+          supabase
+            .from('cell_members')
+            .select('cell_id')
+            .eq('user_id', user.id)
+            .maybeSingle(),
+
+          // 3. Daily readings for streak
+          supabase
+            .from('daily_readings')
+            .select('reading_date')
+            .eq('user_id', user.id)
+            .order('reading_date', { ascending: false })
+            .limit(365),
+
+          // 4. Reading plan progress
+          supabase
+            .from('user_reading_progress')
+            .select('id, current_day, reading_plans(id, name, total_days, cover_image_url)')
+            .eq('user_id', user.id)
+            .eq('completed', false),
+
+          // 5. Recent activity
+          supabase
+            .from('cell_activities')
+            .select('*')
+            .eq('user_id', user.id)
+            .order('created_at', { ascending: false })
+            .limit(1)
+        ]);
+
+        // Process notifications
+        if (notificationsResult.data) {
+          setUrgentPrayerCount(notificationsResult.data.length);
         }
-      }
 
-      // User stats
-      if (user) {
-        // Check cell membership
-        const { data: cellMembership } = await supabase
-          .from('cell_members')
-          .select('cell_id')
-          .eq('user_id', user.id)
-          .maybeSingle();
-        setHasCell(!!cellMembership);
+        // Process cell membership
+        setHasCell(!!cellMembershipResult.data);
 
-        // Daily readings for streak
-        const { data: dailyReadings } = await supabase
-          .from('daily_readings')
-          .select('reading_date')
-          .eq('user_id', user.id)
-          .order('reading_date', { ascending: false });
-
-        // Calculate streak
+        // Process daily readings & calculate streak
+        const dailyReadings = dailyReadingsResult.data;
         let streak = 0;
         const today = new Date();
         today.setHours(0, 0, 0, 0);
@@ -105,20 +133,12 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({ navigate, isDarkMode,
           }
         }
 
-        // Reading plan progress
-        const { data: planProgress } = await supabase
-          .from('user_reading_progress')
-          .select('id, current_day, reading_plans(id, name, total_days, cover_image_url)')
-          .eq('user_id', user.id)
-          .eq('completed', false);
-
+        // Process reading plan progress
+        const planProgress = planProgressResult.data;
         if (planProgress && planProgress.length > 0) {
           setActivePlans(planProgress);
-
           const mainPlanProgress = planProgress[0];
           const readingPlan = mainPlanProgress.reading_plans as any;
-
-          // 오늘 읽을 장 계산 (요한복음 1장부터 시작)
           const currentDay = mainPlanProgress.current_day || 1;
           const todayReadingText = readingPlan?.name ? `${readingPlan.name.split(' ')[0]} ${currentDay}장` : '요한복음 1장';
 
@@ -145,19 +165,17 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({ navigate, isDarkMode,
           });
         }
 
-        // Fetch Recent Activity
-        const { data: activities } = await supabase
-          .from('cell_activities')
-          .select('*')
-          .eq('user_id', user.id)
-          .order('created_at', { ascending: false })
-          .limit(1);
-
-        if (activities && activities.length > 0) {
-          setRecentActivity(activities[0]);
+        // Process recent activity
+        if (activitiesResult.data && activitiesResult.data.length > 0) {
+          setRecentActivity(activitiesResult.data[0]);
         }
+
+      } catch (error) {
+        console.error('Dashboard data fetch error:', error);
+        // Don't block UI on error - show default state
       }
     };
+
     fetchData();
   }, [user]);
 
@@ -327,8 +345,8 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({ navigate, isDarkMode,
               >
                 <div className="p-4 flex items-center space-x-3">
                   <div className={`w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 font-bold text-sm shadow-sm group-hover:scale-110 transition-transform ${recentActivity.type === 'READING' ? 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300' :
-                      recentActivity.type === 'PRAYER' ? 'bg-pink-100 text-pink-600 dark:bg-pink-900/40 dark:text-pink-300' :
-                        'bg-blue-100 text-blue-600 dark:bg-blue-900/40 dark:text-blue-300'
+                    recentActivity.type === 'PRAYER' ? 'bg-pink-100 text-pink-600 dark:bg-pink-900/40 dark:text-pink-300' :
+                      'bg-blue-100 text-blue-600 dark:bg-blue-900/40 dark:text-blue-300'
                     }`}>
                     <span className="material-symbols-outlined text-xl">
                       {recentActivity.type === 'READING' ? 'menu_book' : recentActivity.type === 'PRAYER' ? 'volunteer_activism' : 'history'}

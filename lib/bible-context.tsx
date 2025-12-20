@@ -23,18 +23,39 @@ export const BibleProvider = ({ children }: { children: ReactNode }) => {
                 return;
             }
 
-            try {
-                // 1. Try to fetch from network (browser cache will handle subsequent loads)
-                const res = await fetch('/bible/ko_krv.json', { cache: 'force-cache' });
-                if (!res.ok) throw new Error('Failed to fetch Bible data');
-                const data = await res.json();
+            const fetchWithTimeout = async (url: string, timeout: number) => {
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => controller.abort(), timeout);
+                try {
+                    const res = await fetch(url, {
+                        cache: 'force-cache',
+                        signal: controller.signal
+                    });
+                    clearTimeout(timeoutId);
+                    return res;
+                } catch (e) {
+                    clearTimeout(timeoutId);
+                    throw e;
+                }
+            };
 
-                // 2. Set to memory cache
-                bibleCache = data;
-                setIsLoaded(true);
-            } catch (error) {
-                console.error('Bible load error:', error);
-                // Retry logic could be added here
+            // Retry up to 2 times
+            for (let attempt = 0; attempt < 2; attempt++) {
+                try {
+                    const res = await fetchWithTimeout('/bible/ko_krv.json', 15000); // 15s timeout
+                    if (!res.ok) throw new Error('Failed to fetch Bible data');
+                    const data = await res.json();
+                    bibleCache = data;
+                    setIsLoaded(true);
+                    return;
+                } catch (error) {
+                    console.error(`Bible load attempt ${attempt + 1} failed:`, error);
+                    if (attempt === 1) {
+                        // Final failure - still mark as loaded to prevent blocking
+                        console.error('Bible load failed after retries, continuing with empty state');
+                        setIsLoaded(true);
+                    }
+                }
             }
         };
 

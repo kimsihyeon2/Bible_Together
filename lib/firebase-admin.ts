@@ -14,7 +14,9 @@ function initializeFirebaseAdmin() {
         const serviceAccountKey = process.env.FIREBASE_SERVICE_ACCOUNT_KEY;
 
         if (!serviceAccountKey) {
-            console.log('Firebase Admin: FIREBASE_SERVICE_ACCOUNT_KEY not set, push notifications disabled');
+            console.warn('⚠️ Firebase Admin: FIREBASE_SERVICE_ACCOUNT_KEY not set in environment variables');
+            console.warn('   Push notifications will NOT work until this is configured in Vercel.');
+            console.warn('   Get your service account key from: Firebase Console > Project Settings > Service Accounts');
             return false;
         }
 
@@ -25,10 +27,11 @@ function initializeFirebaseAdmin() {
         });
 
         isInitialized = true;
-        console.log('Firebase Admin initialized successfully');
+        console.log('✅ Firebase Admin initialized successfully - Push notifications enabled');
         return true;
     } catch (error) {
-        console.error('Firebase Admin initialization failed:', error);
+        console.error('❌ Firebase Admin initialization failed:', error);
+        console.error('   Check that FIREBASE_SERVICE_ACCOUNT_KEY is valid JSON');
         return false;
     }
 }
