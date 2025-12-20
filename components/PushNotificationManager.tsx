@@ -1,81 +1,101 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useAuth } from '@/lib/auth-context';
-
 import { UrgentAlertOverlay } from './UrgentAlertOverlay';
 
 // Component that handles automatic push notification registration
-// Runs AFTER login completes, does NOT block the login process
+// NOW: Immediately prompts for permission when user logs in
 export function PushNotificationManager() {
     const { user } = useAuth();
+    const [showPrompt, setShowPrompt] = useState(false);
+    const [isRegistering, setIsRegistering] = useState(false);
 
     useEffect(() => {
         if (!user || typeof window === 'undefined') return;
 
-        // Run push setup in background with a delay to not block login
-        const timeoutId = setTimeout(() => {
-            setupPushNotifications();
-        }, 3000); // Wait 3 seconds after login before trying push
-
-        return () => {
-            clearTimeout(timeoutId);
-        };
+        // Check immediately if we need to show the prompt
+        checkAndPrompt();
+        setupForegroundListener();
     }, [user]);
 
-    const setupPushNotifications = async () => {
+    const checkAndPrompt = async () => {
+        // Check if already registered
+        const isRegistered = localStorage.getItem('push_registered') === 'true';
+        if (isRegistered) {
+            console.log('✅ Push already registered');
+            return;
+        }
+
+        // Check if notifications are supported
+        if (!('Notification' in window) || !('serviceWorker' in navigator)) {
+            console.log('Push notifications not supported');
+            return;
+        }
+
+        // Check current permission status
+        const permission = Notification.permission;
+
+        if (permission === 'denied') {
+            console.log('Push permission denied by user');
+            // Don't show prompt if already denied
+            return;
+        }
+
+        if (permission === 'default') {
+            // Never asked - show the prompt modal immediately!
+            setShowPrompt(true);
+        } else if (permission === 'granted') {
+            // Permission granted but not registered - try to register
+            await registerPushToken();
+        }
+    };
+
+    const registerPushToken = async () => {
+        setIsRegistering(true);
         try {
-            // Check if already registered
-            const isRegistered = localStorage.getItem('push_registered') === 'true';
-
-            // Still set up listener even if registered
-            if (isRegistered) {
-                console.log('Push already registered, skipping registration but setting up listener');
-                setupForegroundListener();
-                return;
-            }
-
-            // Check if notifications are supported
-            if (!('Notification' in window) || !('serviceWorker' in navigator)) {
-                console.log('Push notifications not supported');
-                return;
-            }
-
-            // Dynamic import to avoid blocking
             const { requestNotificationPermission } = await import('@/lib/firebase');
 
-            // Add timeout to prevent endless waiting
             const tokenPromise = requestNotificationPermission();
             const timeoutPromise = new Promise<null>((_, reject) =>
-                setTimeout(() => reject(new Error('FCM token request timeout')), 10000)
+                setTimeout(() => reject(new Error('FCM token request timeout')), 15000)
             );
 
             const fcmToken = await Promise.race([tokenPromise, timeoutPromise]);
 
             if (fcmToken) {
-                // Register token with backend (non-blocking)
-                fetch('/api/register-push', {
+                const response = await fetch('/api/register-push', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
                         userId: user?.id,
                         fcmToken,
-                        deviceInfo: navigator.userAgent.substring(0, 50),
+                        deviceInfo: navigator.userAgent.substring(0, 100),
                     }),
-                }).then(response => {
-                    if (response.ok) {
-                        localStorage.setItem('push_registered', 'true');
-                        localStorage.setItem('fcm_token', fcmToken);
-                        console.log('✅ Push notifications registered');
-                    }
-                }).catch(err => console.log('Push registration failed:', err));
+                });
+
+                if (response.ok) {
+                    localStorage.setItem('push_registered', 'true');
+                    localStorage.setItem('fcm_token', fcmToken);
+                    console.log('✅ Push notifications registered successfully!');
+                }
             }
-
-            setupForegroundListener();
-
         } catch (error) {
-            console.log('Push setup skipped:', error);
+            console.error('Push registration failed:', error);
+        } finally {
+            setIsRegistering(false);
+            setShowPrompt(false);
         }
+    };
+
+    const handleAllowNotifications = async () => {
+        await registerPushToken();
+    };
+
+    const handleDenyNotifications = () => {
+        // User clicked "나중에" - don't show again for this session
+        localStorage.setItem('push_prompt_dismissed', Date.now().toString());
+        setShowPrompt(false);
     };
 
     const setupForegroundListener = async () => {
@@ -84,7 +104,6 @@ export function PushNotificationManager() {
             onForegroundMessage((payload: any) => {
                 console.log('Foreground message:', payload);
 
-                // Check if urgent
                 const isUrgent = payload.data?.type === 'urgent_prayer' ||
                     payload.data?.type === 'URGENT_PRAYER' ||
                     payload.notification?.title?.includes('긴급');
@@ -102,12 +121,66 @@ export function PushNotificationManager() {
                 }
             });
         } catch (e) {
-            // Ignore
             console.error('Foreground listener setup failed', e);
         }
     };
 
-    return <UrgentAlertOverlay />;
+    return (
+        <>
+            <UrgentAlertOverlay />
+
+            {/* Push Permission Prompt Modal */}
+            {showPrompt && (
+                <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 p-4 animate-fadeIn">
+                    <div className="bg-white dark:bg-slate-800 rounded-3xl shadow-2xl w-full max-w-sm overflow-hidden transform animate-scaleUp">
+                        {/* Header with bell animation */}
+                        <div className="bg-gradient-to-br from-primary to-green-500 p-8 text-center">
+                            <div className="w-20 h-20 mx-auto bg-white/20 rounded-full flex items-center justify-center mb-4 animate-bounce">
+                                <span className="text-5xl">🔔</span>
+                            </div>
+                            <h2 className="text-2xl font-bold text-white">알림을 켜주세요!</h2>
+                        </div>
+
+                        {/* Content */}
+                        <div className="p-6">
+                            <p className="text-center text-slate-600 dark:text-slate-300 mb-2">
+                                <strong className="text-primary">긴급 기도 요청</strong>이 올라오면
+                            </p>
+                            <p className="text-center text-slate-600 dark:text-slate-300 mb-6">
+                                바로 알림을 받을 수 있어요 🙏
+                            </p>
+
+                            <div className="space-y-3">
+                                <button
+                                    onClick={handleAllowNotifications}
+                                    disabled={isRegistering}
+                                    className="w-full py-4 bg-primary hover:bg-primary/90 text-white rounded-2xl font-bold text-lg shadow-lg shadow-primary/30 transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+                                >
+                                    {isRegistering ? (
+                                        <>
+                                            <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                                            등록 중...
+                                        </>
+                                    ) : (
+                                        <>
+                                            <span className="material-symbols-outlined">notifications_active</span>
+                                            알림 허용하기
+                                        </>
+                                    )}
+                                </button>
+                                <button
+                                    onClick={handleDenyNotifications}
+                                    className="w-full py-3 text-slate-400 hover:text-slate-600 transition-colors text-sm"
+                                >
+                                    나중에 할게요
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+        </>
+    );
 }
 
 // Show in-app notification toast

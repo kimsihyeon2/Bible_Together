@@ -8,31 +8,38 @@
     -moz-osx-font-smoothing: grayscale;
     -webkit-tap-highlight-color: transparent;
   }
-  
+
   .material-symbols-outlined {
     font-variation-settings: 'FILL' 1, 'wght' 500, 'GRAD' 0, 'opsz' 24;
   }
 }
 
 @layer components {
+
   /* Hide Scrollbar */
-  .no-scrollbar::-webkit-scrollbar { display: none; }
-  .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
-  
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+
+  .no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+
   .glass-nav {
     background: rgba(255, 255, 255, 0.85);
     backdrop-filter: blur(20px);
     -webkit-backdrop-filter: blur(20px);
   }
-  
+
   .dark .glass-nav {
     background: rgba(28, 28, 30, 0.85);
   }
-  
+
   .pb-safe {
     padding-bottom: env(safe-area-inset-bottom, 20px);
   }
-  
+
   .ios-toggle {
     appearance: none;
     width: 51px;
@@ -43,11 +50,11 @@
     cursor: pointer;
     transition: background 0.3s ease;
   }
-  
+
   .ios-toggle:checked {
     background: #34C759;
   }
-  
+
   .ios-toggle::before {
     content: "";
     position: absolute;
@@ -57,28 +64,65 @@
     height: 27px;
     background: white;
     border-radius: 50%;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
     transition: transform 0.3s ease;
   }
-  
+
   .ios-toggle:checked::before {
     transform: translateX(20px);
   }
-  
+
   .shadow-glow {
     box-shadow: 0 0 32px rgba(52, 199, 89, 0.25);
   }
-  
+
   .shadow-subtle {
-    box-shadow: 0 1px 2px rgba(0,0,0,0.08);
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08);
   }
-  
+
   .animate-pop {
     animation: pop 0.25s ease-out;
   }
-  
+
   @keyframes pop {
-    0% { transform: scale(0.95); opacity: 0; }
-    100% { transform: scale(1); opacity: 1; }
+    0% {
+      transform: scale(0.95);
+      opacity: 0;
+    }
+
+    100% {
+      transform: scale(1);
+      opacity: 1;
+    }
+  }
+
+  .animate-fadeIn {
+    animation: fadeIn 0.3s ease-out;
+  }
+
+  @keyframes fadeIn {
+    0% {
+      opacity: 0;
+    }
+
+    100% {
+      opacity: 1;
+    }
+  }
+
+  .animate-scaleUp {
+    animation: scaleUp 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+
+  @keyframes scaleUp {
+    0% {
+      transform: scale(0.8);
+      opacity: 0;
+    }
+
+    100% {
+      transform: scale(1);
+      opacity: 1;
+    }
   }
 }
