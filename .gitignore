@@ -52,3 +52,5 @@ coverage
 # Misc
 *.local
 build_log.txt
+
+types_db.ts
