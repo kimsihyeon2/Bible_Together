@@ -59,40 +59,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     useEffect(() => {
         // Get initial session with timeout
         const initializeAuth = async () => {
-            console.log('[Auth] initializeAuth started');
-            let session: Session | null = null;
             try {
-                const sessionPromise = supabase.auth.getSession();
-                const timeoutPromise = new Promise((_, reject) =>
-                    setTimeout(() => reject(new Error('Auth check timeout')), 15000)
-                );
-
-                // Race between session check and timeout
-                const { data } = await Promise.race([sessionPromise, timeoutPromise]) as any;
-                session = data?.session;
+                const { data } = await supabase.auth.getSession();
+                const session = data?.session;
 
                 setSession(session);
                 setUser(session?.user ?? null);
-                console.log('[Auth] initializeAuth found session:', session?.user?.email);
+
                 if (session?.user) {
-                    await fetchProfile(session.user.id);
+                    // Fetch profile in background, don't block loading
+                    fetchProfile(session.user.id);
                 }
             } catch (err) {
-                console.error('Session check failed or timed out:', err);
-                // Fail gracefully
+                console.error('Session check failed:', err);
                 setSession(null);
                 setUser(null);
             } finally {
-                if (session) {
-                    setLoading(false);
-                } else {
-                    // Slight delay to allow any pending auth state changes to fire
-                    console.log('[Auth] No session found in getSession, waiting 2000ms...');
-                    setTimeout(() => {
-                        console.log('[Auth] Setting loading=false after delay');
-                        setLoading(false);
-                    }, 2000);
-                }
+                // Always set loading to false immediately
+                setLoading(false);
             }
         };
 
@@ -100,25 +84,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
         // Listen for auth changes
         const { data: { subscription } } = supabase.auth.onAuthStateChange(
-            async (event, session) => {
-                console.log('[Auth] onAuthStateChange:', event, session?.user?.email);
-                // Ignore null sessions during initial load to prevent race conditions with getSession
-                if (loading && !session) {
-                    console.log('[Auth] Ignoring null session because loading=true');
-                    return;
-                }
-
+            (event, session) => {
                 setSession(session);
                 setUser(session?.user ?? null);
 
                 if (session?.user) {
-                    await fetchProfile(session.user.id);
+                    // Non-blocking profile fetch
+                    fetchProfile(session.user.id);
                 } else {
                     setProfile(null);
                 }
-
-                // Do not set loading(false) here. Let initializeAuth handle the initial load completion.
-                // This prevents race conditions where the listener fires before the profile fetch or initial check is fully done.
             }
         );
 
