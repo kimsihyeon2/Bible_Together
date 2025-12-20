@@ -1,28 +1,40 @@
 import admin from 'firebase-admin';
 
-// Initialize Firebase Admin SDK (only once)
-if (!admin.apps.length) {
-    try {
-        // Option 1: Use service account JSON from env
-        const serviceAccount = process.env.FIREBASE_SERVICE_ACCOUNT_KEY
-            ? JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_KEY)
-            : null;
+// Flag to track if Firebase Admin is properly initialized
+let isInitialized = false;
 
-        if (serviceAccount) {
-            admin.initializeApp({
-                credential: admin.credential.cert(serviceAccount),
-            });
-        } else {
-            // Option 2: Use default credentials (for Google Cloud environments)
-            admin.initializeApp({
-                credential: admin.credential.applicationDefault(),
-            });
+// Initialize Firebase Admin SDK (only once)
+function initializeFirebaseAdmin() {
+    if (admin.apps.length > 0) {
+        isInitialized = true;
+        return true;
+    }
+
+    try {
+        const serviceAccountKey = process.env.FIREBASE_SERVICE_ACCOUNT_KEY;
+
+        if (!serviceAccountKey) {
+            console.log('Firebase Admin: FIREBASE_SERVICE_ACCOUNT_KEY not set, push notifications disabled');
+            return false;
         }
-        console.log('Firebase Admin initialized');
+
+        const serviceAccount = JSON.parse(serviceAccountKey);
+
+        admin.initializeApp({
+            credential: admin.credential.cert(serviceAccount),
+        });
+
+        isInitialized = true;
+        console.log('Firebase Admin initialized successfully');
+        return true;
     } catch (error) {
-        console.error('Firebase Admin initialization error:', error);
+        console.error('Firebase Admin initialization failed:', error);
+        return false;
     }
 }
+
+// Try to initialize on module load
+initializeFirebaseAdmin();
 
 export const firebaseAdmin = admin;
 
@@ -33,6 +45,12 @@ export async function sendPushNotification(
     body: string,
     data?: Record<string, string>
 ): Promise<{ successCount: number; failureCount: number; failedTokens: string[] }> {
+    // Check if Firebase is initialized
+    if (!isInitialized) {
+        console.log('Firebase Admin not initialized, skipping push');
+        return { successCount: 0, failureCount: 0, failedTokens: [] };
+    }
+
     if (!tokens.length) {
         return { successCount: 0, failureCount: 0, failedTokens: [] };
     }
@@ -99,7 +117,7 @@ export async function sendPushNotification(
         };
     } catch (error) {
         console.error('Error sending push notification:', error);
-        throw error;
+        return { successCount: 0, failureCount: 0, failedTokens: [] };
     }
 }
 
@@ -110,6 +128,10 @@ export async function sendPushToToken(
     body: string,
     data?: Record<string, string>
 ): Promise<boolean> {
+    if (!isInitialized) {
+        return false;
+    }
+
     try {
         await admin.messaging().send({
             token,

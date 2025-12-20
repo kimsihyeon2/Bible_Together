@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServerSupabaseClient } from '@/lib/supabase-server';
-import { sendPushNotification } from '@/lib/firebase-admin';
 
-// POST: Create urgent prayer and send push notification to all users
+// POST: Create urgent prayer and optionally send push notification
 export async function POST(request: NextRequest) {
     try {
         const body = await request.json();
@@ -17,7 +16,7 @@ export async function POST(request: NextRequest) {
 
         const supabase = createServerSupabaseClient();
 
-        // Check if user has PASTOR role (admin)
+        // Check if user has PASTOR role (admin) - optional check
         if (userId) {
             const { data: profile } = await supabase
                 .from('profiles')
@@ -54,59 +53,71 @@ export async function POST(request: NextRequest) {
             );
         }
 
-        // Create notification record
-        await supabase.from('notifications').insert({
-            title: `🙏 긴급 기도 요청: ${title}`,
-            body: content,
-            target: 'ALL',
-            created_by: userId,
-        });
-
-        // Get ALL active FCM tokens for push notifications
-        const { data: subscriptions, error: subsError } = await supabase
-            .from('push_subscriptions')
-            .select('fcm_token')
-            .eq('is_active', true);
-
-        if (subsError) {
-            console.error('Error fetching subscriptions:', subsError);
+        // Create notification record (optional - don't fail if table doesn't exist)
+        try {
+            await supabase.from('notifications').insert({
+                title: `🙏 긴급 기도 요청: ${title}`,
+                body: content,
+                target: 'ALL',
+                created_by: userId,
+            });
+        } catch (notifError) {
+            console.log('Notification table may not exist, skipping:', notifError);
         }
 
-        let pushResult = { successCount: 0, failureCount: 0, failedTokens: [] as string[] };
+        // Try to send push notifications if Firebase Admin is configured
+        let pushResult = { successCount: 0, failureCount: 0, total: 0 };
 
-        // Send push notifications to all subscribers
-        if (subscriptions && subscriptions.length > 0) {
-            const tokens = subscriptions.map((s: { fcm_token: string }) => s.fcm_token).filter(Boolean);
+        try {
+            // Check if push_subscriptions table exists and has tokens
+            const { data: subscriptions, error: subsError } = await supabase
+                .from('push_subscriptions')
+                .select('fcm_token')
+                .eq('is_active', true);
 
-            try {
-                pushResult = await sendPushNotification(
-                    tokens,
-                    `🙏 긴급 기도: ${title}`,
-                    content.substring(0, 100) + (content.length > 100 ? '...' : ''),
-                    { type: 'urgent_prayer', prayerId: prayer.id }
-                );
+            if (!subsError && subscriptions && subscriptions.length > 0) {
+                // Only try Firebase if we have tokens
+                const { sendPushNotification } = await import('@/lib/firebase-admin');
 
-                // Deactivate failed tokens
-                if (pushResult.failedTokens.length > 0) {
-                    await supabase
-                        .from('push_subscriptions')
-                        .update({ is_active: false })
-                        .in('fcm_token', pushResult.failedTokens);
+                const tokens = subscriptions
+                    .map((s: { fcm_token: string }) => s.fcm_token)
+                    .filter(Boolean);
+
+                if (tokens.length > 0) {
+                    const result = await sendPushNotification(
+                        tokens,
+                        `🙏 긴급 기도: ${title}`,
+                        content.substring(0, 100) + (content.length > 100 ? '...' : ''),
+                        { type: 'urgent_prayer', prayerId: prayer.id }
+                    );
+
+                    pushResult = {
+                        successCount: result.successCount,
+                        failureCount: result.failureCount,
+                        total: tokens.length,
+                    };
+
+                    // Deactivate failed tokens
+                    if (result.failedTokens.length > 0) {
+                        await supabase
+                            .from('push_subscriptions')
+                            .update({ is_active: false })
+                            .in('fcm_token', result.failedTokens);
+                    }
                 }
-            } catch (pushError) {
-                console.error('Push notification error:', pushError);
             }
+        } catch (pushError) {
+            // Firebase Admin not configured or push failed - that's OK
+            console.log('Push notification skipped (Firebase not configured):', pushError);
         }
 
         return NextResponse.json({
             success: true,
             prayer,
-            push: {
-                sent: pushResult.successCount,
-                failed: pushResult.failureCount,
-                total: subscriptions?.length || 0,
-            },
-            message: `기도 요청이 저장되었습니다. ${pushResult.successCount}명에게 알림을 전송했습니다.`,
+            push: pushResult,
+            message: pushResult.successCount > 0
+                ? `기도 요청이 저장되었습니다. ${pushResult.successCount}명에게 알림을 전송했습니다.`
+                : '기도 요청이 저장되었습니다.',
         });
 
     } catch (error) {
