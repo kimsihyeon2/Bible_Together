@@ -46,6 +46,7 @@ const AdminScreen: React.FC<AdminScreenProps> = ({ navigate, t }) => {
     // Modal States
     const [showCreateParish, setShowCreateParish] = useState(false);
     const [newParishName, setNewParishName] = useState('');
+    const [newParishCode, setNewParishCode] = useState('');
 
     const [showCreateCell, setShowCreateCell] = useState(false);
     const [newCellName, setNewCellName] = useState('');
@@ -95,10 +96,14 @@ const AdminScreen: React.FC<AdminScreenProps> = ({ navigate, t }) => {
 
     // Create Parish
     const handleCreateParish = async () => {
-        if (!newParishName.trim()) return;
-        const { error } = await supabase.from('parishes').insert({ name: newParishName });
+        if (!newParishName.trim() || !newParishCode.trim()) return;
+        const { error } = await supabase.from('parishes').insert({
+            name: newParishName,
+            invite_code: newParishCode
+        });
         if (!error) {
             setNewParishName('');
+            setNewParishCode('');
             setShowCreateParish(false);
             fetchData();
         } else {
@@ -327,7 +332,8 @@ const AdminScreen: React.FC<AdminScreenProps> = ({ navigate, t }) => {
                 <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
                     <div className="bg-white dark:bg-slate-900 p-6 rounded-2xl w-full max-w-sm">
                         <h3 className="font-bold text-lg mb-4">새 교구 추가</h3>
-                        <input value={newParishName} onChange={e => setNewParishName(e.target.value)} placeholder="교구 이름 (예: 믿음교구)" className="w-full p-3 bg-slate-100 dark:bg-slate-800 rounded-xl mb-4" />
+                        <input value={newParishName} onChange={e => setNewParishName(e.target.value)} placeholder="교구 이름 (예: 믿음교구)" className="w-full p-3 bg-slate-100 dark:bg-slate-800 rounded-xl mb-2" />
+                        <input value={newParishCode} onChange={e => setNewParishCode(e.target.value)} placeholder="초대 코드 (예: FAITH)" className="w-full p-3 bg-slate-100 dark:bg-slate-800 rounded-xl mb-4" />
                         <div className="flex gap-2">
                             <button onClick={() => setShowCreateParish(false)} className="flex-1 py-3 bg-slate-200 rounded-xl">취소</button>
                             <button onClick={handleCreateParish} className="flex-1 py-3 bg-primary text-white rounded-xl">생성</button>
