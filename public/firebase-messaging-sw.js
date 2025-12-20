@@ -20,20 +20,10 @@ const messaging = firebase.messaging();
 messaging.onBackgroundMessage((payload) => {
     console.log('[firebase-messaging-sw.js] Received background message:', payload);
 
-    const notificationTitle = payload.notification?.title || '그린 바이블';
-    const notificationOptions = {
-        body: payload.notification?.body || '새로운 알림이 있습니다.',
-        icon: '/icons/icon-192x192.png',
-        badge: '/icons/icon-72x72.png',
-        vibrate: [100, 50, 100],
-        data: payload.data,
-        actions: [
-            { action: 'open', title: '열기' },
-            { action: 'close', title: '닫기' }
-        ]
-    };
+    // browser will handle the notification display automatically because we are sending "notification" payload
+    // calling showNotification here causes a duplicate notification
 
-    self.registration.showNotification(notificationTitle, notificationOptions);
+    // If we wanted to handle data-only messages, we would check for payload.notification being undefined
 });
 
 // Notification click handler

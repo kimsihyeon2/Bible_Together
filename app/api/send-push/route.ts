@@ -70,10 +70,17 @@ export async function POST(request: NextRequest) {
 
         try {
             // Check if push_subscriptions table exists and has tokens
-            const { data: subscriptions, error: subsError } = await supabase
+            let query = supabase
                 .from('push_subscriptions')
-                .select('fcm_token')
+                .select('user_id, fcm_token')
                 .eq('is_active', true);
+
+            // Exclude sender
+            if (userId) {
+                query = query.neq('user_id', userId);
+            }
+
+            const { data: subscriptions, error: subsError } = await query;
 
             if (!subsError && subscriptions && subscriptions.length > 0) {
                 // Only try Firebase if we have tokens

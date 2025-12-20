@@ -55,27 +55,58 @@ export const UrgentAlertOverlay = () => {
 
     // Expose a global function to trigger alert (from PushNotificationManager)
     useEffect(() => {
+        // Unlock AudioContext on first user interaction
+        const unlockAudio = () => {
+            if (audioContext && audioContext.state === 'suspended') {
+                audioContext.resume();
+            }
+            // Create context if not exists (lazy init)
+            if (!audioContext) {
+                audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+            }
+            // Remove listeners once unlocked
+            if (audioContext && audioContext.state === 'running') {
+                document.removeEventListener('click', unlockAudio);
+                document.removeEventListener('touchstart', unlockAudio);
+                document.removeEventListener('keydown', unlockAudio);
+            }
+        };
+
+        document.addEventListener('click', unlockAudio);
+        document.addEventListener('touchstart', unlockAudio);
+        document.addEventListener('keydown', unlockAudio);
+
         (window as any).triggerUrgentAlert = (payload: any) => {
             setAlert({
                 title: payload.notification?.title || '긴급 기도 요청',
                 body: payload.notification?.body || '',
                 prayerId: payload.data?.prayerId
             });
+
+            // Try to play sound
             playAlertSound();
 
             // Vibrate if supported
             if (navigator.vibrate) {
-                navigator.vibrate([200, 100, 200]); // Vibration pattern
+                // Urgent vibration pattern (SOS-like)
+                navigator.vibrate([500, 100, 500, 100, 500]);
             }
         };
 
         return () => {
             delete (window as any).triggerUrgentAlert;
+            document.removeEventListener('click', unlockAudio);
+            document.removeEventListener('touchstart', unlockAudio);
+            document.removeEventListener('keydown', unlockAudio);
         };
     }, []);
 
     const handleDismiss = () => {
         setAlert(null);
+        // Stop vibration
+        if (navigator.vibrate) {
+            navigator.vibrate(0);
+        }
     };
 
     const handleGoToPrayer = () => {
