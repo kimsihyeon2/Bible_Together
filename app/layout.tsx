@@ -7,6 +7,7 @@ import { GlobalLoader } from "@/components/GlobalLoader";
 import { AudioProvider } from "@/lib/audio-context";
 import { GlobalAudioPlayer } from "@/components/GlobalAudioPlayer";
 import { PushNotificationManager } from "@/components/PushNotificationManager";
+import { PWAInstallPrompt } from "@/components/PWAInstallPrompt";
 
 export const metadata: Metadata = {
     title: "그린 바이블 | Green Bible",
@@ -55,6 +56,7 @@ export default function RootLayout({
                                 </GlobalLoader>
                                 <GlobalAudioPlayer />
                                 <PushNotificationManager />
+                                <PWAInstallPrompt />
                             </AudioProvider>
                         </LoadingProvider>
                     </BibleProvider>
