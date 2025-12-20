@@ -33,6 +33,7 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({ navigate, isDarkMode,
   });
   const [activePlans, setActivePlans] = useState<any[]>([]);
   const [hasCell, setHasCell] = useState(true);
+  const [recentActivity, setRecentActivity] = useState<any>(null);
 
   // Get user's first name
   const getUserName = () => {
@@ -142,6 +143,18 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({ navigate, isDarkMode,
             planImage: 'https://images.unsplash.com/photo-1504052434569-70ad5836ab65?w=800',
             planId: '',
           });
+        }
+
+        // Fetch Recent Activity
+        const { data: activities } = await supabase
+          .from('cell_activities')
+          .select('*')
+          .eq('user_id', user.id)
+          .order('created_at', { ascending: false })
+          .limit(1);
+
+        if (activities && activities.length > 0) {
+          setRecentActivity(activities[0]);
         }
       }
     };
@@ -298,31 +311,48 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({ navigate, isDarkMode,
               The new UI shows a list. I'll keep the UI with the user's activity as one item. */}
           <div className="pb-6">
             <h3 className="text-lg font-bold text-text-main-light dark:text-text-main-dark mb-4">{t.dashboard.latestActivity}</h3>
-            <div
-              className="backdrop-blur-xl bg-white/70 dark:bg-slate-800/60 border border-white/60 dark:border-white/10 rounded-2xl shadow-sm divide-y divide-gray-100/50 dark:divide-gray-700 cursor-pointer group active:scale-95 transition-all duration-200 hover:shadow-md"
-              onClick={() => navigate(Screen.CHAT)}
-            >
-              {/* Item 1: User's latest activity (if read today) */}
-              <div className="p-4 flex items-center space-x-3">
-                <div className="w-10 h-10 rounded-full bg-green-100 dark:bg-green-900/40 flex items-center justify-center flex-shrink-0 text-green-700 dark:text-green-300 font-bold text-sm shadow-sm group-hover:scale-110 transition-transform">
-                  {getUserName().charAt(0).toUpperCase()}
-                </div>
-                <div className="flex-1">
-                  <div className="flex justify-between items-start">
-                    <h5 className="text-sm font-bold text-text-main-light dark:text-text-main-dark">{getUserName()}</h5>
-                    <span className="text-xs text-text-sub-light dark:text-text-sub-dark">오늘</span>
+
+            {recentActivity ? (
+              <div
+                className="backdrop-blur-xl bg-white/70 dark:bg-slate-800/60 border border-white/60 dark:border-white/10 rounded-2xl shadow-sm cursor-pointer group active:scale-95 transition-all duration-200 hover:shadow-md"
+                onClick={() => {
+                  if (recentActivity.type === 'READING' && recentActivity.data?.book) {
+                    localStorage.setItem('selectedBook', recentActivity.data.book);
+                    if (recentActivity.data.chapter) localStorage.setItem('selectedChapter', recentActivity.data.chapter);
+                    navigate(Screen.BIBLE);
+                  } else {
+                    navigate(Screen.PROGRESS);
+                  }
+                }}
+              >
+                <div className="p-4 flex items-center space-x-3">
+                  <div className={`w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 font-bold text-sm shadow-sm group-hover:scale-110 transition-transform ${recentActivity.type === 'READING' ? 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300' :
+                      recentActivity.type === 'PRAYER' ? 'bg-pink-100 text-pink-600 dark:bg-pink-900/40 dark:text-pink-300' :
+                        'bg-blue-100 text-blue-600 dark:bg-blue-900/40 dark:text-blue-300'
+                    }`}>
+                    <span className="material-symbols-outlined text-xl">
+                      {recentActivity.type === 'READING' ? 'menu_book' : recentActivity.type === 'PRAYER' ? 'volunteer_activism' : 'history'}
+                    </span>
                   </div>
-                  <p className="text-sm text-text-sub-light dark:text-text-sub-dark mt-0.5 truncate">
-                    {userStats.todayRead ? (
-                      <>모임 <span className="text-primary font-bold">읽기 완료</span>: {userStats.todayReading}</>
-                    ) : (
-                      "아직 오늘의 말씀을 읽지 않았습니다."
-                    )}
-                  </p>
+                  <div className="flex-1">
+                    <div className="flex justify-between items-start">
+                      <h5 className="text-sm font-bold text-text-main-light dark:text-text-main-dark">{getUserName()}</h5>
+                      <span className="text-xs text-text-sub-light dark:text-text-sub-dark">
+                        {new Date(recentActivity.created_at).toLocaleDateString() === new Date().toLocaleDateString() ? '오늘' : new Date(recentActivity.created_at).toLocaleDateString()}
+                      </span>
+                    </div>
+                    <p className="text-sm text-text-sub-light dark:text-text-sub-dark mt-0.5 truncate">
+                      {recentActivity.title}
+                    </p>
+                  </div>
+                  <span className="material-symbols-outlined text-slate-400 group-hover:text-primary group-hover:translate-x-1 transition-all">chevron_right</span>
                 </div>
-                <span className="material-symbols-outlined text-slate-400 group-hover:text-primary group-hover:translate-x-1 transition-all">chevron_right</span>
               </div>
-            </div>
+            ) : (
+              <div className="p-6 text-center text-slate-400 bg-white/50 dark:bg-slate-800/50 rounded-2xl border border-dashed border-slate-200 dark:border-slate-700">
+                아직 최근 활동이 없습니다.
+              </div>
+            )}
           </div>
         </main>
 

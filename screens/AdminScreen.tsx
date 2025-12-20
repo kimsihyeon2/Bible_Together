@@ -254,7 +254,7 @@ const AdminScreen: React.FC<AdminScreenProps> = ({ navigate, t }) => {
                     <button onClick={() => navigate(Screen.DASHBOARD)} className="p-2 -ml-2 rounded-full hover:bg-black/5">
                         <span className="material-symbols-outlined">arrow_back</span>
                     </button>
-                    <h1 className="text-xl font-bold">관리자 (SOTA v2.0)</h1>
+                    <h1 className="text-xl font-bold">관리자 페이지</h1>
                     <div className="w-10"></div>
                 </div>
                 {/* Tabs */}
@@ -274,22 +274,37 @@ const AdminScreen: React.FC<AdminScreenProps> = ({ navigate, t }) => {
                         {/* Parish List */}
                         {!selectedParishId ? (
                             <div className="space-y-4">
-                                <div className="flex justify-between items-center mb-2">
+                                <div className="flex justify-between items-center mb-2 px-1">
                                     <h2 className="text-lg font-bold">교구 목록</h2>
-                                    <button onClick={() => setShowCreateParish(true)} className="px-4 py-2 bg-primary text-white rounded-full text-sm font-bold flex items-center gap-1">
+                                    <button onClick={() => setShowCreateParish(true)} className="px-4 py-2 bg-primary text-white rounded-full text-sm font-bold flex items-center gap-1 shadow-md hover:scale-105 transition-transform">
                                         <span className="material-symbols-outlined text-sm">add</span> 추가
                                     </button>
                                 </div>
-                                {parishes.map((parish) => (
-                                    <div key={parish.id} onClick={() => setSelectedParishId(parish.id)} className="p-4 bg-surface-light dark:bg-surface-dark rounded-2xl shadow-sm hover:ring-2 ring-primary cursor-pointer transition-all">
-                                        <div className="flex justify-between items-center">
-                                            <h3 className="font-bold text-lg">{parish.name}</h3>
-                                            <button onClick={(e) => { e.stopPropagation(); handleDeleteParish(parish.id); }} className="p-2 text-red-500 hover:bg-red-50 rounded-full">
-                                                <span className="material-symbols-outlined">delete</span>
-                                            </button>
+                                <div className="flex overflow-x-auto gap-4 pb-6 snap-x no-scrollbar -mx-5 px-5">
+                                    {parishes.map((parish) => (
+                                        <div
+                                            key={parish.id}
+                                            onClick={() => setSelectedParishId(parish.id)}
+                                            className="min-w-[280px] snap-center p-6 bg-white dark:bg-slate-800 rounded-[2rem] shadow-sm border border-slate-50 dark:border-slate-700 hover:shadow-xl hover:-translate-y-1 transition-all cursor-pointer group"
+                                        >
+                                            <div className="flex justify-between items-center mb-4">
+                                                <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center text-primary group-hover:bg-primary group-hover:text-white transition-colors">
+                                                    <span className="material-symbols-outlined text-2xl">church</span>
+                                                </div>
+                                                <button onClick={(e) => { e.stopPropagation(); handleDeleteParish(parish.id); }} className="p-2 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-full transition-colors">
+                                                    <span className="material-symbols-outlined">delete</span>
+                                                </button>
+                                            </div>
+                                            <h3 className="font-bold text-xl mb-1 text-slate-900 dark:text-white">{parish.name}</h3>
+                                            <p className="text-sm text-slate-500 dark:text-slate-400">초대 코드: <span className="font-mono font-bold">{parish.invite_code}</span></p>
                                         </div>
-                                    </div>
-                                ))}
+                                    ))}
+                                    {parishes.length === 0 && (
+                                        <div className="flex-1 text-center py-10 text-slate-400 bg-slate-50 dark:bg-slate-800/50 rounded-2xl border-2 border-dashed border-slate-200 dark:border-slate-700">
+                                            교구를 추가해주세요
+                                        </div>
+                                    )}
+                                </div>
                             </div>
                         ) : (
                             // Selected Parish View (Manage Cells)
@@ -327,25 +342,40 @@ const AdminScreen: React.FC<AdminScreenProps> = ({ navigate, t }) => {
 
                 {/* Members Tab */}
                 {activeTab === 'members' && (
-                    <div className="space-y-3">
-                        {members.map((member) => (
-                            <div key={member.id} className="p-4 bg-surface-light dark:bg-surface-dark rounded-2xl shadow-sm flex items-center justify-between">
-                                <div className="flex items-center gap-3">
-                                    <div className="w-10 h-10 bg-primary/10 rounded-full flex items-center justify-center text-primary font-bold">
-                                        {member.name.slice(0, 1)}
+                    <div className="space-y-4">
+                        <div className="flex justify-between items-center mb-2 px-1">
+                            <h2 className="text-lg font-bold">멤버 목록 ({members.length}명)</h2>
+                        </div>
+                        <div className="flex overflow-x-auto gap-4 pb-4 snap-x no-scrollbar -mx-5 px-5">
+                            {members.map((member) => (
+                                <div key={member.id} className="min-w-[260px] snap-center p-5 bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-50 dark:border-slate-700 flex flex-col justify-between h-48">
+                                    <div className="flex items-start justify-between">
+                                        <div className="w-14 h-14 bg-gradient-to-br from-green-100 to-emerald-100 dark:from-green-900/30 dark:to-emerald-900/30 rounded-[1.2rem] flex items-center justify-center text-emerald-600 dark:text-emerald-400 font-bold text-xl shadow-sm">
+                                            {member.name.slice(0, 1)}
+                                        </div>
+                                        <div className={`px-2 py-1 rounded-lg text-xs font-bold uppercase tracking-wider ${member.role === 'PASTOR' ? 'bg-purple-100 text-purple-600' :
+                                                member.role === 'LEADER' ? 'bg-blue-100 text-blue-600' :
+                                                    'bg-slate-100 text-slate-500'
+                                            }`}>
+                                            {member.role === 'MEMBER' ? '멤버' : member.role === 'LEADER' ? '리더' : '목사'}
+                                        </div>
                                     </div>
                                     <div>
-                                        <div className="font-bold">{member.name}</div>
-                                        <div className="text-xs text-slate-500">{member.email}</div>
+                                        <div className="font-bold text-lg mb-0.5 text-slate-900 dark:text-white">{member.name}</div>
+                                        <div className="text-xs text-slate-400 truncate">{member.email}</div>
                                     </div>
+                                    <select
+                                        value={member.role}
+                                        onChange={(e) => handleUpdateRole(member.id, e.target.value)}
+                                        className="w-full mt-2 text-xs p-2 rounded-xl bg-slate-50 dark:bg-slate-700 border-none font-medium text-slate-600 dark:text-slate-300 focus:ring-2 focus:ring-primary/20 cursor-pointer"
+                                    >
+                                        <option value="MEMBER">멤버로 변경</option>
+                                        <option value="LEADER">리더로 변경</option>
+                                        <option value="PASTOR">목사로 변경</option>
+                                    </select>
                                 </div>
-                                <select value={member.role} onChange={(e) => handleUpdateRole(member.id, e.target.value)} className="text-xs p-1 rounded border dark:bg-slate-800">
-                                    <option value="MEMBER">멤버</option>
-                                    <option value="LEADER">리더</option>
-                                    <option value="PASTOR">목사</option>
-                                </select>
-                            </div>
-                        ))}
+                            ))}
+                        </div>
                     </div>
                 )}
 
@@ -386,27 +416,36 @@ const AdminScreen: React.FC<AdminScreenProps> = ({ navigate, t }) => {
 
                         <div>
                             <h3 className="text-xl font-bold mb-4 px-2">셀별 참여율 현황</h3>
-                            <div className="space-y-3">
+                            <div className="flex overflow-x-auto gap-4 pb-4 snap-x no-scrollbar -mx-5 px-5">
                                 {stats.cellStats.map((cell: any) => (
-                                    <div key={cell.id} className="bg-white dark:bg-slate-800 p-4 rounded-xl shadow-sm border border-slate-100 dark:border-slate-700 flex items-center justify-between">
-                                        <div>
-                                            <h4 className="font-bold text-lg text-slate-900 dark:text-white">{cell.name}</h4>
-                                            <p className="text-sm text-slate-500 dark:text-slate-400">
-                                                멤버 {cell.memberCount}명 중 <span className="text-green-600 font-bold">{cell.readerCount}명</span> 읽음
-                                            </p>
-                                        </div>
-                                        <div className="flex items-center gap-3">
-                                            <div className="text-right">
-                                                <span className="text-2xl font-bold text-slate-900 dark:text-white">{cell.rate}%</span>
+                                    <div key={cell.id} className="min-w-[280px] snap-center bg-white dark:bg-slate-800 p-5 rounded-[2rem] shadow-sm border border-slate-50 dark:border-slate-700 flex flex-col justify-between h-40">
+                                        <div className="flex justify-between items-start">
+                                            <div>
+                                                <h4 className="font-bold text-lg text-slate-900 dark:text-white">{cell.name}</h4>
+                                                <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                                                    멤버 {cell.memberCount}명
+                                                </p>
                                             </div>
-                                            <div className="w-16 h-2 bg-slate-100 dark:bg-slate-700 rounded-full overflow-hidden">
-                                                <div className="h-full bg-green-500 rounded-full" style={{ width: `${cell.rate}%` }}></div>
+                                            <div className="text-right">
+                                                <span className="text-3xl font-bold text-slate-900 dark:text-white">{cell.rate}%</span>
+                                            </div>
+                                        </div>
+
+                                        <div className="space-y-2">
+                                            <div className="flex justify-between text-xs font-medium">
+                                                <span className="text-slate-400">읽음 확인</span>
+                                                <span className="text-green-600">{cell.readerCount}명 완료</span>
+                                            </div>
+                                            <div className="w-full h-3 bg-slate-100 dark:bg-slate-700 rounded-full overflow-hidden">
+                                                <div className="h-full bg-gradient-to-r from-green-400 to-emerald-500 rounded-full transition-all duration-1000" style={{ width: `${cell.rate}%` }}></div>
                                             </div>
                                         </div>
                                     </div>
                                 ))}
                                 {stats.cellStats.length === 0 && (
-                                    <p className="text-center text-slate-400 py-10">데이터가 없습니다.</p>
+                                    <div className="w-full text-center text-slate-400 py-10 bg-slate-50 dark:bg-slate-800/50 rounded-2xl border-2 border-dashed border-slate-200">
+                                        데이터가 없습니다.
+                                    </div>
                                 )}
                             </div>
                         </div>

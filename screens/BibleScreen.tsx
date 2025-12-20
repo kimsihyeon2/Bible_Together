@@ -39,7 +39,7 @@ type BibleData = {
 const BibleScreen: React.FC<BibleScreenProps> = ({ navigate, t }) => {
     const { isLoaded, getVerses: getVersesFromContext, getChapterCount: getChapterCountFromContext } = useBible();
     const { user, profile } = useAuth();
-    const { playChapter, isPlaying, currentBook, currentChapter } = useAudio();
+    const { playChapter, isPlaying, currentBook, currentChapter, currentTime, duration } = useAudio();
     // const [bibleData, setBibleData] = useState<BibleData | null>(null); // Removed
     const [loading, setLoading] = useState(true); // Kept for initial setup
     const [selectedBook, setSelectedBook] = useState<string>('창세기');
@@ -53,6 +53,7 @@ const BibleScreen: React.FC<BibleScreenProps> = ({ navigate, t }) => {
     const [lineHeight, setLineHeight] = useState(1.8);
     const [highlights, setHighlights] = useState<any[]>([]);
     const [activeVerse, setActiveVerse] = useState<number | null>(null);
+    const [playingVerse, setPlayingVerse] = useState<number | null>(null);
     const [isExpanded, setIsExpanded] = useState(false);
     const [touchStart, setTouchStart] = useState(0);
 
@@ -177,6 +178,39 @@ const BibleScreen: React.FC<BibleScreenProps> = ({ navigate, t }) => {
             setLoading(false);
         }
     }, [isLoaded]);
+
+    // Approximate Verse Sync Logic (SOTA approach without timestamps)
+    useEffect(() => {
+        if (!isPlaying || currentBook !== selectedBook || currentChapter !== selectedChapter || duration === 0) {
+            setPlayingVerse(null);
+            return;
+        }
+
+        const verses = getVerses();
+        const totalChars = verses.reduce((acc, [_, text]) => acc + text.length, 0);
+        const progress = currentTime / duration;
+        const targetCharIndex = progress * totalChars;
+
+        let charCount = 0;
+        let foundVerse = null;
+
+        for (const [verseNumStr, text] of verses) {
+            charCount += text.length;
+            if (charCount >= targetCharIndex) {
+                foundVerse = parseInt(verseNumStr);
+                break;
+            }
+        }
+
+        if (foundVerse !== playingVerse) {
+            setPlayingVerse(foundVerse);
+            // Auto Scroll
+            const element = document.getElementById(`verse-${foundVerse}`);
+            if (element) {
+                element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
+        }
+    }, [currentTime, duration, isPlaying, currentBook, currentChapter, selectedBook, selectedChapter]);
 
     // Removed fetch logic
 
@@ -304,7 +338,8 @@ const BibleScreen: React.FC<BibleScreenProps> = ({ navigate, t }) => {
                         return (
                             <div
                                 key={verseNum}
-                                className={`flex gap-3 py-1 px-2 rounded-lg transition-colors cursor-pointer ${primaryHighlight ? bgColor : 'hover:bg-slate-50 dark:hover:bg-white/5'}`}
+                                id={`verse-${verseNum}`}
+                                className={`flex gap-3 py-1 px-2 rounded-lg transition-colors cursor-pointer ${primaryHighlight ? bgColor : 'hover:bg-slate-50 dark:hover:bg-white/5'} ${playingVerse === verseNum ? 'bg-primary/5' : ''}`}
                                 onClick={() => setActiveVerse(verseNum)}
                             >
                                 <span className="text-slate-400 font-bold text-xs min-w-[20px] text-right pt-2 select-none">
@@ -320,7 +355,7 @@ const BibleScreen: React.FC<BibleScreenProps> = ({ navigate, t }) => {
                                             borderBottomWidth: primaryHighlight ? '2px' : '0px',
                                         }}
                                     >
-                                        <span className={`${primaryHighlight ? borderColor : ''} border-b-0`}>
+                                        <span className={`${primaryHighlight ? borderColor : ''} border-b-0 ${playingVerse === verseNum ? 'bg-yellow-200/50 dark:bg-yellow-500/30 px-1 rounded transition-colors duration-500' : ''}`}>
                                             {text}
                                         </span>
                                     </p>
