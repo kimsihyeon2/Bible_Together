@@ -10,9 +10,10 @@ interface UrgentPrayerListProps {
 
 export function UrgentPrayerList({ onClose }: UrgentPrayerListProps) {
     const [prayers, setPrayers] = useState<UrgentPrayer[]>([]);
+    const [participants, setParticipants] = useState<Record<string, any[]>>({});
     const [loading, setLoading] = useState(true);
     const [prayedIds, setPrayedIds] = useState<string[]>([]);
-    const { isAdmin } = useAuth();
+    const { user, isAdmin } = useAuth(); // isAdmin handles PASTOR, SUB_ADMIN, LEADER
 
     useEffect(() => {
         fetchPrayers();
@@ -33,8 +34,32 @@ export function UrgentPrayerList({ onClose }: UrgentPrayerListProps) {
 
         if (!error && data) {
             setPrayers(data as UrgentPrayer[]);
+            fetchParticipants(data as UrgentPrayer[]);
         }
         setLoading(false);
+    };
+
+    const fetchParticipants = async (currentPrayers: UrgentPrayer[]) => {
+        if (currentPrayers.length === 0) return;
+
+        const prayerIds = currentPrayers.map(p => p.id);
+        const { data, error } = await supabase
+            .from('prayer_participants')
+            .select('prayer_id, user_id, profiles(name, avatar_url)')
+            .in('prayer_id', prayerIds);
+
+        if (data) {
+            const grouped: Record<string, any[]> = {};
+            data.forEach((p: any) => {
+                if (!grouped[p.prayer_id]) grouped[p.prayer_id] = [];
+                grouped[p.prayer_id].push({
+                    userId: p.user_id,
+                    name: p.profiles?.name || '익명',
+                    avatarUrl: p.profiles?.avatar_url
+                });
+            });
+            setParticipants(grouped);
+        }
     };
 
     const handlePray = async (prayer: UrgentPrayer) => {

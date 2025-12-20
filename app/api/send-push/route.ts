@@ -5,7 +5,7 @@ import { createServerSupabaseClient } from '@/lib/supabase-server';
 export async function POST(request: NextRequest) {
     try {
         const body = await request.json();
-        const { title, content, requesterName, userId } = body;
+        const { title, content, requesterName, userId, targetRole = 'ALL' } = body;
 
         if (!title || !content) {
             return NextResponse.json(
@@ -16,7 +16,7 @@ export async function POST(request: NextRequest) {
 
         const supabase = createServerSupabaseClient();
 
-        // Check if user has PASTOR role (admin) - optional check
+        // Check if user has PASTOR role (admin) or SUB_ADMIN - optional check
         if (userId) {
             const { data: profile } = await supabase
                 .from('profiles')
@@ -24,9 +24,10 @@ export async function POST(request: NextRequest) {
                 .eq('id', userId)
                 .single();
 
-            if (profile?.role !== 'PASTOR') {
+            const isAuthorized = profile?.role === 'PASTOR' || profile?.role === 'SUB_ADMIN';
+            if (!isAuthorized) {
                 return NextResponse.json(
-                    { error: 'Unauthorized: Only PASTOR can send urgent prayers' },
+                    { error: 'Unauthorized: Only PASTOR or SUB_ADMIN can send urgent prayers' },
                     { status: 403 }
                 );
             }
@@ -41,6 +42,7 @@ export async function POST(request: NextRequest) {
                 requester_name: requesterName,
                 created_by: userId,
                 is_active: true,
+                // store target if schema supported it, but unrelated for now
             })
             .select()
             .single();
@@ -58,7 +60,7 @@ export async function POST(request: NextRequest) {
             await supabase.from('notifications').insert({
                 title: `🙏 긴급 기도 요청: ${title}`,
                 body: content,
-                target: 'ALL',
+                target: targetRole,
                 created_by: userId,
             });
         } catch (notifError) {
@@ -70,10 +72,18 @@ export async function POST(request: NextRequest) {
 
         try {
             // Check if push_subscriptions table exists and has tokens
+            // JOIN with profiles to filter by role
             let query = supabase
                 .from('push_subscriptions')
-                .select('user_id, fcm_token')
+                .select('user_id, fcm_token, profiles!inner(role)')
                 .eq('is_active', true);
+
+            // Filter by target role
+            if (targetRole === 'LEADER') {
+                query = query.eq('profiles.role', 'LEADER');
+            } else if (targetRole === 'SUB_ADMIN') {
+                query = query.eq('profiles.role', 'SUB_ADMIN');
+            }
 
             // Exclude sender
             if (userId) {

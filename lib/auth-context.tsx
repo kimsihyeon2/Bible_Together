@@ -158,7 +158,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return { error: error ? new Error(error.message) : null };
     };
 
-    const isAdmin = profile?.role === 'PASTOR' || profile?.role === 'LEADER';
+    const isAdmin = profile?.role === 'PASTOR' || profile?.role === 'SUB_ADMIN' || profile?.role === 'LEADER';
 
     const value = {
         user,

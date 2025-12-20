@@ -56,6 +56,7 @@ const AdminScreen: React.FC<AdminScreenProps> = ({ navigate, t }) => {
     const [showCreatePrayer, setShowCreatePrayer] = useState(false);
     const [newPrayerTitle, setNewPrayerTitle] = useState('');
     const [newPrayerContent, setNewPrayerContent] = useState('');
+    const [pushTarget, setPushTarget] = useState<'ALL' | 'SUB_ADMIN' | 'LEADER'>('ALL');
 
     useEffect(() => {
         fetchData();
@@ -208,6 +209,7 @@ const AdminScreen: React.FC<AdminScreenProps> = ({ navigate, t }) => {
                     content: newPrayerContent,
                     requesterName: profile?.name || 'Admin',
                     userId: user?.id,
+                    targetRole: pushTarget,
                 }),
             });
 
@@ -241,6 +243,16 @@ const AdminScreen: React.FC<AdminScreenProps> = ({ navigate, t }) => {
     const handleUpdateRole = async (memberId: string, newRole: string) => {
         await supabase.from('profiles').update({ role: newRole }).eq('id', memberId);
         setMembers(members.map((m) => (m.id === memberId ? { ...m, role: newRole } : m)));
+    };
+
+    const handleDeletePrayer = async (id: string) => {
+        if (!confirm('정말 삭제하시겠습니까?')) return;
+        const { error } = await supabase.from('urgent_prayers').delete().eq('id', id);
+        if (!error) {
+            setPrayers(prev => prev.filter(p => p.id !== id));
+        } else {
+            alert('삭제 실패: ' + error.message);
+        }
     };
 
 
@@ -365,17 +377,25 @@ const AdminScreen: React.FC<AdminScreenProps> = ({ navigate, t }) => {
                                         </div>
                                     </div>
                                     <div className="flex items-center gap-2">
-                                        <div className={`px-2 py-1 rounded-lg text-xs font-bold ${member.role === 'PASTOR' ? 'bg-purple-100 text-purple-600' : member.role === 'LEADER' ? 'bg-blue-100 text-blue-600' : 'bg-slate-100 text-slate-500'}`}>
-                                            {member.role === 'MEMBER' ? '멤버' : member.role === 'LEADER' ? '리더' : '목사'}
+                                        <div className={`px-2 py-1 rounded-lg text-xs font-bold ${member.role === 'PASTOR' ? 'bg-purple-100 text-purple-600' :
+                                            member.role === 'SUB_ADMIN' ? 'bg-indigo-100 text-indigo-600' :
+                                                member.role === 'LEADER' ? 'bg-blue-100 text-blue-600' :
+                                                    'bg-slate-100 text-slate-500'
+                                            }`}>
+                                            {member.role === 'MEMBER' ? '셀원' :
+                                                member.role === 'LEADER' ? '셀장' :
+                                                    member.role === 'SUB_ADMIN' ? '부관리자' : '관리자'}
                                         </div>
                                         <select
                                             value={member.role}
                                             onChange={(e) => handleUpdateRole(member.id, e.target.value)}
-                                            className="text-xs p-2 rounded-lg bg-slate-50 dark:bg-slate-700 border-none cursor-pointer"
+                                            disabled={profile?.role === 'SUB_ADMIN' && (member.role === 'PASTOR' || member.role === 'SUB_ADMIN')}
+                                            className="text-xs p-2 rounded-lg bg-slate-50 dark:bg-slate-700 border-none cursor-pointer disabled:opacity-50"
                                         >
-                                            <option value="MEMBER">멤버</option>
-                                            <option value="LEADER">리더</option>
-                                            <option value="PASTOR">목사</option>
+                                            <option value="MEMBER">셀원</option>
+                                            <option value="LEADER">셀장</option>
+                                            {profile?.role === 'PASTOR' && <option value="SUB_ADMIN">부관리자</option>}
+                                            {profile?.role === 'PASTOR' && <option value="PASTOR">관리자</option>}
                                         </select>
                                     </div>
                                 </div>
@@ -396,9 +416,14 @@ const AdminScreen: React.FC<AdminScreenProps> = ({ navigate, t }) => {
                                 <p className="text-sm mt-1">{p.content}</p>
                                 <div className="flex justify-between items-center mt-3">
                                     <span className="text-xs text-slate-400">{new Date(p.created_at).toLocaleDateString()}</span>
-                                    <button onClick={() => handleTogglePrayer(p.id, p.is_active)} className="text-xs px-3 py-1 bg-white dark:bg-slate-700 rounded-full shadow-sm">
-                                        {p.is_active ? '종료하기' : '다시 활성화'}
-                                    </button>
+                                    <div className="flex gap-2">
+                                        <button onClick={() => handleDeletePrayer(p.id)} className="text-xs px-3 py-1 bg-white dark:bg-slate-700 text-red-500 rounded-full shadow-sm hover:bg-red-50">
+                                            삭제
+                                        </button>
+                                        <button onClick={() => handleTogglePrayer(p.id, p.is_active)} className="text-xs px-3 py-1 bg-white dark:bg-slate-700 rounded-full shadow-sm">
+                                            {p.is_active ? '종료하기' : '다시 활성화'}
+                                        </button>
+                                    </div>
                                 </div>
                             </div>
                         ))}
@@ -484,6 +509,25 @@ const AdminScreen: React.FC<AdminScreenProps> = ({ navigate, t }) => {
                         <h3 className="font-bold text-lg mb-4">긴급 기도 요청</h3>
                         <input value={newPrayerTitle} onChange={e => setNewPrayerTitle(e.target.value)} placeholder="제목" className="w-full p-3 bg-slate-100 dark:bg-slate-800 rounded-xl mb-2" />
                         <textarea value={newPrayerContent} onChange={e => setNewPrayerContent(e.target.value)} placeholder="내용" className="w-full p-3 bg-slate-100 dark:bg-slate-800 rounded-xl mb-4 h-32" />
+
+                        <div className="mb-4">
+                            <label className="block text-sm font-bold mb-1">발송 대상</label>
+                            <select
+                                value={pushTarget}
+                                onChange={(e) => setPushTarget(e.target.value as any)}
+                                className="w-full p-3 bg-slate-100 dark:bg-slate-800 rounded-xl"
+                            >
+                                <option value="ALL">전체 (모든 교구/셀)</option>
+                                <option value="LEADER">모든 셀장</option>
+                                {profile?.role === 'PASTOR' && <option value="SUB_ADMIN">부관리자</option>}
+                            </select>
+                            <p className="text-xs text-slate-500 mt-1">
+                                {pushTarget === 'ALL' && '앱을 설치한 모든 리더/멤버에게 전송됩니다.'}
+                                {pushTarget === 'LEADER' && '모든 셀의 리더들에게만 전송됩니다.'}
+                                {pushTarget === 'SUB_ADMIN' && '부관리자들에게만 전송됩니다.'}
+                            </p>
+                        </div>
+
                         <div className="flex gap-2">
                             <button onClick={() => setShowCreatePrayer(false)} disabled={isSendingPrayer} className="flex-1 py-3 bg-slate-200 rounded-xl disabled:opacity-50">취소</button>
                             <button onClick={handleCreatePrayer} disabled={isSendingPrayer} className="flex-1 py-3 bg-red-500 text-white rounded-xl flex items-center justify-center gap-2 disabled:opacity-50">

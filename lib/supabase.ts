@@ -38,7 +38,7 @@ export interface Profile {
     email: string;
     name: string;
     phone?: string;
-    role: 'MEMBER' | 'LEADER' | 'PASTOR';
+    role: 'MEMBER' | 'LEADER' | 'SUB_ADMIN' | 'PASTOR';
     avatar_url?: string;
     created_at: string;
 }
