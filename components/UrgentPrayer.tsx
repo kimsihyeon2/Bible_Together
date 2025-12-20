@@ -49,6 +49,16 @@ export function UrgentPrayerList({ onClose }: UrgentPrayerListProps) {
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) return;
 
+        // Save to prayer_participants table (for pastor dashboard)
+        try {
+            await supabase.from('prayer_participants').insert({
+                prayer_id: prayer.id,
+                user_id: user.id,
+            });
+        } catch (e) {
+            // Table might not exist yet, continue
+        }
+
         // Fetch user's cell
         const { data: cellMember } = await supabase
             .from('cell_members')
