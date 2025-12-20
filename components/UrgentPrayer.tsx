@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { supabase, UrgentPrayer, createUrgentPrayer } from '@/lib/supabase';
+import { supabase, UrgentPrayer } from '@/lib/supabase';
 import { useAuth } from '@/lib/auth-context';
 
 interface UrgentPrayerListProps {
@@ -220,20 +220,40 @@ export function CreateUrgentPrayerModal({ isOpen, onClose, onSuccess }: CreatePr
         setLoading(true);
         setError('');
 
-        const { error: submitError } = await createUrgentPrayer({
-            title: title.trim(),
-            content: content.trim(),
-            requester_name: requesterName.trim() || undefined,
-        });
+        try {
+            // Call the send-push API which saves to DB AND sends FCM push notifications
+            const response = await fetch('/api/send-push', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    title: title.trim(),
+                    content: content.trim(),
+                    requesterName: requesterName.trim() || undefined,
+                    userId: user?.id,
+                }),
+            });
 
-        if (submitError) {
-            setError('기도 요청 등록에 실패했습니다.');
-        } else {
+            const result = await response.json();
+
+            if (!response.ok) {
+                throw new Error(result.error || '기도 요청 등록에 실패했습니다.');
+            }
+
+            console.log('✅ Urgent prayer sent:', result);
+
             setTitle('');
             setContent('');
             setRequesterName('');
             onSuccess?.();
             onClose();
+
+            // Show success message with push count
+            if (result.push?.successCount > 0) {
+                alert(`긴급 기도가 등록되었습니다!\n${result.push.successCount}명에게 Push 알림을 전송했습니다.`);
+            }
+        } catch (err: any) {
+            console.error('❌ Send push error:', err);
+            setError(err.message || '기도 요청 등록에 실패했습니다.');
         }
 
         setLoading(false);
