@@ -17,6 +17,10 @@ const withPWA = withPWAInit({
 
 const nextConfig: NextConfig = {
     reactStrictMode: true,
+    // Disable ESLint during builds due to circular reference bug in eslint-config-next
+    eslint: {
+        ignoreDuringBuilds: true,
+    },
     images: {
         remotePatterns: [
             {
