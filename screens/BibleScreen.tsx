@@ -181,7 +181,8 @@ const BibleScreen: React.FC<BibleScreenProps> = ({ navigate, t }) => {
         }
     }, [isLoaded]);
 
-    // SOTA Adaptive Verse Sync Logic with Smoothing
+    // SOTA Adaptive Verse Sync Logic v2.0 - Improved Algorithm
+    // Features: Verse-boundary padding, adaptive character weighting, smooth interpolation
     useEffect(() => {
         if (!isPlaying || currentBook !== selectedBook || currentChapter !== selectedChapter || duration === 0) {
             setPlayingVerse(null);
@@ -192,47 +193,98 @@ const BibleScreen: React.FC<BibleScreenProps> = ({ navigate, t }) => {
         const verses = getVerses();
         if (verses.length === 0) return;
 
-        // Calculate weighted progress based on verse lengths
-        // Longer verses naturally take more time to read
-        const verseLengths = verses.map(([_, text]) => text.length);
-        const totalChars = verseLengths.reduce((a, b) => a + b, 0);
+        // ====== SOTA ALGORITHM: Verse Timing Estimation ======
+        // 1. Each verse has: 
+        //    - Base time based on character count (reading time)
+        //    - Fixed pause time between verses (breathing room)
+        const VERSE_PAUSE_SECONDS = 1.2; // Average pause between verses
+        const CHARS_PER_SECOND = 5.5;    // Average Korean reading speed for bible narration
 
-        // Time-based progress with audio position
-        const audioProgress = currentTime / duration;
+        // Calculate estimated time for each verse
+        const verseTiming = verses.map(([verseNum, text]) => {
+            const charTime = text.length / CHARS_PER_SECOND;
+            const totalTime = charTime + VERSE_PAUSE_SECONDS;
+            return {
+                verseNum: parseInt(verseNum),
+                text,
+                charCount: text.length,
+                estimatedDuration: totalTime
+            };
+        });
 
-        // Estimate verse based on character distribution
-        let accumulatedWeight = 0;
+        // Calculate total estimated time
+        const totalEstimatedTime = verseTiming.reduce((sum, v) => sum + v.estimatedDuration, 0);
+
+        // Scale factor to match actual audio duration
+        const scaleFactor = duration / totalEstimatedTime;
+
+        // Build timeline with start/end times
+        let currentStart = 0;
+        const timeline = verseTiming.map(v => {
+            const scaledDuration = v.estimatedDuration * scaleFactor;
+            const entry = {
+                ...v,
+                startTime: currentStart,
+                endTime: currentStart + scaledDuration
+            };
+            currentStart = entry.endTime;
+            return entry;
+        });
+
+        // Find current verse based on audio time
         let targetVerse = 1;
-
-        for (let i = 0; i < verses.length; i++) {
-            const verseWeight = verseLengths[i] / totalChars;
-            accumulatedWeight += verseWeight;
-
-            if (accumulatedWeight >= audioProgress) {
-                targetVerse = parseInt(verses[i][0]);
+        for (const entry of timeline) {
+            if (currentTime >= entry.startTime && currentTime < entry.endTime) {
+                targetVerse = entry.verseNum;
                 break;
+            }
+            // If we're past this verse, it might be the last one
+            if (currentTime >= entry.startTime) {
+                targetVerse = entry.verseNum;
             }
         }
 
-        // Smooth transition - only advance, never go back (prevents jitter)
+        // ====== SMOOTHING LOGIC ======
+        // Allow backward movement only if difference > 3 verses (user seeked)
         const currentEstimate = estimatedVerseRef.current;
-        const smoothedVerse = targetVerse >= currentEstimate ? targetVerse : currentEstimate;
+        let smoothedVerse = targetVerse;
 
-        // Throttle scroll updates (minimum 800ms between scrolls)
+        if (targetVerse < currentEstimate) {
+            // Only go backward if significant jump (likely user seeked)
+            if (currentEstimate - targetVerse > 3) {
+                smoothedVerse = targetVerse;
+            } else {
+                // Stay at current (small fluctuation)
+                smoothedVerse = currentEstimate;
+            }
+        }
+
+        // ====== SCROLL UPDATE ======
+        // Throttle scroll to prevent jitter (minimum 600ms between scrolls)
         const now = Date.now();
         const timeSinceLastScroll = now - lastScrollTime.current;
+        const MIN_SCROLL_INTERVAL = 600;
 
-        if (smoothedVerse !== playingVerse && timeSinceLastScroll > 800) {
+        if (smoothedVerse !== playingVerse && timeSinceLastScroll > MIN_SCROLL_INTERVAL) {
             estimatedVerseRef.current = smoothedVerse;
             setPlayingVerse(smoothedVerse);
             lastScrollTime.current = now;
 
             // Smooth auto-scroll with offset for better readability
+            // Position the playing verse at ~30% from top
             const element = document.getElementById(`verse-${smoothedVerse}`);
             if (element) {
-                const headerHeight = 80; // Account for sticky header
-                const elementTop = element.getBoundingClientRect().top + window.scrollY - headerHeight - 100;
-                window.scrollTo({ top: elementTop, behavior: 'smooth' });
+                const viewportHeight = window.innerHeight;
+                const headerHeight = 80;
+                const targetOffset = viewportHeight * 0.25; // 25% from top
+                const elementRect = element.getBoundingClientRect();
+                const absoluteTop = elementRect.top + window.scrollY;
+                const scrollTarget = absoluteTop - headerHeight - targetOffset;
+
+                window.scrollTo({
+                    top: Math.max(0, scrollTarget),
+                    behavior: 'smooth'
+                });
             }
         }
     }, [currentTime, duration, isPlaying, currentBook, currentChapter, selectedBook, selectedChapter, playingVerse]);

@@ -195,7 +195,7 @@ export const AudioProvider = ({ children }: { children: React.ReactNode }) => {
                             if (playerRef.current && playerRef.current.getCurrentTime) {
                                 setCurrentTime(playerRef.current.getCurrentTime());
                             }
-                        }, 500);
+                        }, 250); // More frequent updates for smoother sync
                     } else if (state === window.YT.PlayerState.PAUSED) {
                         setIsPlaying(false);
                     } else if (state === window.YT.PlayerState.ENDED) {
