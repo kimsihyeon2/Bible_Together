@@ -6,52 +6,54 @@ import { UrgentAlertOverlay } from './UrgentAlertOverlay';
 
 // Component that handles automatic push notification registration
 // NOW: Immediately prompts for permission when user logs in
+// Handles all states: Default (Prompt), Denied (Instructions), Granted (Register)
 export function PushNotificationManager() {
     const { user } = useAuth();
     const [showPrompt, setShowPrompt] = useState(false);
+    const [showDeniedHelp, setShowDeniedHelp] = useState(false);
     const [isRegistering, setIsRegistering] = useState(false);
 
     useEffect(() => {
         if (!user || typeof window === 'undefined') return;
 
-        // Check immediately if we need to show the prompt
+        // Check immediately
         checkAndPrompt();
         setupForegroundListener();
     }, [user]);
 
     const checkAndPrompt = async () => {
-        // Check if already registered
-        const isRegistered = localStorage.getItem('push_registered') === 'true';
-        if (isRegistered) {
-            console.log('✅ Push already registered');
-            return;
-        }
-
-        // Check if notifications are supported
+        // Check availability
         if (!('Notification' in window) || !('serviceWorker' in navigator)) {
             console.log('Push notifications not supported');
             return;
         }
 
-        // Check current permission status
         const permission = Notification.permission;
+        console.log('Current notification permission:', permission);
 
         if (permission === 'denied') {
-            console.log('Push permission denied by user');
-            // Don't show prompt if already denied
+            // If denied, we might want to guide them to settings
+            // But don't annoy them every time. 
+            // Only show if they explicitly requested (not implemented here) 
+            // OR if we really want to be aggressive (maybe once per session)
+            const hasSeenDeniedHelp = sessionStorage.getItem('push_denied_help_seen');
+            if (!hasSeenDeniedHelp) {
+                setShowDeniedHelp(true);
+            }
             return;
         }
 
         if (permission === 'default') {
-            // Never asked - show the prompt modal immediately!
+            // Not yet asked - show our custom modal
             setShowPrompt(true);
         } else if (permission === 'granted') {
-            // Permission granted but not registered - try to register
-            await registerPushToken();
+            // Already granted - ensure token is registered
+            // We do this every time to keep token fresh
+            await registerPushToken(true); // true = silent verification
         }
     };
 
-    const registerPushToken = async () => {
+    const registerPushToken = async (silent = false) => {
         setIsRegistering(true);
         try {
             const { requestNotificationPermission } = await import('@/lib/firebase');
@@ -78,6 +80,9 @@ export function PushNotificationManager() {
                     localStorage.setItem('push_registered', 'true');
                     localStorage.setItem('fcm_token', fcmToken);
                     console.log('✅ Push notifications registered successfully!');
+                    if (!silent) {
+                        showInAppNotification('알림 설정 완료', '이제 긴급 기도 알림을 받을 수 있습니다 🙏');
+                    }
                 }
             }
         } catch (error) {
@@ -93,9 +98,13 @@ export function PushNotificationManager() {
     };
 
     const handleDenyNotifications = () => {
-        // User clicked "나중에" - don't show again for this session
-        localStorage.setItem('push_prompt_dismissed', Date.now().toString());
         setShowPrompt(false);
+        // Maybe remind later?
+    };
+
+    const handleCloseDeniedHelp = () => {
+        sessionStorage.setItem('push_denied_help_seen', 'true');
+        setShowDeniedHelp(false);
     };
 
     const setupForegroundListener = async () => {
@@ -103,7 +112,7 @@ export function PushNotificationManager() {
             const { onForegroundMessage } = await import('@/lib/firebase');
             onForegroundMessage((payload: any) => {
                 console.log('Foreground message:', payload);
-
+                // ... handle message (same as before) ...
                 const isUrgent = payload.data?.type === 'urgent_prayer' ||
                     payload.data?.type === 'URGENT_PRAYER' ||
                     payload.notification?.title?.includes('긴급');
@@ -129,19 +138,16 @@ export function PushNotificationManager() {
         <>
             <UrgentAlertOverlay />
 
-            {/* Push Permission Prompt Modal */}
+            {/* Permission Prompt Modal */}
             {showPrompt && (
                 <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 p-4 animate-fadeIn">
                     <div className="bg-white dark:bg-slate-800 rounded-3xl shadow-2xl w-full max-w-sm overflow-hidden transform animate-scaleUp">
-                        {/* Header with bell animation */}
                         <div className="bg-gradient-to-br from-primary to-green-500 p-8 text-center">
                             <div className="w-20 h-20 mx-auto bg-white/20 rounded-full flex items-center justify-center mb-4 animate-bounce">
                                 <span className="text-5xl">🔔</span>
                             </div>
                             <h2 className="text-2xl font-bold text-white">알림을 켜주세요!</h2>
                         </div>
-
-                        {/* Content */}
                         <div className="p-6">
                             <p className="text-center text-slate-600 dark:text-slate-300 mb-2">
                                 <strong className="text-primary">긴급 기도 요청</strong>이 올라오면
@@ -149,24 +155,13 @@ export function PushNotificationManager() {
                             <p className="text-center text-slate-600 dark:text-slate-300 mb-6">
                                 바로 알림을 받을 수 있어요 🙏
                             </p>
-
                             <div className="space-y-3">
                                 <button
                                     onClick={handleAllowNotifications}
                                     disabled={isRegistering}
                                     className="w-full py-4 bg-primary hover:bg-primary/90 text-white rounded-2xl font-bold text-lg shadow-lg shadow-primary/30 transition-all disabled:opacity-50 flex items-center justify-center gap-2"
                                 >
-                                    {isRegistering ? (
-                                        <>
-                                            <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                                            등록 중...
-                                        </>
-                                    ) : (
-                                        <>
-                                            <span className="material-symbols-outlined">notifications_active</span>
-                                            알림 허용하기
-                                        </>
-                                    )}
+                                    {isRegistering ? '등록 중...' : '알림 허용하기'}
                                 </button>
                                 <button
                                     onClick={handleDenyNotifications}
@@ -175,6 +170,31 @@ export function PushNotificationManager() {
                                     나중에 할게요
                                 </button>
                             </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Denied Help Modal */}
+            {showDeniedHelp && (
+                <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 p-4 animate-fadeIn">
+                    <div className="bg-white dark:bg-slate-800 rounded-3xl shadow-2xl w-full max-w-sm overflow-hidden transform animate-scaleUp">
+                        <div className="p-6">
+                            <h2 className="text-xl font-bold text-slate-900 dark:text-white mb-2 text-center">알림이 꺼져있어요 😢</h2>
+                            <p className="text-slate-600 dark:text-slate-300 text-center mb-6 text-sm">
+                                브라우저 설정에서 알림 권한을 허용해야<br />긴급 기도를 받을 수 있습니다.
+                            </p>
+                            <div className="bg-slate-50 dark:bg-slate-700/50 rounded-xl p-4 mb-6 text-sm text-slate-600 dark:text-slate-400">
+                                1. 주소창 옆 <strong>자물쇠 아이콘</strong> 클릭<br />
+                                2. <strong>권한</strong> 또는 <strong>사이트 설정</strong> 클릭<br />
+                                3. <strong>알림</strong>을 <strong>허용</strong>으로 변경
+                            </div>
+                            <button
+                                onClick={handleCloseDeniedHelp}
+                                className="w-full py-3 bg-slate-100 dark:bg-slate-700 text-slate-900 dark:text-white rounded-xl font-medium"
+                            >
+                                확인했습니다
+                            </button>
                         </div>
                     </div>
                 </div>
