@@ -121,6 +121,7 @@ const CommunityScreen: React.FC<CommunityScreenProps> = ({ navigate, t }) => {
     const getRoleBadgeColor = (role: string) => {
         switch (role) {
             case 'PASTOR': return 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400';
+            case 'SUB_ADMIN': return 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-400';
             case 'LEADER': return 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400';
             default: return 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400';
         }
@@ -129,6 +130,7 @@ const CommunityScreen: React.FC<CommunityScreenProps> = ({ navigate, t }) => {
     const getRoleLabel = (role: string) => {
         switch (role) {
             case 'PASTOR': return '목사';
+            case 'SUB_ADMIN': return '부관리자';
             case 'LEADER': return '리더';
             default: return '멤버';
         }
@@ -273,8 +275,8 @@ const CommunityScreen: React.FC<CommunityScreenProps> = ({ navigate, t }) => {
                                     className="flex items-start gap-4 p-4 bg-surface-light dark:bg-surface-dark rounded-2xl shadow-sm"
                                 >
                                     <div className={`w-10 h-10 rounded-full flex items-center justify-center ${activity.type === 'PRAYER'
-                                            ? 'bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400'
-                                            : 'bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400'
+                                        ? 'bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400'
+                                        : 'bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400'
                                         }`}>
                                         <span className="material-symbols-outlined">
                                             {activity.type === 'PRAYER' ? 'volunteer_activism' : 'menu_book'}

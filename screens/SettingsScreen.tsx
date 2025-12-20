@@ -107,6 +107,7 @@ const SettingsScreen: React.FC<SettingsScreenProps> = ({ navigate, language, tog
   const getRoleLabel = (role?: string) => {
     switch (role) {
       case 'PASTOR': return '목사 / 관리자';
+      case 'SUB_ADMIN': return '부관리자';
       case 'LEADER': return '셀 리더';
       default: return '셀원';
     }
