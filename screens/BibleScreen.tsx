@@ -194,11 +194,10 @@ const BibleScreen: React.FC<BibleScreenProps> = ({ navigate, t }) => {
         if (verses.length === 0) return;
 
         // ====== SOTA ALGORITHM: Verse Timing Estimation ======
-        // 1. Each verse has: 
-        //    - Base time based on character count (reading time)
-        //    - Fixed pause time between verses (breathing room)
-        const VERSE_PAUSE_SECONDS = 1.2; // Average pause between verses
-        const CHARS_PER_SECOND = 5.5;    // Average Korean reading speed for bible narration
+        // Audio structure: [Intro: "창세기 X장" ~4초] → [절 1] → [절 2] → ...
+        const INTRO_DELAY_SECONDS = 4.0;  // Chapter announcement at start ("창세기 X장")
+        const VERSE_PAUSE_SECONDS = 1.2;  // Average pause between verses
+        const CHARS_PER_SECOND = 5.5;     // Average Korean reading speed
 
         // Calculate estimated time for each verse
         const verseTiming = verses.map(([verseNum, text]) => {
@@ -212,14 +211,16 @@ const BibleScreen: React.FC<BibleScreenProps> = ({ navigate, t }) => {
             };
         });
 
-        // Calculate total estimated time
-        const totalEstimatedTime = verseTiming.reduce((sum, v) => sum + v.estimatedDuration, 0);
+        // Calculate total estimated time (intro + all verses)
+        const totalVerseTime = verseTiming.reduce((sum, v) => sum + v.estimatedDuration, 0);
+        const totalEstimatedTime = INTRO_DELAY_SECONDS + totalVerseTime;
 
         // Scale factor to match actual audio duration
         const scaleFactor = duration / totalEstimatedTime;
+        const scaledIntroDelay = INTRO_DELAY_SECONDS * scaleFactor;
 
-        // Build timeline with start/end times
-        let currentStart = 0;
+        // Build timeline with start/end times (starting AFTER intro)
+        let currentStart = scaledIntroDelay; // First verse starts after intro!
         const timeline = verseTiming.map(v => {
             const scaledDuration = v.estimatedDuration * scaleFactor;
             const entry = {
@@ -232,15 +233,17 @@ const BibleScreen: React.FC<BibleScreenProps> = ({ navigate, t }) => {
         });
 
         // Find current verse based on audio time
+        // During intro period (before scaledIntroDelay), targetVerse stays at 1 but won't scroll
         let targetVerse = 1;
-        for (const entry of timeline) {
-            if (currentTime >= entry.startTime && currentTime < entry.endTime) {
-                targetVerse = entry.verseNum;
-                break;
-            }
-            // If we're past this verse, it might be the last one
-            if (currentTime >= entry.startTime) {
-                targetVerse = entry.verseNum;
+        if (currentTime >= scaledIntroDelay) {
+            for (const entry of timeline) {
+                if (currentTime >= entry.startTime && currentTime < entry.endTime) {
+                    targetVerse = entry.verseNum;
+                    break;
+                }
+                if (currentTime >= entry.startTime) {
+                    targetVerse = entry.verseNum;
+                }
             }
         }
 
