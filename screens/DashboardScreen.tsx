@@ -257,7 +257,7 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({ navigate, isDarkMode,
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-bold text-text-main-light dark:text-text-main-dark">{t.dashboard.activePlans}</h3>
               <button
-                onClick={() => navigate(Screen.BIBLE)} // Temporary link for "See All"
+                onClick={() => navigate(Screen.PLAN_LIST)}
                 className="text-sm font-semibold text-primary hover:text-primary-dark"
               >
                 {t.dashboard.seeAll}

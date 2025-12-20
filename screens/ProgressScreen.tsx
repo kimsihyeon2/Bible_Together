@@ -205,7 +205,7 @@ const ProgressScreen: React.FC<ProgressScreenProps> = ({ navigate, t }) => {
           >
             <span className="material-symbols-outlined text-xl">arrow_back</span>
           </button>
-          <span className="text-lg font-bold text-slate-800 dark:text-white">My Progress</span>
+          <span className="text-lg font-bold text-slate-800 dark:text-white">{t.progress.title}</span>
           <button
             onClick={fetchProgressData}
             className="w-10 h-10 rounded-full bg-white/50 dark:bg-slate-700/50 flex items-center justify-center text-slate-600 dark:text-slate-200 hover:bg-white dark:hover:bg-slate-700 transition-colors"
@@ -219,7 +219,7 @@ const ProgressScreen: React.FC<ProgressScreenProps> = ({ navigate, t }) => {
           {/* Main Title & Streak */}
           <div className="flex flex-col gap-4">
             <div className="flex justify-between items-end px-2">
-              <h1 className="text-3xl font-bold tracking-tight text-slate-900 dark:text-white">Overview</h1>
+              <h1 className="text-3xl font-bold tracking-tight text-slate-900 dark:text-white">{t.progress.overview}</h1>
               <div className="h-10 w-10 rounded-full border-2 border-white dark:border-slate-700 shadow-sm bg-green-500 flex items-center justify-center text-white font-bold text-lg">
                 {profile?.name?.charAt(0) || '?'}
               </div>
@@ -230,9 +230,9 @@ const ProgressScreen: React.FC<ProgressScreenProps> = ({ navigate, t }) => {
                 <span className="material-symbols-outlined text-2xl filled">local_fire_department</span>
               </div>
               <div>
-                <p className="text-sm font-bold text-slate-900 dark:text-white">Current Streak</p>
+                <p className="text-sm font-bold text-slate-900 dark:text-white">{t.progress.currentStreak}</p>
                 <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">
-                  {stats.streak > 0 ? `${stats.streak} day streak! Keep it up! 🔥` : 'Start your streak today!'}
+                  {stats.streak > 0 ? `${stats.streak}${t.progress.streakMessage}` : t.progress.startStreak}
                 </p>
               </div>
             </div>
@@ -241,9 +241,9 @@ const ProgressScreen: React.FC<ProgressScreenProps> = ({ navigate, t }) => {
           {/* Completion Chart (Circular) */}
           <div className="bg-white dark:bg-slate-800 rounded-[2.5rem] p-8 shadow-sm border border-slate-100 dark:border-slate-700 relative overflow-hidden flex flex-col items-center">
             <div className="flex justify-between w-full mb-6 items-center px-2">
-              <h2 className="text-lg font-bold text-slate-800 dark:text-white">Bible Reading</h2>
+              <h2 className="text-lg font-bold text-slate-800 dark:text-white">{t.progress.bibleReading}</h2>
               <span className="text-xs font-bold bg-green-100 dark:bg-green-900 text-green-700 dark:text-green-300 px-3 py-1 rounded-full">
-                {TOTAL_BIBLE_CHAPTERS} Chaps
+                {TOTAL_BIBLE_CHAPTERS} {t.progress.chapters}
               </span>
             </div>
 
@@ -274,12 +274,12 @@ const ProgressScreen: React.FC<ProgressScreenProps> = ({ navigate, t }) => {
               </div>
             </div>
             <p className="text-center text-sm font-medium text-slate-500 dark:text-slate-400 max-w-[80%]">
-              {stats.completionPercent === 0 ? 'Start your journey today!' :
-                stats.completionPercent < 25 ? 'Great start! Keep going.' :
-                  stats.completionPercent < 50 ? 'You are doing amazing!' :
-                    stats.completionPercent < 75 ? 'More than halfway there!' :
-                      stats.completionPercent < 100 ? 'Almost there!' :
-                        'Bible Competed! 🎉'}
+              {stats.completionPercent === 0 ? t.progress.statusStart :
+                stats.completionPercent < 25 ? t.progress.statusKeepGoing :
+                  stats.completionPercent < 50 ? t.progress.statusAmazing :
+                    stats.completionPercent < 75 ? t.progress.statusHalfway :
+                      stats.completionPercent < 100 ? t.progress.statusAlmost :
+                        t.progress.statusCompleted}
             </p>
           </div>
 
@@ -291,7 +291,7 @@ const ProgressScreen: React.FC<ProgressScreenProps> = ({ navigate, t }) => {
               </div>
               <div>
                 <span className="text-3xl font-bold text-slate-900 dark:text-white">{Math.floor(stats.totalMinutes / 60)}<span className="text-lg text-slate-400 ml-1">h</span></span>
-                <p className="text-xs font-bold text-slate-400 uppercase tracking-wide mt-1">Total Time</p>
+                <p className="text-xs font-bold text-slate-400 uppercase tracking-wide mt-1">{t.progress.totalTime}</p>
               </div>
             </div>
             <div className="bg-white dark:bg-slate-800 p-5 rounded-[2rem] shadow-sm border border-slate-100 dark:border-slate-700 flex flex-col justify-between h-40">
@@ -300,7 +300,7 @@ const ProgressScreen: React.FC<ProgressScreenProps> = ({ navigate, t }) => {
               </div>
               <div>
                 <span className="text-3xl font-bold text-slate-900 dark:text-white">{stats.totalChapters}</span>
-                <p className="text-xs font-bold text-slate-400 uppercase tracking-wide mt-1">Chapters</p>
+                <p className="text-xs font-bold text-slate-400 uppercase tracking-wide mt-1">{t.progress.totalChapters}</p>
               </div>
             </div>
           </div>
@@ -308,8 +308,8 @@ const ProgressScreen: React.FC<ProgressScreenProps> = ({ navigate, t }) => {
           {/* Weekly Activity */}
           <div className="bg-white dark:bg-slate-800 rounded-[2.5rem] p-6 shadow-sm border border-slate-100 dark:border-slate-700">
             <div className="flex justify-between items-center mb-6">
-              <h3 className="text-lg font-bold text-slate-900 dark:text-white">Weekly Activity</h3>
-              <span className="text-[10px] font-bold bg-slate-100 dark:bg-slate-700 text-slate-500 px-2 py-1 rounded-lg">Last 7 Days</span>
+              <h3 className="text-lg font-bold text-slate-900 dark:text-white">{t.progress.weeklyActivity}</h3>
+              <span className="text-[10px] font-bold bg-slate-100 dark:bg-slate-700 text-slate-500 px-2 py-1 rounded-lg">{t.progress.last7Days}</span>
             </div>
             <div className="flex items-end justify-between h-32 gap-3">
               {weeklyActivity.map((value, idx) => (
@@ -329,7 +329,7 @@ const ProgressScreen: React.FC<ProgressScreenProps> = ({ navigate, t }) => {
           {/* Leaderboard */}
           {cellLeaderboard.length > 0 && (
             <div className="bg-white dark:bg-slate-800 rounded-[2.5rem] p-6 shadow-sm border border-slate-100 dark:border-slate-700">
-              <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-4">Cell Leaderboard 🏆</h3>
+              <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-4">{t.progress.cellLeaderboard}</h3>
               <div className="space-y-4">
                 {cellLeaderboard.map((member, idx) => (
                   <div key={member.user_id} className="flex items-center gap-4">
@@ -340,10 +340,10 @@ const ProgressScreen: React.FC<ProgressScreenProps> = ({ navigate, t }) => {
                     <div className="flex-1">
                       <p className="text-sm font-bold text-slate-900 dark:text-white">
                         {member.user_name}
-                        {member.user_id === user?.id && <span className="text-xs text-green-500 ml-1">(You)</span>}
+                        {member.user_id === user?.id && <span className="text-xs text-green-500 ml-1">{t.progress.you}</span>}
                       </p>
                     </div>
-                    <span className="text-sm font-bold text-slate-900 dark:text-white">{member.chapters_count} ch</span>
+                    <span className="text-sm font-bold text-slate-900 dark:text-white">{member.chapters_count} {t.progress.chapters}</span>
                   </div>
                 ))}
               </div>
@@ -353,8 +353,8 @@ const ProgressScreen: React.FC<ProgressScreenProps> = ({ navigate, t }) => {
           {/* Monthly Calendar */}
           <div className="bg-white dark:bg-slate-800 rounded-[2.5rem] p-6 shadow-sm border border-slate-100 dark:border-slate-700">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-bold text-slate-900 dark:text-white">Consistency</h3>
-              <span className="text-xs font-bold text-green-600 bg-green-100 px-2 py-1 rounded-lg">{monthlyReadDays.size} days</span>
+              <h3 className="text-lg font-bold text-slate-900 dark:text-white">{t.progress.consistency}</h3>
+              <span className="text-xs font-bold text-green-600 bg-green-100 px-2 py-1 rounded-lg">{monthlyReadDays.size} {t.progress.days}</span>
             </div>
             <div className="grid grid-cols-7 gap-y-3 gap-x-1 text-center">
               {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map(d => <span key={d} className="text-[10px] font-bold text-slate-400">{d}</span>)}
@@ -387,21 +387,21 @@ const ProgressScreen: React.FC<ProgressScreenProps> = ({ navigate, t }) => {
           {/* Goal Setting */}
           <div className="bg-white dark:bg-slate-800 rounded-[2.5rem] p-6 shadow-sm border border-slate-100 dark:border-slate-700 mb-6">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-bold text-slate-900 dark:text-white">Daily Goal</h3>
-              <button onClick={() => setShowGoalModal(true)} className="text-xs font-bold text-green-600 bg-green-50 hover:bg-green-100 px-3 py-1.5 rounded-full transition-colors">Edit</button>
+              <h3 className="text-lg font-bold text-slate-900 dark:text-white">{t.progress.dailyGoal}</h3>
+              <button onClick={() => setShowGoalModal(true)} className="text-xs font-bold text-green-600 bg-green-50 hover:bg-green-100 px-3 py-1.5 rounded-full transition-colors">{t.progress.edit}</button>
             </div>
             <div className="flex items-center gap-4 bg-slate-50 dark:bg-slate-700/50 p-4 rounded-[1.5rem]">
               <div className="w-12 h-12 rounded-full bg-white dark:bg-slate-600 flex items-center justify-center text-green-500 shadow-sm">
                 <span className="material-symbols-outlined">flag</span>
               </div>
               <div>
-                <p className="text-xs font-bold text-slate-400 uppercase">Target</p>
-                <p className="text-xl font-bold text-slate-900 dark:text-white">{savedGoal} Chapters</p>
+                <p className="text-xs font-bold text-slate-400 uppercase">{t.progress.target}</p>
+                <p className="text-xl font-bold text-slate-900 dark:text-white">{savedGoal} {t.progress.chapters}</p>
               </div>
               <div className="ml-auto text-right">
-                <p className="text-xs font-bold text-slate-400 uppercase">Today</p>
+                <p className="text-xs font-bold text-slate-400 uppercase">{t.progress.today}</p>
                 <p className="text-lg font-bold text-green-600">
-                  {weeklyActivity[6] >= savedGoal ? 'Done! ✅' : `${weeklyActivity[6]}/${savedGoal}`}
+                  {weeklyActivity[6] >= savedGoal ? t.progress.done : `${weeklyActivity[6]}/${savedGoal}`}
                 </p>
               </div>
             </div>
@@ -415,14 +415,14 @@ const ProgressScreen: React.FC<ProgressScreenProps> = ({ navigate, t }) => {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
           <div className="w-full max-w-sm bg-white dark:bg-slate-800 rounded-[2.5rem] p-8 shadow-2xl animate-pop">
             <div className="flex justify-between items-center mb-6">
-              <h2 className="text-xl font-bold text-slate-900 dark:text-white">Set Daily Goal</h2>
+              <h2 className="text-xl font-bold text-slate-900 dark:text-white">{t.progress.setDailyGoalTitle}</h2>
               <button onClick={() => setShowGoalModal(false)} className="w-8 h-8 rounded-full bg-slate-100 dark:bg-slate-700 flex items-center justify-center text-slate-500">
                 <span className="material-symbols-outlined text-lg">close</span>
               </button>
             </div>
 
             <div className="flex flex-col items-center gap-6 mb-8">
-              <p className="text-slate-500 text-sm font-medium">How many chapters per day?</p>
+              <p className="text-slate-500 text-sm font-medium">{t.progress.howManyChapters}</p>
               <div className="flex items-center gap-6">
                 <button onClick={() => setDailyGoal(Math.max(1, dailyGoal - 1))} className="w-14 h-14 rounded-full border-2 border-slate-200 dark:border-slate-600 flex items-center justify-center text-2xl text-slate-400 hover:bg-slate-50 transition-colors">
                   <span className="material-symbols-outlined">remove</span>
@@ -438,7 +438,7 @@ const ProgressScreen: React.FC<ProgressScreenProps> = ({ navigate, t }) => {
               onClick={() => { setSavedGoal(dailyGoal); setShowGoalModal(false); }}
               className="w-full h-14 bg-green-500 text-white rounded-[1.5rem] font-bold text-lg shadow-lg shadow-green-500/30 hover:scale-[1.02] active:scale-[0.98] transition-all"
             >
-              Save Goal
+              {t.progress.saveGoal}
             </button>
           </div>
         </div>

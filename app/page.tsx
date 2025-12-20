@@ -10,6 +10,7 @@ import BibleScreen from '@/screens/BibleScreen';
 import CommunityScreen from '@/screens/CommunityScreen';
 import AdminScreen from '@/screens/AdminScreen';
 import PlanDetailScreen from '@/screens/PlanDetailScreen';
+import PlanListScreen from '@/screens/PlanListScreen';
 import ProgressScreen from '@/screens/ProgressScreen';
 import ChatScreen from '@/screens/ChatScreen';
 import SettingsScreen from '@/screens/SettingsScreen';
@@ -25,6 +26,7 @@ const ROUTE_MAP: Record<string, Screen> = {
     '#/admin': Screen.ADMIN,
     '#/plan-detail': Screen.PLAN_DETAIL,
     '#/plan/today': Screen.PLAN_DETAIL,
+    '#/plans': Screen.PLAN_LIST,
     '#/progress': Screen.PROGRESS,
     '#/chat': Screen.CHAT,
     '#/settings': Screen.SETTINGS,
@@ -37,6 +39,7 @@ const SCREEN_TO_HASH: Record<Screen, string> = {
     [Screen.COMMUNITY]: '#/community',
     [Screen.ADMIN]: '#/admin',
     [Screen.PLAN_DETAIL]: '#/plan-detail',
+    [Screen.PLAN_LIST]: '#/plans',
     [Screen.PROGRESS]: '#/progress',
     [Screen.CHAT]: '#/chat',
     [Screen.SETTINGS]: '#/settings',
@@ -170,6 +173,8 @@ export default function HomePage() {
                 return <AdminScreen navigate={navigate} t={t} />;
             case Screen.PLAN_DETAIL:
                 return <PlanDetailScreen navigate={navigate} t={t} />;
+            case Screen.PLAN_LIST:
+                return <PlanListScreen navigate={navigate} t={t} />;
             case Screen.PROGRESS:
                 return <ProgressScreen navigate={navigate} t={t} />;
             case Screen.CHAT:

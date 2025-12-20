@@ -35,7 +35,8 @@ interface UrgentPrayer {
 
 const AdminScreen: React.FC<AdminScreenProps> = ({ navigate, t }) => {
     const { user, profile, isAdmin } = useAuth();
-    const [activeTab, setActiveTab] = useState<'parishes' | 'members' | 'prayers'>('parishes');
+    const [activeTab, setActiveTab] = useState<'parishes' | 'members' | 'prayers' | 'stats'>('parishes');
+    const [stats, setStats] = useState({ totalMembers: 0, activeToday: 0, cellStats: [] as any[] });
     const [parishes, setParishes] = useState<any[]>([]);
     const [selectedParishId, setSelectedParishId] = useState<string | null>(null);
     const [cells, setCells] = useState<any[]>([]); // Cells within selected Parish
@@ -59,6 +60,49 @@ const AdminScreen: React.FC<AdminScreenProps> = ({ navigate, t }) => {
     useEffect(() => {
         fetchData();
     }, []);
+
+    useEffect(() => {
+        if (activeTab === 'stats') fetchStats();
+    }, [activeTab]);
+
+    const fetchStats = async () => {
+        setLoading(true);
+        try {
+            const { count: memberCount } = await supabase.from('profiles').select('*', { count: 'exact', head: true });
+
+            const today = new Date().toISOString().split('T')[0];
+            const { count: todayCount } = await supabase.from('daily_readings').select('*', { count: 'exact', head: true }).eq('reading_date', today);
+
+            // Fetch Cells and Members to calculate per-cell stats
+            const { data: allCells } = await supabase.from('cells').select('id, name, parish_id');
+            const { data: cellMembers } = await supabase.from('cell_members').select('cell_id, user_id');
+            const { data: todayReadings } = await supabase.from('daily_readings').select('user_id').eq('reading_date', today);
+
+            if (allCells && cellMembers) {
+                const statsData = allCells.map((cell: any) => {
+                    const membersInCell = cellMembers.filter((m: any) => m.cell_id === cell.id);
+                    const readersInCell = membersInCell.filter((m: any) => todayReadings?.some((r: any) => r.user_id === m.user_id));
+                    return {
+                        id: cell.id,
+                        name: cell.name,
+                        memberCount: membersInCell.length,
+                        readerCount: readersInCell.length,
+                        rate: membersInCell.length > 0 ? Math.round((readersInCell.length / membersInCell.length) * 100) : 0
+                    };
+                }).sort((a: any, b: any) => b.rate - a.rate);
+
+                setStats({
+                    totalMembers: memberCount || 0,
+                    activeToday: todayCount || 0,
+                    cellStats: statsData
+                });
+            }
+        } catch (e) {
+            console.error(e);
+        } finally {
+            setLoading(false);
+        }
+    };
 
     const fetchData = async () => {
         setLoading(true);
@@ -215,7 +259,7 @@ const AdminScreen: React.FC<AdminScreenProps> = ({ navigate, t }) => {
                 </div>
                 {/* Tabs */}
                 <div className="flex border-t border-black/5 dark:border-white/10">
-                    {[{ key: 'parishes', label: '교구/셀 관리', icon: 'church' }, { key: 'members', label: '멤버', icon: 'person' }, { key: 'prayers', label: '기도', icon: 'favorite' }].map((tab) => (
+                    {[{ key: 'parishes', label: '교구/셀 관리', icon: 'church' }, { key: 'members', label: '멤버', icon: 'person' }, { key: 'prayers', label: '기도', icon: 'favorite' }, { key: 'stats', label: '통계', icon: 'bar_chart' }].map((tab) => (
                         <button key={tab.key} onClick={() => setActiveTab(tab.key as any)} className={`flex-1 py-3 text-sm font-medium flex items-center justify-center gap-1 ${activeTab === tab.key ? 'text-primary border-b-2 border-primary' : 'text-slate-500'}`}>
                             <span className="material-symbols-outlined">{tab.icon}</span> {tab.label}
                         </button>
@@ -323,6 +367,49 @@ const AdminScreen: React.FC<AdminScreenProps> = ({ navigate, t }) => {
                                 </div>
                             </div>
                         ))}
+                    </div>
+                )}
+
+                {/* Stats Tab */}
+                {activeTab === 'stats' && (
+                    <div className="space-y-6">
+                        <div className="grid grid-cols-2 gap-4">
+                            <div className="bg-white dark:bg-slate-800 p-6 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-700">
+                                <p className="text-slate-500 text-sm font-bold uppercase mb-2">총 멤버</p>
+                                <h3 className="text-4xl font-bold text-slate-900 dark:text-white">{stats.totalMembers}</h3>
+                            </div>
+                            <div className="bg-white dark:bg-slate-800 p-6 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-700">
+                                <p className="text-green-500 text-sm font-bold uppercase mb-2">오늘 읽음</p>
+                                <h3 className="text-4xl font-bold text-green-600 dark:text-green-400">{stats.activeToday}</h3>
+                            </div>
+                        </div>
+
+                        <div>
+                            <h3 className="text-xl font-bold mb-4 px-2">셀별 참여율 현황</h3>
+                            <div className="space-y-3">
+                                {stats.cellStats.map((cell: any) => (
+                                    <div key={cell.id} className="bg-white dark:bg-slate-800 p-4 rounded-xl shadow-sm border border-slate-100 dark:border-slate-700 flex items-center justify-between">
+                                        <div>
+                                            <h4 className="font-bold text-lg text-slate-900 dark:text-white">{cell.name}</h4>
+                                            <p className="text-sm text-slate-500 dark:text-slate-400">
+                                                멤버 {cell.memberCount}명 중 <span className="text-green-600 font-bold">{cell.readerCount}명</span> 읽음
+                                            </p>
+                                        </div>
+                                        <div className="flex items-center gap-3">
+                                            <div className="text-right">
+                                                <span className="text-2xl font-bold text-slate-900 dark:text-white">{cell.rate}%</span>
+                                            </div>
+                                            <div className="w-16 h-2 bg-slate-100 dark:bg-slate-700 rounded-full overflow-hidden">
+                                                <div className="h-full bg-green-500 rounded-full" style={{ width: `${cell.rate}%` }}></div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                ))}
+                                {stats.cellStats.length === 0 && (
+                                    <p className="text-center text-slate-400 py-10">데이터가 없습니다.</p>
+                                )}
+                            </div>
+                        </div>
                     </div>
                 )}
             </main>

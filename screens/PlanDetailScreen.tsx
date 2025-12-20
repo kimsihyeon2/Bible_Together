@@ -6,6 +6,7 @@ import { Translations } from '../i18n';
 import { useAuth } from '@/lib/auth-context';
 import { supabase } from '@/lib/supabase';
 import { useLoading } from '@/lib/loading-context';
+import { CreateUrgentPrayerModal } from '@/components/UrgentPrayer';
 
 interface PlanDetailScreenProps {
   navigate: (screen: Screen) => void;
@@ -69,6 +70,7 @@ const PlanDetailScreen: React.FC<PlanDetailScreenProps> = ({ navigate, t }) => {
   const [userProgress, setUserProgress] = useState<UserProgress | null>(null);
   const [completing, setCompleting] = useState(false);
   const [cellMembers, setCellMembers] = useState<{ name: string; current_day: number }[]>([]);
+  const [showCreatePrayer, setShowCreatePrayer] = useState(false);
 
   useEffect(() => {
     if (user) {
@@ -272,7 +274,10 @@ const PlanDetailScreen: React.FC<PlanDetailScreenProps> = ({ navigate, t }) => {
             <div className="bg-pasture-sky dark:bg-slate-800 p-5 rounded-[2rem] flex flex-col justify-between h-40 relative shadow-sm hover:shadow-md transition-shadow">
               <div className="flex justify-between items-start">
                 <span className="text-[10px] font-bold text-sky-700 dark:text-slate-400 uppercase tracking-wide">Community</span>
-                <button className="w-8 h-8 rounded-full bg-white dark:bg-slate-700 flex items-center justify-center text-sky-500 dark:text-sky-300 shadow-sm">
+                <button
+                  onClick={() => navigate(Screen.CHAT)}
+                  className="w-8 h-8 rounded-full bg-white dark:bg-slate-700 flex items-center justify-center text-sky-500 dark:text-sky-300 shadow-sm transition-transform hover:scale-110"
+                >
                   <span className="material-symbols-outlined text-lg">add</span>
                 </button>
               </div>
@@ -290,7 +295,10 @@ const PlanDetailScreen: React.FC<PlanDetailScreenProps> = ({ navigate, t }) => {
             <div className="bg-pasture-green dark:bg-slate-800 p-5 rounded-[2rem] flex flex-col justify-between h-40 relative shadow-sm hover:shadow-md transition-shadow">
               <div className="flex justify-between items-start">
                 <span className="text-[10px] font-bold text-green-700 dark:text-slate-400 uppercase tracking-wide">Prayer</span>
-                <button className="w-8 h-8 rounded-full bg-white dark:bg-slate-700 flex items-center justify-center text-green-600 dark:text-green-300 shadow-sm">
+                <button
+                  onClick={() => setShowCreatePrayer(true)}
+                  className="w-8 h-8 rounded-full bg-white dark:bg-slate-700 flex items-center justify-center text-green-600 dark:text-green-300 shadow-sm transition-transform hover:scale-110"
+                >
                   <span className="material-symbols-outlined text-lg">add</span>
                 </button>
               </div>
@@ -383,6 +391,13 @@ const PlanDetailScreen: React.FC<PlanDetailScreenProps> = ({ navigate, t }) => {
           </section>
         </main>
       </div>
+
+      {/* Create Urgent Prayer Modal */}
+      <CreateUrgentPrayerModal
+        isOpen={showCreatePrayer}
+        onClose={() => setShowCreatePrayer(false)}
+        onSuccess={() => { }}
+      />
     </div>
   );
 };
