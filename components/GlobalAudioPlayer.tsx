@@ -14,6 +14,7 @@ export const GlobalAudioPlayer = () => {
         duration,
         currentTime,
         seek,
+        stop,
         error
     } = useAudio();
 
@@ -82,6 +83,15 @@ export const GlobalAudioPlayer = () => {
                                         {isPlaying ? 'pause' : 'play_arrow'}
                                     </span>
                                 )}
+                            </button>
+
+                            {/* Close Button */}
+                            <button
+                                onClick={stop}
+                                className="p-2 text-slate-400 hover:text-red-500 dark:hover:text-red-400"
+                                title="닫기"
+                            >
+                                <span className="material-symbols-outlined text-[20px]">close</span>
                             </button>
                         </div>
                     </div>

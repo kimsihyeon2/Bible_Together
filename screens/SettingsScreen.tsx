@@ -290,6 +290,25 @@ const SettingsScreen: React.FC<SettingsScreenProps> = ({ navigate, language, tog
               </div>
             </section>
 
+            {/* Admin Section - Only visible for admins */}
+            {isAdmin && (
+              <section>
+                <h3 className="text-[13px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2 px-1">관리자</h3>
+                <div className="bg-surface-light dark:bg-surface-dark rounded-[18px] overflow-hidden shadow-sm">
+                  <button
+                    onClick={() => navigate(Screen.ADMIN)}
+                    className="w-full flex items-center justify-between px-4 py-3"
+                  >
+                    <div className="flex items-center gap-3">
+                      <span className="material-symbols-outlined text-ios-red text-[22px]">admin_panel_settings</span>
+                      <span className="text-[17px] text-black dark:text-white">관리자 페이지</span>
+                    </div>
+                    <span className="material-symbols-outlined text-slate-400 text-[18px]">chevron_right</span>
+                  </button>
+                </div>
+              </section>
+            )}
+
             {/* Logout Button */}
             <section className="mt-2">
               <button
