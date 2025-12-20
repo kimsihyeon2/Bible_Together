@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Screen } from '../types';
 import { Translations } from '../i18n';
 import { supabase } from '@/lib/supabase';
@@ -56,6 +56,8 @@ const BibleScreen: React.FC<BibleScreenProps> = ({ navigate, t }) => {
     const [playingVerse, setPlayingVerse] = useState<number | null>(null);
     const [isExpanded, setIsExpanded] = useState(false);
     const [touchStart, setTouchStart] = useState(0);
+    const lastScrollTime = useRef<number>(0);
+    const estimatedVerseRef = useRef<number>(1);
 
     // Load Settings
     useEffect(() => {
@@ -179,38 +181,61 @@ const BibleScreen: React.FC<BibleScreenProps> = ({ navigate, t }) => {
         }
     }, [isLoaded]);
 
-    // Approximate Verse Sync Logic (SOTA approach without timestamps)
+    // SOTA Adaptive Verse Sync Logic with Smoothing
     useEffect(() => {
         if (!isPlaying || currentBook !== selectedBook || currentChapter !== selectedChapter || duration === 0) {
             setPlayingVerse(null);
+            estimatedVerseRef.current = 1;
             return;
         }
 
         const verses = getVerses();
-        const totalChars = verses.reduce((acc, [_, text]) => acc + text.length, 0);
-        const progress = currentTime / duration;
-        const targetCharIndex = progress * totalChars;
+        if (verses.length === 0) return;
 
-        let charCount = 0;
-        let foundVerse = null;
+        // Calculate weighted progress based on verse lengths
+        // Longer verses naturally take more time to read
+        const verseLengths = verses.map(([_, text]) => text.length);
+        const totalChars = verseLengths.reduce((a, b) => a + b, 0);
 
-        for (const [verseNumStr, text] of verses) {
-            charCount += text.length;
-            if (charCount >= targetCharIndex) {
-                foundVerse = parseInt(verseNumStr);
+        // Time-based progress with audio position
+        const audioProgress = currentTime / duration;
+
+        // Estimate verse based on character distribution
+        let accumulatedWeight = 0;
+        let targetVerse = 1;
+
+        for (let i = 0; i < verses.length; i++) {
+            const verseWeight = verseLengths[i] / totalChars;
+            accumulatedWeight += verseWeight;
+
+            if (accumulatedWeight >= audioProgress) {
+                targetVerse = parseInt(verses[i][0]);
                 break;
             }
         }
 
-        if (foundVerse !== playingVerse) {
-            setPlayingVerse(foundVerse);
-            // Auto Scroll
-            const element = document.getElementById(`verse-${foundVerse}`);
+        // Smooth transition - only advance, never go back (prevents jitter)
+        const currentEstimate = estimatedVerseRef.current;
+        const smoothedVerse = targetVerse >= currentEstimate ? targetVerse : currentEstimate;
+
+        // Throttle scroll updates (minimum 800ms between scrolls)
+        const now = Date.now();
+        const timeSinceLastScroll = now - lastScrollTime.current;
+
+        if (smoothedVerse !== playingVerse && timeSinceLastScroll > 800) {
+            estimatedVerseRef.current = smoothedVerse;
+            setPlayingVerse(smoothedVerse);
+            lastScrollTime.current = now;
+
+            // Smooth auto-scroll with offset for better readability
+            const element = document.getElementById(`verse-${smoothedVerse}`);
             if (element) {
-                element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                const headerHeight = 80; // Account for sticky header
+                const elementTop = element.getBoundingClientRect().top + window.scrollY - headerHeight - 100;
+                window.scrollTo({ top: elementTop, behavior: 'smooth' });
             }
         }
-    }, [currentTime, duration, isPlaying, currentBook, currentChapter, selectedBook, selectedChapter]);
+    }, [currentTime, duration, isPlaying, currentBook, currentChapter, selectedBook, selectedChapter, playingVerse]);
 
     // Removed fetch logic
 
