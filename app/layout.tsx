@@ -6,6 +6,7 @@ import { LoadingProvider } from "@/lib/loading-context";
 import { GlobalLoader } from "@/components/GlobalLoader";
 import { AudioProvider } from "@/lib/audio-context";
 import { GlobalAudioPlayer } from "@/components/GlobalAudioPlayer";
+import { PushNotificationManager } from "@/components/PushNotificationManager";
 
 export const metadata: Metadata = {
     title: "그린 바이블 | Green Bible",
@@ -53,6 +54,7 @@ export default function RootLayout({
                                     {children}
                                 </GlobalLoader>
                                 <GlobalAudioPlayer />
+                                <PushNotificationManager />
                             </AudioProvider>
                         </LoadingProvider>
                     </BibleProvider>

@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServerSupabaseClient } from '@/lib/supabase-server';
+import { sendPushNotification } from '@/lib/firebase-admin';
 
-// POST: Create urgent prayer and send notification
+// POST: Create urgent prayer and send push notification to all users
 export async function POST(request: NextRequest) {
     try {
         const body = await request.json();
@@ -16,7 +17,7 @@ export async function POST(request: NextRequest) {
 
         const supabase = createServerSupabaseClient();
 
-        // Check if user has PASTOR role (admin) - optional
+        // Check if user has PASTOR role (admin)
         if (userId) {
             const { data: profile } = await supabase
                 .from('profiles')
@@ -32,7 +33,7 @@ export async function POST(request: NextRequest) {
             }
         }
 
-        // Save urgent prayer
+        // Save urgent prayer to database
         const { data: prayer, error: prayerError } = await supabase
             .from('urgent_prayers')
             .insert({
@@ -53,7 +54,7 @@ export async function POST(request: NextRequest) {
             );
         }
 
-        // Create notification
+        // Create notification record
         await supabase.from('notifications').insert({
             title: `🙏 긴급 기도 요청: ${title}`,
             body: content,
@@ -61,16 +62,51 @@ export async function POST(request: NextRequest) {
             created_by: userId,
         });
 
-        // Get FCM tokens for push notifications
-        const { data: subscriptions } = await supabase
+        // Get ALL active FCM tokens for push notifications
+        const { data: subscriptions, error: subsError } = await supabase
             .from('push_subscriptions')
             .select('fcm_token')
             .eq('is_active', true);
 
+        if (subsError) {
+            console.error('Error fetching subscriptions:', subsError);
+        }
+
+        let pushResult = { successCount: 0, failureCount: 0, failedTokens: [] as string[] };
+
+        // Send push notifications to all subscribers
+        if (subscriptions && subscriptions.length > 0) {
+            const tokens = subscriptions.map((s: { fcm_token: string }) => s.fcm_token).filter(Boolean);
+
+            try {
+                pushResult = await sendPushNotification(
+                    tokens,
+                    `🙏 긴급 기도: ${title}`,
+                    content.substring(0, 100) + (content.length > 100 ? '...' : ''),
+                    { type: 'urgent_prayer', prayerId: prayer.id }
+                );
+
+                // Deactivate failed tokens
+                if (pushResult.failedTokens.length > 0) {
+                    await supabase
+                        .from('push_subscriptions')
+                        .update({ is_active: false })
+                        .in('fcm_token', pushResult.failedTokens);
+                }
+            } catch (pushError) {
+                console.error('Push notification error:', pushError);
+            }
+        }
+
         return NextResponse.json({
             success: true,
             prayer,
-            message: `Prayer saved. ${subscriptions?.length || 0} devices will receive notification.`,
+            push: {
+                sent: pushResult.successCount,
+                failed: pushResult.failureCount,
+                total: subscriptions?.length || 0,
+            },
+            message: `기도 요청이 저장되었습니다. ${pushResult.successCount}명에게 알림을 전송했습니다.`,
         });
 
     } catch (error) {

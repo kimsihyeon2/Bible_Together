@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { useAudio } from '@/lib/audio-context';
+import { useAudio, SPEED_OPTIONS } from '@/lib/audio-context';
 import { motion, AnimatePresence } from 'framer-motion';
 
 export const GlobalAudioPlayer = () => {
@@ -15,12 +15,18 @@ export const GlobalAudioPlayer = () => {
         currentTime,
         seek,
         stop,
+        playNext,
+        playPrevious,
+        setSpeed,
+        playbackRate,
+        autoPlayNext,
+        setAutoPlayNext,
         error
     } = useAudio();
 
     const [isExpanded, setIsExpanded] = useState(false);
+    const [showSpeedMenu, setShowSpeedMenu] = useState(false);
 
-    // Only show if there's an active track
     if (!currentBook) return null;
 
     const progressPercent = duration > 0 ? (currentTime / duration) * 100 : 0;
@@ -41,90 +47,172 @@ export const GlobalAudioPlayer = () => {
                     animate={{ y: 0, opacity: 1 }}
                     exit={{ y: 100, opacity: 0 }}
                     transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-                    className="fixed bottom-[84px] left-3 right-3 z-40"
+                    className="fixed bottom-[84px] left-2 right-2 z-40"
                 >
-                    <div className="bg-white/95 dark:bg-slate-800/98 backdrop-blur-xl rounded-2xl shadow-2xl border border-slate-200/50 dark:border-slate-700/50 p-4">
-                        {/* Header with minimize */}
-                        <div className="flex items-center justify-between mb-3">
-                            <div className="flex items-center gap-3">
-                                <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${isPlaying ? 'bg-primary/20 text-primary' : 'bg-slate-100 dark:bg-slate-700 text-slate-500'}`}>
-                                    <span className={`material-symbols-outlined ${isPlaying ? 'animate-pulse' : ''}`}>
-                                        music_note
-                                    </span>
+                    <div className="bg-white/98 dark:bg-slate-900/98 backdrop-blur-xl rounded-3xl shadow-2xl border border-slate-200/50 dark:border-slate-700/50 overflow-hidden">
+                        {/* Album Art / Header */}
+                        <div className="bg-gradient-to-br from-primary/20 to-green-500/10 dark:from-primary/30 dark:to-green-500/20 p-4 pb-3">
+                            <div className="flex items-start justify-between">
+                                <div className="flex items-center gap-3">
+                                    <div className={`w-12 h-12 rounded-2xl flex items-center justify-center shadow-lg ${isPlaying ? 'bg-primary text-white' : 'bg-white dark:bg-slate-800 text-primary'}`}>
+                                        <span className={`material-symbols-outlined text-2xl ${isPlaying ? 'animate-pulse' : ''}`}>
+                                            headphones
+                                        </span>
+                                    </div>
+                                    <div>
+                                        <h4 className="text-base font-bold text-slate-800 dark:text-white">
+                                            {currentBook} {currentChapter}장
+                                        </h4>
+                                        <span className="text-xs text-slate-500 dark:text-slate-400">
+                                            {error ? <span className="text-red-500">{error}</span> : "오디오 성경"}
+                                        </span>
+                                    </div>
                                 </div>
-                                <div>
-                                    <h4 className="text-sm font-bold text-slate-800 dark:text-white">
-                                        {currentBook} {currentChapter}장
-                                    </h4>
-                                    <span className="text-xs text-slate-500">
-                                        {error ? <span className="text-red-500">{error}</span> : "Community Bible Reading"}
-                                    </span>
-                                </div>
+                                <button
+                                    onClick={() => setIsExpanded(false)}
+                                    className="p-1.5 rounded-full bg-black/5 dark:bg-white/10"
+                                >
+                                    <span className="material-symbols-outlined text-slate-500 text-lg">expand_more</span>
+                                </button>
                             </div>
-                            <button
-                                onClick={() => setIsExpanded(false)}
-                                className="p-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300"
-                            >
-                                <span className="material-symbols-outlined text-xl">expand_more</span>
-                            </button>
                         </div>
 
-                        {/* Progress Bar */}
-                        <div className="w-full flex items-center gap-3 mb-3">
-                            <span className="text-[11px] text-slate-500 w-9 text-right font-mono">{formatTime(currentTime)}</span>
-                            <div
-                                className="flex-1 h-1.5 bg-slate-100 dark:bg-slate-700 rounded-full overflow-hidden cursor-pointer"
-                                onClick={(e) => {
-                                    const rect = e.currentTarget.getBoundingClientRect();
-                                    const x = e.clientX - rect.left;
-                                    const newTime = (x / rect.width) * duration;
-                                    seek(newTime);
-                                }}
-                            >
+                        <div className="px-4 pb-4">
+                            {/* Progress Bar */}
+                            <div className="pt-3 pb-2">
                                 <div
-                                    className="h-full bg-primary rounded-full transition-all duration-150"
-                                    style={{ width: `${progressPercent}%` }}
-                                />
+                                    className="w-full h-2 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden cursor-pointer group"
+                                    onClick={(e) => {
+                                        const rect = e.currentTarget.getBoundingClientRect();
+                                        const x = e.clientX - rect.left;
+                                        const newTime = (x / rect.width) * duration;
+                                        seek(newTime);
+                                    }}
+                                >
+                                    <div
+                                        className="h-full bg-primary rounded-full transition-all duration-150 group-hover:bg-green-600"
+                                        style={{ width: `${progressPercent}%` }}
+                                    />
+                                </div>
+                                <div className="flex justify-between mt-1">
+                                    <span className="text-[10px] text-slate-400 font-mono">{formatTime(currentTime)}</span>
+                                    <span className="text-[10px] text-slate-400 font-mono">{formatTime(duration)}</span>
+                                </div>
                             </div>
-                            <span className="text-[11px] text-slate-500 w-9 font-mono">{formatTime(duration)}</span>
-                        </div>
 
-                        {/* Controls */}
-                        <div className="flex items-center justify-center gap-4">
-                            <button
-                                onClick={() => seek(Math.max(0, currentTime - 10))}
-                                className="p-2 text-slate-500 hover:text-slate-700 dark:hover:text-slate-300"
-                            >
-                                <span className="material-symbols-outlined text-2xl">replay_10</span>
-                            </button>
+                            {/* Main Controls */}
+                            <div className="flex items-center justify-center gap-2 py-2">
+                                {/* Previous */}
+                                <button
+                                    onClick={playPrevious}
+                                    className="p-2 text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 active:scale-90 transition-all"
+                                >
+                                    <span className="material-symbols-outlined text-2xl">skip_previous</span>
+                                </button>
 
-                            <button
-                                onClick={togglePlay}
-                                disabled={isLoading}
-                                className="w-14 h-14 rounded-full bg-primary hover:bg-green-600 text-white flex items-center justify-center shadow-lg active:scale-95 transition-all"
-                            >
-                                {isLoading ? (
-                                    <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                                ) : (
-                                    <span className="material-symbols-outlined text-3xl filled">
-                                        {isPlaying ? 'pause' : 'play_arrow'}
+                                {/* Rewind 10s */}
+                                <button
+                                    onClick={() => seek(Math.max(0, currentTime - 10))}
+                                    className="p-2 text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 active:scale-90 transition-all"
+                                >
+                                    <span className="material-symbols-outlined text-xl">replay_10</span>
+                                </button>
+
+                                {/* Play/Pause */}
+                                <button
+                                    onClick={togglePlay}
+                                    disabled={isLoading}
+                                    className="w-16 h-16 rounded-full bg-primary hover:bg-green-600 text-white flex items-center justify-center shadow-xl active:scale-95 transition-all mx-2"
+                                >
+                                    {isLoading ? (
+                                        <div className="w-6 h-6 border-3 border-white/30 border-t-white rounded-full animate-spin" />
+                                    ) : (
+                                        <span className="material-symbols-outlined text-4xl filled">
+                                            {isPlaying ? 'pause' : 'play_arrow'}
+                                        </span>
+                                    )}
+                                </button>
+
+                                {/* Forward 10s */}
+                                <button
+                                    onClick={() => seek(Math.min(duration, currentTime + 10))}
+                                    className="p-2 text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 active:scale-90 transition-all"
+                                >
+                                    <span className="material-symbols-outlined text-xl">forward_10</span>
+                                </button>
+
+                                {/* Next */}
+                                <button
+                                    onClick={playNext}
+                                    className="p-2 text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 active:scale-90 transition-all"
+                                >
+                                    <span className="material-symbols-outlined text-2xl">skip_next</span>
+                                </button>
+                            </div>
+
+                            {/* Bottom Controls Row */}
+                            <div className="flex items-center justify-between pt-2 border-t border-slate-100 dark:border-slate-800 mt-2">
+                                {/* Speed Control */}
+                                <div className="relative">
+                                    <button
+                                        onClick={() => setShowSpeedMenu(!showSpeedMenu)}
+                                        className="flex items-center gap-1 px-3 py-1.5 rounded-full bg-slate-100 dark:bg-slate-800 text-sm font-medium text-slate-600 dark:text-slate-300"
+                                    >
+                                        <span className="material-symbols-outlined text-base">speed</span>
+                                        {playbackRate}x
+                                    </button>
+
+                                    {/* Speed Menu */}
+                                    <AnimatePresence>
+                                        {showSpeedMenu && (
+                                            <motion.div
+                                                initial={{ opacity: 0, y: 10 }}
+                                                animate={{ opacity: 1, y: 0 }}
+                                                exit={{ opacity: 0, y: 10 }}
+                                                className="absolute bottom-full left-0 mb-2 bg-white dark:bg-slate-800 rounded-xl shadow-xl border border-slate-200 dark:border-slate-700 p-1 min-w-[100px]"
+                                            >
+                                                {SPEED_OPTIONS.map((speed) => (
+                                                    <button
+                                                        key={speed}
+                                                        onClick={() => {
+                                                            setSpeed(speed);
+                                                            setShowSpeedMenu(false);
+                                                        }}
+                                                        className={`w-full px-3 py-1.5 text-sm rounded-lg text-left transition-colors ${playbackRate === speed
+                                                                ? 'bg-primary text-white'
+                                                                : 'hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300'
+                                                            }`}
+                                                    >
+                                                        {speed}x
+                                                    </button>
+                                                ))}
+                                            </motion.div>
+                                        )}
+                                    </AnimatePresence>
+                                </div>
+
+                                {/* Auto-play Toggle */}
+                                <button
+                                    onClick={() => setAutoPlayNext(!autoPlayNext)}
+                                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${autoPlayNext
+                                            ? 'bg-primary/10 text-primary'
+                                            : 'bg-slate-100 dark:bg-slate-800 text-slate-500'
+                                        }`}
+                                >
+                                    <span className="material-symbols-outlined text-base">
+                                        {autoPlayNext ? 'repeat_one_on' : 'repeat_one'}
                                     </span>
-                                )}
-                            </button>
+                                    자동재생
+                                </button>
 
-                            <button
-                                onClick={() => seek(Math.min(duration, currentTime + 10))}
-                                className="p-2 text-slate-500 hover:text-slate-700 dark:hover:text-slate-300"
-                            >
-                                <span className="material-symbols-outlined text-2xl">forward_10</span>
-                            </button>
-
-                            <button
-                                onClick={stop}
-                                className="p-2 text-slate-400 hover:text-red-500"
-                            >
-                                <span className="material-symbols-outlined text-xl">close</span>
-                            </button>
+                                {/* Close */}
+                                <button
+                                    onClick={stop}
+                                    className="p-2 text-slate-400 hover:text-red-500 rounded-full hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+                                >
+                                    <span className="material-symbols-outlined text-xl">close</span>
+                                </button>
+                            </div>
                         </div>
                     </div>
                 </motion.div>
@@ -138,49 +226,42 @@ export const GlobalAudioPlayer = () => {
                     transition={{ type: 'spring', damping: 25, stiffness: 300 }}
                     className="fixed bottom-[88px] left-1/2 -translate-x-1/2 z-40"
                 >
-                    <button
-                        onClick={() => setIsExpanded(true)}
-                        className="flex items-center gap-2 bg-primary text-white pl-2 pr-4 py-1.5 rounded-full shadow-lg hover:shadow-xl transition-all active:scale-95"
-                    >
-                        {/* Play/Pause minibutton */}
-                        <div
-                            onClick={(e) => {
-                                e.stopPropagation();
-                                togglePlay();
-                            }}
-                            className="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center"
+                    <div className="flex items-center gap-1 bg-gradient-to-r from-primary to-green-600 text-white pl-1.5 pr-3 py-1 rounded-full shadow-lg">
+                        {/* Play/Pause */}
+                        <button
+                            onClick={togglePlay}
+                            className="w-9 h-9 rounded-full bg-white/20 flex items-center justify-center active:scale-90 transition-transform"
                         >
                             {isLoading ? (
-                                <div className="w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                                <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
                             ) : (
-                                <span className="material-symbols-outlined text-lg filled">
+                                <span className="material-symbols-outlined text-xl filled">
                                     {isPlaying ? 'pause' : 'play_arrow'}
                                 </span>
                             )}
-                        </div>
+                        </button>
 
-                        {/* Title */}
-                        <span className="text-sm font-medium max-w-[120px] truncate">
-                            {currentBook} {currentChapter}장
-                        </span>
-
-                        {/* Equalizer animation */}
-                        {isPlaying && !isLoading && (
-                            <span className="flex gap-0.5 items-end h-3 ml-1">
-                                <span className="w-0.5 bg-white/80 animate-[bounce_1s_infinite] h-2 rounded-full"></span>
-                                <span className="w-0.5 bg-white/80 animate-[bounce_1.2s_infinite] h-3 rounded-full"></span>
-                                <span className="w-0.5 bg-white/80 animate-[bounce_0.8s_infinite] h-1.5 rounded-full"></span>
+                        {/* Expand button with title */}
+                        <button
+                            onClick={() => setIsExpanded(true)}
+                            className="flex items-center gap-1.5 pl-1"
+                        >
+                            <span className="text-sm font-medium max-w-[100px] truncate">
+                                {currentBook} {currentChapter}장
                             </span>
-                        )}
 
-                        {/* Error indicator */}
-                        {error && (
-                            <span className="material-symbols-outlined text-red-300 text-sm">error</span>
-                        )}
+                            {/* Equalizer */}
+                            {isPlaying && !isLoading && (
+                                <span className="flex gap-0.5 items-end h-3">
+                                    <span className="w-0.5 bg-white/80 rounded-full animate-[bounce_1s_infinite] h-2"></span>
+                                    <span className="w-0.5 bg-white/80 rounded-full animate-[bounce_1.2s_infinite] h-3"></span>
+                                    <span className="w-0.5 bg-white/80 rounded-full animate-[bounce_0.8s_infinite] h-1.5"></span>
+                                </span>
+                            )}
 
-                        {/* Expand arrow */}
-                        <span className="material-symbols-outlined text-white/70 text-lg">expand_less</span>
-                    </button>
+                            <span className="material-symbols-outlined text-white/70 text-base">expand_less</span>
+                        </button>
+                    </div>
                 </motion.div>
             )}
         </AnimatePresence>

@@ -142,21 +142,47 @@ const AdminScreen: React.FC<AdminScreenProps> = ({ navigate, t }) => {
 
 
     // ... (Member & Prayer functions same as before)
+    const [isSendingPrayer, setIsSendingPrayer] = useState(false);
+
     const handleCreatePrayer = async () => {
         if (!newPrayerTitle.trim() || !newPrayerContent.trim()) return;
-        const { error } = await supabase.from('urgent_prayers').insert({
-            title: newPrayerTitle,
-            content: newPrayerContent,
-            requester_name: profile?.name || 'Admin',
-            created_by: user?.id,
-            is_active: true,
-        });
-        if (!error) {
-            setNewPrayerTitle('');
-            setNewPrayerContent('');
-            setShowCreatePrayer(false);
-            const { data } = await supabase.from('urgent_prayers').select('*').order('created_at', { ascending: false });
-            if (data) setPrayers(data);
+
+        setIsSendingPrayer(true);
+
+        try {
+            // Call API to save prayer AND send push notifications
+            const response = await fetch('/api/send-push', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    title: newPrayerTitle,
+                    content: newPrayerContent,
+                    requesterName: profile?.name || 'Admin',
+                    userId: user?.id,
+                }),
+            });
+
+            const result = await response.json();
+
+            if (response.ok) {
+                setNewPrayerTitle('');
+                setNewPrayerContent('');
+                setShowCreatePrayer(false);
+
+                // Show success toast
+                alert(`✅ ${result.message}`);
+
+                // Refresh prayers list
+                const { data } = await supabase.from('urgent_prayers').select('*').order('created_at', { ascending: false });
+                if (data) setPrayers(data);
+            } else {
+                alert('❌ 전송 실패: ' + (result.error || '알 수 없는 오류'));
+            }
+        } catch (error) {
+            console.error('Error sending prayer:', error);
+            alert('❌ 네트워크 오류가 발생했습니다.');
+        } finally {
+            setIsSendingPrayer(false);
         }
     };
     const handleTogglePrayer = async (id: string, isActive: boolean) => {
@@ -331,8 +357,17 @@ const AdminScreen: React.FC<AdminScreenProps> = ({ navigate, t }) => {
                         <input value={newPrayerTitle} onChange={e => setNewPrayerTitle(e.target.value)} placeholder="제목" className="w-full p-3 bg-slate-100 dark:bg-slate-800 rounded-xl mb-2" />
                         <textarea value={newPrayerContent} onChange={e => setNewPrayerContent(e.target.value)} placeholder="내용" className="w-full p-3 bg-slate-100 dark:bg-slate-800 rounded-xl mb-4 h-32" />
                         <div className="flex gap-2">
-                            <button onClick={() => setShowCreatePrayer(false)} className="flex-1 py-3 bg-slate-200 rounded-xl">취소</button>
-                            <button onClick={handleCreatePrayer} className="flex-1 py-3 bg-red-500 text-white rounded-xl">전송</button>
+                            <button onClick={() => setShowCreatePrayer(false)} disabled={isSendingPrayer} className="flex-1 py-3 bg-slate-200 rounded-xl disabled:opacity-50">취소</button>
+                            <button onClick={handleCreatePrayer} disabled={isSendingPrayer} className="flex-1 py-3 bg-red-500 text-white rounded-xl flex items-center justify-center gap-2 disabled:opacity-50">
+                                {isSendingPrayer ? (
+                                    <>
+                                        <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                                        전송 중...
+                                    </>
+                                ) : (
+                                    <>📢 전송</>
+                                )}
+                            </button>
                         </div>
                     </div>
                 </div>
