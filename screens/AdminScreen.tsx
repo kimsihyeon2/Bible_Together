@@ -241,8 +241,41 @@ const AdminScreen: React.FC<AdminScreenProps> = ({ navigate, t }) => {
         setPrayers(prayers.map((p) => (p.id === id ? { ...p, is_active: !isActive } : p)));
     };
     const handleUpdateRole = async (memberId: string, newRole: string) => {
-        await supabase.from('profiles').update({ role: newRole }).eq('id', memberId);
+        const previousRole = members.find(m => m.id === memberId)?.role;
+
+        // Optimistic update
         setMembers(members.map((m) => (m.id === memberId ? { ...m, role: newRole } : m)));
+
+        const { error } = await supabase.from('profiles').update({ role: newRole }).eq('id', memberId);
+
+        if (error) {
+            // Revert on error
+            setMembers(members.map((m) => (m.id === memberId ? { ...m, role: previousRole } : m)));
+            alert(`❌ 역할 변경 실패: ${error.message}`);
+        } else {
+            // Show success feedback
+            const roleNames: Record<string, string> = {
+                'MEMBER': '셀원',
+                'LEADER': '셀장',
+                'SUB_ADMIN': '부관리자',
+                'PASTOR': '관리자'
+            };
+            alert(`✅ ${roleNames[newRole]}(으)로 변경되었습니다.`);
+        }
+    };
+
+    const handleDeleteMember = async (memberId: string, memberName: string) => {
+        if (!confirm(`정말 "${memberName}" 회원을 삭제하시겠습니까?\n\n⚠️ 이 작업은 되돌릴 수 없습니다.`)) return;
+
+        // Delete from profiles (cascade will handle related data)
+        const { error } = await supabase.from('profiles').delete().eq('id', memberId);
+
+        if (error) {
+            alert(`❌ 삭제 실패: ${error.message}`);
+        } else {
+            setMembers(prev => prev.filter(m => m.id !== memberId));
+            alert(`✅ "${memberName}" 회원이 삭제되었습니다.`);
+        }
     };
 
     const handleDeletePrayer = async (id: string) => {
@@ -397,6 +430,21 @@ const AdminScreen: React.FC<AdminScreenProps> = ({ navigate, t }) => {
                                             {profile?.role === 'PASTOR' && <option value="SUB_ADMIN">부관리자</option>}
                                             {profile?.role === 'PASTOR' && <option value="PASTOR">관리자</option>}
                                         </select>
+                                        {/* Delete button - only show if:
+                                            1. Not self-delete
+                                            2. PASTOR can delete anyone
+                                            3. SUB_ADMIN can only delete MEMBER/LEADER */}
+                                        {member.id !== user?.id &&
+                                            (profile?.role === 'PASTOR' ||
+                                                (profile?.role === 'SUB_ADMIN' && (member.role === 'MEMBER' || member.role === 'LEADER'))) && (
+                                                <button
+                                                    onClick={() => handleDeleteMember(member.id, member.name)}
+                                                    className="p-1.5 text-slate-300 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-full transition-colors"
+                                                    title="회원 삭제"
+                                                >
+                                                    <span className="material-symbols-outlined text-lg">delete</span>
+                                                </button>
+                                            )}
                                     </div>
                                 </div>
                             ))}
