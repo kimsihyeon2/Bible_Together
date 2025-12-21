@@ -12,10 +12,13 @@
   "dependencies": {
     "@ducanh2912/next-pwa": "^10.2.9",
     "@supabase/supabase-js": "^2.38.0",
+    "axios": "^1.13.2",
+    "cheerio": "^1.1.2",
     "dotenv": "^17.2.3",
     "firebase": "^12.6.0",
     "firebase-admin": "^13.0.1",
     "framer-motion": "^12.23.26",
+    "fs-extra": "^11.3.3",
     "next": "^15.0.0",
     "puppeteer": "^24.34.0",
     "react": "^19.0.0",
