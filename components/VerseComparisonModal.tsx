@@ -39,9 +39,19 @@ export default function VerseComparisonModal({ book, chapter, verse, onClose }: 
                         const response = await fetch(`/bible/${fileMap[ver]}`);
                         if (!response.ok) return;
                         const data = await response.json();
+
+                        // Map standard UI names to JSON keys
+                        // JSON uses 요한1서, 요한2서, 요한3서 but UI uses 요한일서, 요한이서, 요한삼서
+                        const bookKeyMap: Record<string, string> = {
+                            '요한일서': '요한1서',
+                            '요한이서': '요한2서',
+                            '요한삼서': '요한3서'
+                        };
+                        const bookKey = bookKeyMap[book] || book;
+
                         // Structure: Book -> Chapter -> Verse
-                        // Note: Chapter/Verse keys are usually strings in JSON
-                        const verseText = data[book]?.[chapter.toString()]?.[verse.toString()];
+                        // Note: Chapter/Verse keys are strings in JSON
+                        const verseText = data[bookKey]?.[chapter.toString()]?.[verse.toString()];
 
                         if (verseText) {
                             results.push({
