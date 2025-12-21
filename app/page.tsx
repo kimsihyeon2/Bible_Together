@@ -166,7 +166,7 @@ export default function HomePage() {
             case Screen.DASHBOARD:
                 return <DashboardScreen navigate={navigate} isDarkMode={isDarkMode} toggleDarkMode={toggleDarkMode} t={t} />;
             case Screen.BIBLE:
-                return <BibleScreen navigate={navigate} t={t} />;
+                return <BibleScreen navigate={navigate} />;
             case Screen.COMMUNITY:
                 return <CommunityScreen navigate={navigate} t={t} />;
             case Screen.ADMIN:

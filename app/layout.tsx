@@ -25,7 +25,7 @@ export const metadata: Metadata = {
     },
     appleWebApp: {
         capable: true,
-        statusBarStyle: "default",
+        statusBarStyle: "black-translucent",
         title: "그린 바이블",
     },
 };

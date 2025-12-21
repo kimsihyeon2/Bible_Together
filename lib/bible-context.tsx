@@ -2,14 +2,10 @@
 
 import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback } from 'react';
 
-// 📖 Translation types
-export type BibleTranslation = 'KRV' | 'KLB' | 'EASY';
+import { TRANSLATIONS, BibleTranslation } from './constants';
+export type { BibleTranslation };
+export { TRANSLATIONS };
 
-export const TRANSLATIONS: Record<BibleTranslation, { name: string; file: string; description: string }> = {
-    KRV: { name: '개역개정', file: '/bible/ko_krv.json', description: '개역개정 (한글성경)' },
-    KLB: { name: '현대인의 성경', file: '/bible/ko_klb.json', description: '현대인의 성경 (KLB)' },
-    EASY: { name: '쉬운성경', file: '/bible/ko_easy.json', description: '쉬운성경 (Easy Bible)' }
-};
 
 // In-memory caches per translation
 const bibleCaches: Record<string, any> = {};

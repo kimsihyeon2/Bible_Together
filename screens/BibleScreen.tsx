@@ -2,32 +2,20 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { Screen } from '../types';
-import { Translations } from '../i18n';
+import VerseComparisonModal from '@/components/VerseComparisonModal';
+import { BIBLE_BOOKS, TRANSLATIONS, BibleTranslation } from '@/lib/constants';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/lib/auth-context';
-import { useBible, BibleTranslation, TRANSLATIONS } from '@/lib/bible-context';
+import { useBible } from '@/lib/bible-context';
 import { useAudio } from '@/lib/audio-context';
 import { saveReadingProgress, getUserCellId } from '@/lib/reading-progress';
 
 interface BibleScreenProps {
     navigate: (screen: Screen) => void;
-    t: Translations;
 }
 
 // Bible book names in Korean
-const BIBLE_BOOKS = [
-    // 구약
-    '창세기', '출애굽기', '레위기', '민수기', '신명기', '여호수아', '사사기', '룻기',
-    '사무엘상', '사무엘하', '열왕기상', '열왕기하', '역대상', '역대하', '에스라', '느헤미야',
-    '에스더', '욥기', '시편', '잠언', '전도서', '아가', '이사야', '예레미야', '예레미야애가',
-    '에스겔', '다니엘', '호세아', '요엘', '아모스', '오바댜', '요나', '미가', '나훔',
-    '하박국', '스바냐', '학개', '스가랴', '말라기',
-    // 신약
-    '마태복음', '마가복음', '누가복음', '요한복음', '사도행전', '로마서', '고린도전서', '고린도후서',
-    '갈라디아서', '에베소서', '빌립보서', '골로새서', '데살로니가전서', '데살로니가후서',
-    '디모데전서', '디모데후서', '디도서', '빌레몬서', '히브리서', '야고보서', '베드로전서',
-    '베드로후서', '요한일서', '요한이서', '요한삼서', '유다서', '요한계시록'
-];
+
 
 type BibleData = {
     [book: string]: {
@@ -37,7 +25,7 @@ type BibleData = {
     };
 };
 
-const BibleScreen: React.FC<BibleScreenProps> = ({ navigate, t }) => {
+const BibleScreen: React.FC<BibleScreenProps> = ({ navigate }) => {
     const { isLoaded, getVerses: getVersesFromContext, getChapterCount: getChapterCountFromContext, currentTranslation, setTranslation } = useBible();
     const { user, profile } = useAuth();
     const { playChapter, isPlaying, currentBook, currentChapter, currentTime, duration } = useAudio();
@@ -45,18 +33,21 @@ const BibleScreen: React.FC<BibleScreenProps> = ({ navigate, t }) => {
     const [loading, setLoading] = useState(true); // Kept for initial setup
     const [selectedBook, setSelectedBook] = useState<string>('창세기');
     const [selectedChapter, setSelectedChapter] = useState<number>(1);
+
+    // UI State
     const [showBookPicker, setShowBookPicker] = useState(false);
     const [showChapterPicker, setShowChapterPicker] = useState(false);
+    const [showSettings, setShowSettings] = useState(false);
+    const [activeVerse, setActiveVerse] = useState<number | null>(null);
+    const [isExpanded, setIsExpanded] = useState(false);
+    const [touchStart, setTouchStart] = useState(0);
+    const [showComparison, setShowComparison] = useState(false);
 
     // New State for Settings & Highlights
-    const [showSettings, setShowSettings] = useState(false);
     const [fontSize, setFontSize] = useState(18);
     const [lineHeight, setLineHeight] = useState(1.8);
     const [highlights, setHighlights] = useState<any[]>([]);
-    const [activeVerse, setActiveVerse] = useState<number | null>(null);
     const [playingVerse, setPlayingVerse] = useState<number | null>(null);
-    const [isExpanded, setIsExpanded] = useState(false);
-    const [touchStart, setTouchStart] = useState(0);
     const lastScrollTime = useRef<number>(0);
     const estimatedVerseRef = useRef<number>(1);
 
@@ -401,7 +392,7 @@ const BibleScreen: React.FC<BibleScreenProps> = ({ navigate, t }) => {
                         >
                             <span className="material-symbols-outlined text-lg">translate</span>
                             <span className={currentTranslation !== 'KRV' ? 'text-primary' : ''}>
-                                {TRANSLATIONS[currentTranslation].name.slice(0, 3)}
+                                {TRANSLATIONS[currentTranslation].name}
                             </span>
                         </button>
 
@@ -699,6 +690,15 @@ const BibleScreen: React.FC<BibleScreenProps> = ({ navigate, t }) => {
                                 <h3 className="text-xl font-bold text-slate-900 dark:text-white">
                                     {selectedBook} {selectedChapter}장 {activeVerse}절
                                 </h3>
+
+                                <button
+                                    onClick={() => setShowComparison(true)}
+                                    className="ml-auto mr-3 px-3 py-1.5 bg-slate-100 dark:bg-slate-700/50 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-full text-xs font-bold text-slate-600 dark:text-slate-300 flex items-center gap-1 transition-colors"
+                                >
+                                    <span className="material-symbols-outlined text-sm">compare_arrows</span>
+                                    역본비교
+                                </button>
+
                                 {highlights.find(h => h.verse === activeVerse && h.user_id === user?.id) && (
                                     <button
                                         onClick={removeHighlight}
@@ -817,6 +817,15 @@ const BibleScreen: React.FC<BibleScreenProps> = ({ navigate, t }) => {
                         </div>
                     </div>
                 </div>
+            )}
+            {/* Translation Comparison Modal */}
+            {showComparison && activeVerse && (
+                <VerseComparisonModal
+                    book={selectedBook}
+                    chapter={selectedChapter}
+                    verse={activeVerse}
+                    onClose={() => setShowComparison(false)}
+                />
             )}
         </div>
     );
