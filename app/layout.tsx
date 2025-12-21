@@ -13,6 +13,16 @@ export const metadata: Metadata = {
     title: "그린 바이블 | Green Bible",
     description: "매일 말씀 읽기와 묵상을 함께하는 커뮤니티",
     manifest: "/manifest.json",
+    icons: {
+        // iOS cache-buster: Change this version when icon changes
+        apple: [
+            { url: "/apple-icon.png?v=2", sizes: "180x180", type: "image/png" },
+        ],
+        icon: [
+            { url: "/icons/icon-192x192.png?v=2", sizes: "192x192", type: "image/png" },
+            { url: "/icons/icon-512x512.png?v=2", sizes: "512x512", type: "image/png" },
+        ],
+    },
     appleWebApp: {
         capable: true,
         statusBarStyle: "default",
