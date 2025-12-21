@@ -5,7 +5,7 @@ import { Screen } from '../types';
 import { Translations } from '../i18n';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/lib/auth-context';
-import { useBible } from '@/lib/bible-context';
+import { useBible, BibleTranslation, TRANSLATIONS } from '@/lib/bible-context';
 import { useAudio } from '@/lib/audio-context';
 import { saveReadingProgress, getUserCellId } from '@/lib/reading-progress';
 
@@ -38,7 +38,7 @@ type BibleData = {
 };
 
 const BibleScreen: React.FC<BibleScreenProps> = ({ navigate, t }) => {
-    const { isLoaded, getVerses: getVersesFromContext, getChapterCount: getChapterCountFromContext } = useBible();
+    const { isLoaded, getVerses: getVersesFromContext, getChapterCount: getChapterCountFromContext, currentTranslation, setTranslation } = useBible();
     const { user, profile } = useAuth();
     const { playChapter, isPlaying, currentBook, currentChapter, currentTime, duration } = useAudio();
     // const [bibleData, setBibleData] = useState<BibleData | null>(null); // Removed
@@ -383,6 +383,21 @@ const BibleScreen: React.FC<BibleScreenProps> = ({ navigate, t }) => {
                                     <span className="w-0.5 bg-primary animate-[bounce_0.8s_infinite] h-1.5"></span>
                                 </span>
                             )}
+                        </button>
+
+                        {/* Translation Toggle */}
+                        <button
+                            onClick={() => {
+                                const next: BibleTranslation = currentTranslation === 'KRV' ? 'KLB' : 'KRV';
+                                setTranslation(next);
+                            }}
+                            className="px-2 py-1 bg-slate-100 dark:bg-slate-800 rounded-lg text-xs font-bold flex items-center gap-1 transition-colors hover:bg-slate-200 dark:hover:bg-slate-700"
+                            title={`현재: ${TRANSLATIONS[currentTranslation].name}`}
+                        >
+                            <span className="material-symbols-outlined text-lg">translate</span>
+                            <span className={currentTranslation === 'KLB' ? 'text-primary' : ''}>
+                                {currentTranslation === 'KRV' ? '개역' : 'KLB'}
+                            </span>
                         </button>
 
                         <button
