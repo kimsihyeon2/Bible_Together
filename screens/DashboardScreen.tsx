@@ -66,7 +66,8 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({ navigate, isDarkMode,
           cellMembershipResult,
           dailyReadingsResult,
           planProgressResult,
-          activitiesResult
+          activitiesResult,
+          readingActivityResult
         ] = await Promise.all([
           // 1. Notifications count
           supabase
@@ -97,10 +98,18 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({ navigate, isDarkMode,
             .eq('user_id', user.id)
             .eq('completed', false),
 
-          // 5. Recent activity
+          // 5. Recent cell activity
           supabase
             .from('cell_activities')
             .select('*')
+            .eq('user_id', user.id)
+            .order('created_at', { ascending: false })
+            .limit(1),
+
+          // 6. Recent personal reading activity (for immediate update)
+          supabase
+            .from('reading_activities')
+            .select('book, chapter, created_at')
             .eq('user_id', user.id)
             .order('created_at', { ascending: false })
             .limit(1)
@@ -165,10 +174,37 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({ navigate, isDarkMode,
           });
         }
 
-        // Process recent activity
-        if (activitiesResult.data && activitiesResult.data.length > 0) {
-          setRecentActivity(activitiesResult.data[0]);
+        // Process recent activity (Merge cell activity and personal reading)
+        const recentCellActivity = activitiesResult.data?.[0];
+        const recentReading = readingActivityResult.data?.[0];
+
+        let latestActivity = null;
+
+        // Compare dates to show the absolute latest
+        if (recentCellActivity && recentReading) {
+          const cellDate = new Date(recentCellActivity.created_at).getTime();
+          const readingDate = new Date(recentReading.created_at).getTime();
+
+          if (readingDate > cellDate) {
+            latestActivity = {
+              type: 'READING',
+              title: `${recentReading.book} ${recentReading.chapter}장을 읽었습니다`,
+              created_at: recentReading.created_at
+            };
+          } else {
+            latestActivity = recentCellActivity;
+          }
+        } else if (recentCellActivity) {
+          latestActivity = recentCellActivity;
+        } else if (recentReading) {
+          latestActivity = {
+            type: 'READING',
+            title: `${recentReading.book} ${recentReading.chapter}장을 읽었습니다`,
+            created_at: recentReading.created_at
+          };
         }
+
+        setRecentActivity(latestActivity);
 
       } catch (error) {
         console.error('Dashboard data fetch error:', error);

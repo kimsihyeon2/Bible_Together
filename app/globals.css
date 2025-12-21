@@ -26,6 +26,11 @@
     scrollbar-width: none;
   }
 
+  .mask-linear-fade {
+    mask-image: linear-gradient(to right, transparent 0%, black 16px, black calc(100% - 16px), transparent 100%);
+    -webkit-mask-image: linear-gradient(to right, transparent 0%, black 16px, black calc(100% - 16px), transparent 100%);
+  }
+
   .glass-nav {
     background: rgba(255, 255, 255, 0.85);
     backdrop-filter: blur(20px);

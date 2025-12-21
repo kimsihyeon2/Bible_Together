@@ -335,35 +335,37 @@ const BibleScreen: React.FC<BibleScreenProps> = ({ navigate, t }) => {
         <div className="min-h-screen bg-background-light dark:bg-background-dark font-sans text-slate-900 dark:text-white pb-24">
             {/* Header */}
             <header className="sticky top-0 z-40 bg-background-light/95 dark:bg-background-dark/95 backdrop-blur-md border-b border-black/5 dark:border-white/10">
-                <div className="flex items-center justify-between px-4 py-3">
+                {/* Horizontal Scroll Container */}
+                <div className="flex items-center gap-3 px-4 py-3 overflow-x-auto no-scrollbar whitespace-nowrap mask-linear-fade">
                     <button
                         onClick={() => navigate(Screen.DASHBOARD)}
-                        className="p-2 -ml-2 hover:bg-black/5 dark:hover:bg-white/10 rounded-full transition-colors"
+                        className="flex-shrink-0 p-2 -ml-2 hover:bg-black/5 dark:hover:bg-white/10 rounded-full transition-colors text-text-sub-light dark:text-text-sub-dark"
                     >
                         <span className="material-symbols-outlined text-2xl">arrow_back</span>
                     </button>
 
-                    <div className="flex items-center gap-2">
-                        {/* Book selector */}
-                        <button
-                            onClick={() => setShowBookPicker(true)}
-                            className="px-4 py-2 bg-primary/10 text-primary rounded-full text-sm font-semibold flex items-center gap-1"
-                        >
-                            {selectedBook}
-                            <span className="material-symbols-outlined text-lg">expand_more</span>
-                        </button>
+                    {/* Book selector */}
+                    <button
+                        onClick={() => setShowBookPicker(true)}
+                        className="flex-shrink-0 px-4 py-2 bg-primary/10 text-primary rounded-full text-sm font-semibold flex items-center gap-1 transition-transform active:scale-95"
+                    >
+                        {selectedBook}
+                        <span className="material-symbols-outlined text-lg">expand_more</span>
+                    </button>
 
-                        {/* Chapter selector */}
-                        <button
-                            onClick={() => setShowChapterPicker(true)}
-                            className="px-4 py-2 bg-slate-100 dark:bg-slate-800 rounded-full text-sm font-semibold flex items-center gap-1"
-                        >
-                            {selectedChapter}장
-                            <span className="material-symbols-outlined text-lg">expand_more</span>
-                        </button>
-                    </div>
+                    {/* Chapter selector */}
+                    <button
+                        onClick={() => setShowChapterPicker(true)}
+                        className="flex-shrink-0 px-4 py-2 bg-slate-100 dark:bg-slate-800 rounded-full text-sm font-semibold flex items-center gap-1 transition-transform active:scale-95"
+                    >
+                        {selectedChapter}장
+                        <span className="material-symbols-outlined text-lg">expand_more</span>
+                    </button>
 
-                    <div className="flex items-center gap-1">
+                    {/* Spacer to push controls to right if space permits, otherwise they flow */}
+                    <div className="flex-grow min-w-[10px]"></div>
+
+                    <div className="flex items-center gap-1 flex-shrink-0">
                         {/* Audio Button */}
                         <button
                             onClick={() => playChapter(selectedBook, selectedChapter)}
