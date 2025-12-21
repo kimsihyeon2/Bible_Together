@@ -195,9 +195,17 @@ const BibleScreen: React.FC<BibleScreenProps> = ({ navigate }) => {
     // SOTA Adaptive Verse Sync Logic v2.0 - Improved Algorithm
     // Features: Verse-boundary padding, adaptive character weighting, smooth interpolation
     useEffect(() => {
-        if (!isPlaying || currentBook !== selectedBook || currentChapter !== selectedChapter || duration === 0) {
+        if (!isPlaying || duration === 0) {
             setPlayingVerse(null);
             estimatedVerseRef.current = 1;
+            return;
+        }
+
+        // AUTO-NAVIGATE to Audio's Book/Chapter if different
+        if (currentBook && currentChapter && (currentBook !== selectedBook || currentChapter !== selectedChapter)) {
+            setSelectedBook(currentBook);
+            setSelectedChapter(currentChapter);
+            // We return early here because the state change will trigger re-render and re-run this effect
             return;
         }
 

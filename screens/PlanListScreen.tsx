@@ -1,11 +1,11 @@
-'use client';
-
 import React, { useState, useEffect } from 'react';
 import { Screen } from '../types';
 import { Translations } from '../i18n';
 import { useAuth } from '@/lib/auth-context';
 import { supabase } from '@/lib/supabase';
 import { useLoading } from '@/lib/loading-context';
+import { BIBLE_BOOKS } from '@/lib/constants';
+import { BOOK_COVERS } from '@/lib/book-covers';
 
 interface PlanListScreenProps {
     navigate: (screen: Screen) => void;
@@ -30,7 +30,9 @@ const PlanListScreen: React.FC<PlanListScreenProps> = ({ navigate, t }) => {
     const [newPlanName, setNewPlanName] = useState('');
     const [newPlanDesc, setNewPlanDesc] = useState('');
     const [newPlanDays, setNewPlanDays] = useState('30');
-    const [newPlanImage, setNewPlanImage] = useState('');
+    // We now determine image from selected book, but still allow manual override if needed (hidden or optional)
+    const [selectedBook, setSelectedBook] = useState<string>('창세기');
+    const [newPlanImage, setNewPlanImage] = useState(BOOK_COVERS['창세기']);
 
     const isKorean = t.appName === '그린 바이블';
 
@@ -200,15 +202,35 @@ const PlanListScreen: React.FC<PlanListScreenProps> = ({ navigate, t }) => {
                             </div>
 
                             <div>
-                                <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-1">{isKorean ? '커버 이미지 URL' : 'Cover Image URL'}</label>
-                                <input
-                                    type="text"
-                                    value={newPlanImage}
-                                    onChange={(e) => setNewPlanImage(e.target.value)}
-                                    className="w-full px-4 py-3 rounded-xl bg-slate-50 dark:bg-slate-700 border-none focus:ring-2 focus:ring-green-500 transition-all font-medium text-slate-500 dark:text-slate-400"
-                                    placeholder="https://..."
-                                />
+                                <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-1">{isKorean ? '성경 책 선택 (커버 이미지 자동)' : 'Select Book (Auto Cover)'}</label>
+                                <select
+                                    value={selectedBook}
+                                    onChange={(e) => {
+                                        const book = e.target.value;
+                                        setSelectedBook(book);
+                                        setNewPlanName(`${book} 통독`); // Auto-fill name
+                                        setNewPlanImage(BOOK_COVERS[book] || BOOK_COVERS['default']);
+                                    }}
+                                    className="w-full px-4 py-3 rounded-xl bg-slate-50 dark:bg-slate-700 border-none focus:ring-2 focus:ring-green-500 transition-all font-medium text-slate-900 dark:text-white"
+                                >
+                                    {BIBLE_BOOKS.map(book => (
+                                        <option key={book} value={book}>{book}</option>
+                                    ))}
+                                </select>
                             </div>
+
+                            {/* Preview */}
+                            {newPlanImage && (
+                                <div className="rounded-xl overflow-hidden h-32 relative group">
+                                    <img src={newPlanImage} alt="Cover Preview" className="w-full h-full object-cover" />
+                                    <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
+                                        <p className="text-white font-bold">{newPlanName || '플랜 이름'}</p>
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Hidden URL input for manual override if really needed, or just removed */}
+                            {/* <input ... /> */}
 
                             <button
                                 onClick={handleCreatePlan}
