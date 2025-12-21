@@ -1,6 +1,8 @@
 'use client';
 
 import React, { createContext, useContext, useState, useRef, useEffect, useCallback } from 'react';
+import { saveReadingProgress, getUserCellId } from './reading-progress';
+import { supabase } from './supabase';
 
 // Bible books for navigation
 const BIBLE_BOOKS = [
@@ -201,6 +203,35 @@ export const AudioProvider = ({ children }: { children: React.ReactNode }) => {
                     } else if (state === window.YT.PlayerState.ENDED) {
                         setIsPlaying(false);
                         if (timeUpdateInterval.current) clearInterval(timeUpdateInterval.current);
+
+                        // 📖 SAVE READING PROGRESS ON AUDIO COMPLETE
+                        const completedBook = currentBookRef.current;
+                        const completedChapter = currentChapterRef.current;
+                        if (completedBook && completedChapter) {
+                            (async () => {
+                                try {
+                                    const { data: { user } } = await supabase.auth.getUser();
+                                    if (user) {
+                                        const { data: profile } = await supabase
+                                            .from('profiles')
+                                            .select('name')
+                                            .eq('id', user.id)
+                                            .single();
+                                        const cellId = await getUserCellId(user.id);
+                                        await saveReadingProgress(
+                                            user.id,
+                                            profile?.name || '익명',
+                                            completedBook,
+                                            completedChapter,
+                                            'AUDIO',
+                                            cellId || undefined
+                                        );
+                                    }
+                                } catch (err) {
+                                    console.error('Error saving audio progress:', err);
+                                }
+                            })();
+                        }
 
                         // Auto-play next chapter
                         if (autoPlayNext) {

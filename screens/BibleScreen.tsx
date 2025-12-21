@@ -7,6 +7,7 @@ import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/lib/auth-context';
 import { useBible } from '@/lib/bible-context';
 import { useAudio } from '@/lib/audio-context';
+import { saveReadingProgress, getUserCellId } from '@/lib/reading-progress';
 
 interface BibleScreenProps {
     navigate: (screen: Screen) => void;
@@ -160,7 +161,7 @@ const BibleScreen: React.FC<BibleScreenProps> = ({ navigate, t }) => {
     };
 
     useEffect(() => {
-        // localStorage에서 초기 책/장 설정 읽기
+        // Priority 1: Explicit selection from other screens (e.g. PlanDetailScreen)
         const savedBook = localStorage.getItem('selectedBook');
         const savedChapter = localStorage.getItem('selectedChapter');
         if (savedBook && BIBLE_BOOKS.includes(savedBook)) {
@@ -171,8 +172,27 @@ const BibleScreen: React.FC<BibleScreenProps> = ({ navigate, t }) => {
             // 읽은 후 삭제 (일회성)
             localStorage.removeItem('selectedBook');
             localStorage.removeItem('selectedChapter');
+            return;
         }
-    }, []);
+
+        // Priority 2: Continue reading - load next chapter after last read
+        const lastReadBook = localStorage.getItem('lastReadBook');
+        const lastReadChapter = localStorage.getItem('lastReadChapter');
+        if (lastReadBook && BIBLE_BOOKS.includes(lastReadBook) && lastReadChapter) {
+            const lastChapter = parseInt(lastReadChapter) || 1;
+            const maxChapters = getChapterCountFromContext(lastReadBook);
+
+            setSelectedBook(lastReadBook);
+            // Go to NEXT chapter (continue reading)
+            if (lastChapter < maxChapters) {
+                setSelectedChapter(lastChapter + 1);
+            } else {
+                // Already read last chapter, show that chapter
+                setSelectedChapter(lastChapter);
+            }
+        }
+        // Otherwise: Keep default (창세기 1장)
+    }, [getChapterCountFromContext]);
 
     // Wait for Bible Load
     useEffect(() => {
@@ -501,37 +521,19 @@ const BibleScreen: React.FC<BibleScreenProps> = ({ navigate, t }) => {
                                 setActiveVerse(null); // Reset active verse
                             }
 
-                            // 2. Async Recording (Fire and Forget - don't await)
+                            // 2. Save reading progress (Fire and Forget)
                             (async () => {
                                 try {
-                                    const { data: { user } } = await supabase.auth.getUser();
-                                    if (!user) return;
-
-                                    // Get cell
-                                    const { data: cellMember } = await supabase
-                                        .from('cell_members')
-                                        .select('cell_id')
-                                        .eq('user_id', user.id)
-                                        .maybeSingle();
-
-                                    if (cellMember) {
-                                        // Record Activity
-                                        await supabase.from('cell_activities').insert({
-                                            cell_id: cellMember.cell_id,
-                                            user_id: user.id,
-                                            type: 'READING',
-                                            title: `${selectedBook} ${selectedChapter}장을 읽었습니다`,
-                                            data: { book: selectedBook, chapter: selectedChapter }
-                                        });
-
-                                        // Update Daily Reading
-                                        const today = new Date().toISOString().split('T')[0];
-                                        await supabase.rpc('increment_daily_reading', {
-                                            p_user_id: user.id,
-                                            p_date: today,
-                                            p_chapters: 1,
-                                            p_minutes: 5
-                                        });
+                                    if (user && profile) {
+                                        const cellId = await getUserCellId(user.id);
+                                        await saveReadingProgress(
+                                            user.id,
+                                            profile.name || '익명',
+                                            selectedBook,
+                                            selectedChapter,
+                                            'TEXT',
+                                            cellId || undefined
+                                        );
                                     }
                                 } catch (e) {
                                     console.error('Error recording reading:', e);
