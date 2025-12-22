@@ -57,6 +57,12 @@ const BibleScreen: React.FC<BibleScreenProps> = ({ navigate }) => {
         if (savedFontSize) setFontSize(parseInt(savedFontSize));
         const savedLineHeight = localStorage.getItem('bibleLineHeight');
         if (savedLineHeight) setLineHeight(parseFloat(savedLineHeight));
+
+        // Sync Global Translation Preference
+        const savedTrans = localStorage.getItem('preferredTranslation');
+        if (savedTrans && (savedTrans === 'KRV' || savedTrans === 'KLB' || savedTrans === 'EASY')) {
+            setTranslation(savedTrans as BibleTranslation);
+        }
     }, []);
 
     // Save Settings

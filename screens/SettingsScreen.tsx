@@ -36,6 +36,68 @@ const SettingsScreen: React.FC<SettingsScreenProps> = ({ navigate, language, tog
   const [selectedCellId, setSelectedCellId] = useState('');
   const [joiningCell, setJoiningCell] = useState(false);
 
+  // Reading Settings State (synced with localStorage)
+  const [fontSize, setFontSize] = useState(18);
+  const [translation, setTranslation] = useState('KRV');
+  const [audioSpeed, setAudioSpeed] = useState(1.0);
+
+  // 1. Load Settings on Mount (User's Default / My Data)
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const savedSize = localStorage.getItem('bibleFontSize');
+      if (savedSize) setFontSize(parseInt(savedSize));
+
+      // Using 'preferredTranslation' as key for global default
+      const savedTrans = localStorage.getItem('preferredTranslation');
+      if (savedTrans) setTranslation(savedTrans);
+
+      const savedSpeed = localStorage.getItem('audioSpeed');
+      if (savedSpeed) setAudioSpeed(parseFloat(savedSpeed));
+    }
+  }, []);
+
+  // 2. Setting Handlers (Cycle values)
+  const cycleFontSize = () => {
+    const sizes = [16, 18, 20, 24]; // Small, Medium, Large, XL
+    const currentIndex = sizes.indexOf(fontSize);
+    const nextSize = sizes[(currentIndex + 1) % sizes.length];
+
+    setFontSize(nextSize);
+    localStorage.setItem('bibleFontSize', nextSize.toString());
+  };
+
+  const cycleTranslation = () => {
+    const trans = ['KRV', 'KLB', 'EASY'];
+    const currentIndex = trans.indexOf(translation);
+    const nextTrans = trans[(currentIndex + 1) % trans.length];
+
+    setTranslation(nextTrans);
+    localStorage.setItem('preferredTranslation', nextTrans);
+  };
+
+  const cycleSpeed = () => {
+    const speeds = [0.8, 1.0, 1.2, 1.5, 2.0];
+    const currentIndex = speeds.indexOf(audioSpeed);
+    const nextSpeed = speeds[(currentIndex + 1) % speeds.length];
+
+    setAudioSpeed(nextSpeed);
+    localStorage.setItem('audioSpeed', nextSpeed.toString());
+  };
+
+  const getFontSizeLabel = (size: number) => {
+    if (size <= 16) return '작게';
+    if (size === 18) return '보통';
+    if (size === 20) return '크게';
+    return '아주 크게';
+  };
+
+  const getTranslationLabel = (code: string) => {
+    if (code === 'KRV') return '개역개정';
+    if (code === 'KLB') return '현대인의성경';
+    if (code === 'EASY') return '쉬운성경';
+    return code;
+  };
+
   useEffect(() => {
     if (user) {
       fetchUserStats();
@@ -46,27 +108,23 @@ const SettingsScreen: React.FC<SettingsScreenProps> = ({ navigate, language, tog
     if (!user) return;
 
     try {
-      // 1. 읽은 장 수 조회
       const { data: readings } = await supabase
         .from('reading_activities')
         .select('id')
         .eq('user_id', user.id);
 
-      // 2. 일일 읽기 기록 조회 (streak 계산용)
       const { data: dailyReadings } = await supabase
         .from('daily_readings')
         .select('reading_date')
         .eq('user_id', user.id)
         .order('reading_date', { ascending: false });
 
-      // 3. 사용자 셀 정보 조회
       const { data: cellMembership } = await supabase
         .from('cell_members')
         .select('cell_id, cells(id, name)')
         .eq('user_id', user.id)
         .maybeSingle();
 
-      // Streak 계산
       let streak = 0;
       if (dailyReadings && dailyReadings.length > 0) {
         const today = new Date();
@@ -162,7 +220,7 @@ const SettingsScreen: React.FC<SettingsScreenProps> = ({ navigate, language, tog
         </header>
 
         <main className="flex-1 w-full max-w-md mx-auto flex flex-col gap-5 mt-4">
-          {/* Profile Section - Dynamic */}
+          {/* Profile Section */}
           <section className="px-4">
             <div className="flex items-center gap-4 mb-6">
               <div className="relative">
@@ -191,7 +249,7 @@ const SettingsScreen: React.FC<SettingsScreenProps> = ({ navigate, language, tog
               </div>
             </div>
 
-            {/* Stats Grid - DYNAMIC */}
+            {/* Stats Grid */}
             <div className="grid grid-cols-2 gap-3">
               <div className="bg-surface-light dark:bg-surface-dark rounded-[18px] p-4 flex flex-col justify-between h-[88px] shadow-sm">
                 <div className="flex justify-between items-start">
@@ -212,16 +270,19 @@ const SettingsScreen: React.FC<SettingsScreenProps> = ({ navigate, language, tog
             {/* Cell Info or Join Button */}
             <div className="mt-4">
               {userStats.cellName ? (
-                <div className="bg-surface-light dark:bg-surface-dark rounded-[18px] p-4 flex items-center gap-3 shadow-sm">
+                <button
+                  onClick={() => navigate(Screen.COMMUNITY)}
+                  className="w-full bg-surface-light dark:bg-surface-dark rounded-[18px] p-4 flex items-center gap-3 shadow-sm hover:bg-slate-50 dark:hover:bg-white/5 transition-colors text-left"
+                >
                   <div className="w-12 h-12 rounded-full bg-primary/20 flex items-center justify-center text-primary">
                     <span className="material-symbols-outlined">groups</span>
                   </div>
                   <div className="flex-1">
                     <p className="text-[15px] font-semibold text-black dark:text-white">{userStats.cellName}</p>
-                    <p className="text-[13px] text-slate-500">내 소속 셀</p>
+                    <p className="text-[13px] text-slate-500">내 소속 셀 (터치하여 이동)</p>
                   </div>
                   <span className="material-symbols-outlined text-slate-400">chevron_right</span>
-                </div>
+                </button>
               ) : (
                 <button
                   onClick={openCellJoinModal}
@@ -243,7 +304,7 @@ const SettingsScreen: React.FC<SettingsScreenProps> = ({ navigate, language, tog
                   icon="security"
                   label={t.settings.securityEmail}
                   iconColor="text-ios-blue"
-                  onClick={() => alert('보안 및 이메일 설정은 준비 중입니다.')}
+                  onClick={() => navigate(Screen.SECURITY)}
                 />
                 <SettingsRow
                   icon="group"
@@ -273,40 +334,31 @@ const SettingsScreen: React.FC<SettingsScreenProps> = ({ navigate, language, tog
               </div>
             </section>
 
-            {/* Reading Preferences */}
+            {/* Reading Preferences (Global Default) */}
             <section>
-              <h3 className="text-[13px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2 px-1">읽기 설정</h3>
+              <h3 className="text-[13px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2 px-1">읽기 설정 (기본값)</h3>
               <div className="bg-surface-light dark:bg-surface-dark rounded-[18px] divide-y divide-slate-200/50 dark:divide-slate-700/50 overflow-hidden shadow-sm">
                 <SettingsRow
                   icon="menu_book"
                   label={t.settings.translation}
                   iconColor="text-ios-red"
-                  value="개역개정"
-                  onClick={() => alert('성경 번역 변경은 성경 읽기 화면에서 가능합니다.')}
+                  value={getTranslationLabel(translation)}
+                  onClick={cycleTranslation}
                 />
                 <SettingsRow
                   icon="format_size"
                   label={t.settings.fontSize}
                   iconColor="text-ios-orange"
-                  value="18px"
-                  onClick={() => alert('글자 크기 변경은 성경 읽기 화면에서 가능합니다.')}
+                  value={getFontSizeLabel(fontSize)}
+                  onClick={cycleFontSize}
                 />
                 <SettingsRow
                   icon="speed"
                   label={t.settings.audioSpeed}
                   iconColor="text-ios-teal"
-                  value="1.0x"
-                  onClick={() => alert('오디오 속도 변경은 성경 읽기 화면에서 가능합니다.')}
+                  value={`${audioSpeed}x`}
+                  onClick={cycleSpeed}
                 />
-              </div>
-            </section>
-
-            {/* Notifications */}
-            <section>
-              <h3 className="text-[13px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2 px-1">알림</h3>
-              <div className="bg-surface-light dark:bg-surface-dark rounded-[18px] divide-y divide-slate-200/50 dark:divide-slate-700/50 overflow-hidden shadow-sm">
-                <SettingsToggleRow icon="notifications" label={t.settings.dailyReminder} iconColor="text-ios-red" defaultOn={true} />
-                <SettingsToggleRow icon="groups" label={t.settings.groupActivity} iconColor="text-ios-blue" defaultOn={true} />
               </div>
             </section>
 
@@ -318,18 +370,18 @@ const SettingsScreen: React.FC<SettingsScreenProps> = ({ navigate, language, tog
                   icon="help"
                   label={t.settings.helpCenter}
                   iconColor="text-ios-blue"
-                  onClick={() => alert('고객센터는 준비 중입니다.')}
+                  onClick={() => navigate(Screen.HELP)}
                 />
                 <SettingsRow
                   icon="shield"
                   label={t.settings.privacyPolicy}
                   iconColor="text-ios-green"
-                  onClick={() => window.open('https://policy.greenbible.com', '_blank')}
+                  onClick={() => navigate(Screen.PRIVACY)}
                 />
               </div>
             </section>
 
-            {/* Admin Section - Only visible for admins */}
+            {/* Admin Section */}
             {isAdmin && (
               <section>
                 <h3 className="text-[13px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2 px-1">관리자</h3>

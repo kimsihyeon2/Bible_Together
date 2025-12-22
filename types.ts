@@ -8,7 +8,10 @@ export enum Screen {
   PLAN_LIST = 'PLAN_LIST',
   PROGRESS = 'PROGRESS',
   CHAT = 'CHAT',
-  SETTINGS = 'SETTINGS'
+  SETTINGS = 'SETTINGS',
+  SECURITY = 'SECURITY',
+  PRIVACY = 'PRIVACY',
+  HELP = 'HELP',
 }
 
 export interface NavProps {

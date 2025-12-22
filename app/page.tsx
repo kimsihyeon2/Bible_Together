@@ -14,6 +14,9 @@ import PlanListScreen from '@/screens/PlanListScreen';
 import ProgressScreen from '@/screens/ProgressScreen';
 import ChatScreen from '@/screens/ChatScreen';
 import SettingsScreen from '@/screens/SettingsScreen';
+import SecurityScreen from '@/screens/SecurityScreen';
+import PrivacyPolicyScreen from '@/screens/PrivacyPolicyScreen';
+import HelpScreen from '@/screens/HelpScreen';
 import { BottomNav } from '@/components/BottomNav';
 
 // Hash-based routing map
@@ -30,6 +33,9 @@ const ROUTE_MAP: Record<string, Screen> = {
     '#/progress': Screen.PROGRESS,
     '#/chat': Screen.CHAT,
     '#/settings': Screen.SETTINGS,
+    '#/settings/security': Screen.SECURITY,
+    '#/settings/privacy': Screen.PRIVACY,
+    '#/settings/help': Screen.HELP,
 };
 
 const SCREEN_TO_HASH: Record<Screen, string> = {
@@ -43,6 +49,9 @@ const SCREEN_TO_HASH: Record<Screen, string> = {
     [Screen.PROGRESS]: '#/progress',
     [Screen.CHAT]: '#/chat',
     [Screen.SETTINGS]: '#/settings',
+    [Screen.SECURITY]: '#/settings/security',
+    [Screen.PRIVACY]: '#/settings/privacy',
+    [Screen.HELP]: '#/settings/help',
 };
 
 const getScreenFromHash = (): Screen => {
@@ -181,6 +190,12 @@ export default function HomePage() {
                 return <ChatScreen navigate={navigate} t={t} />;
             case Screen.SETTINGS:
                 return <SettingsScreen navigate={navigate} language={language} toggleLanguage={toggleLanguage} t={t} />;
+            case Screen.SECURITY:
+                return <SecurityScreen navigate={navigate} />;
+            case Screen.PRIVACY:
+                return <PrivacyPolicyScreen navigate={navigate} />;
+            case Screen.HELP:
+                return <HelpScreen navigate={navigate} />;
             default:
                 return <LoginScreen navigate={navigate} t={t} />;
         }
