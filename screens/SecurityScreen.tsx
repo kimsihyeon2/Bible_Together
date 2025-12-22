@@ -4,27 +4,16 @@ import React, { useState, useEffect } from 'react';
 import { Screen } from '../types';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/lib/auth-context';
-import { UAParser } from 'ua-parser-js';
 import QRCode from 'qrcode';
 
 interface SecurityScreenProps {
     navigate: (screen: Screen) => void;
 }
 
-interface DeviceInfo {
-    os: string;
-    browser: string;
-    device: string;
-    ip: string;
-    location: string;
-    isCurrent: boolean;
-    lastActive: string;
-}
-
 const SecurityScreen: React.FC<SecurityScreenProps> = ({ navigate }) => {
     const { user } = useAuth();
-    const [currentDevice, setCurrentDevice] = useState<DeviceInfo | null>(null);
-    const [loadingDevice, setLoadingDevice] = useState(true);
+
+    // 2FA State
 
     // 2FA State
     const [mfaEnabled, setMfaEnabled] = useState(false);
@@ -40,51 +29,8 @@ const SecurityScreen: React.FC<SecurityScreenProps> = ({ navigate }) => {
     const [newPassword, setNewPassword] = useState('');
     const [changingPassword, setChangingPassword] = useState(false);
 
-    // 1. Detect Device & Location
+    // Check MFA Status on Mount
     useEffect(() => {
-        const detectDevice = async () => {
-            try {
-                // User Agent Parsing
-                const parser = new UAParser();
-                const result = parser.getResult();
-
-                // IP & Location Fetching
-                const ipRes = await fetch('https://ipapi.co/json/');
-                const ipData = await ipRes.json();
-
-                const osName = result.os.name || 'Unknown OS';
-                const browserName = result.browser.name || 'Unknown Browser';
-                const vendor = result.device.vendor || '';
-                const model = result.device.model || '';
-                const deviceName = vendor ? `${vendor} ${model}` : 'Desktop/Laptop';
-
-                setCurrentDevice({
-                    os: osName,
-                    browser: browserName,
-                    device: deviceName,
-                    ip: ipData.ip || 'Unknown IP',
-                    location: ipData.city ? `${ipData.city}, ${ipData.country_name}` : 'Unknown Location',
-                    isCurrent: true,
-                    lastActive: '방금 전'
-                });
-            } catch (error) {
-                console.error('Error detecting device:', error);
-                // Fallback
-                setCurrentDevice({
-                    os: 'Windows',
-                    browser: 'Chrome',
-                    device: 'PC',
-                    ip: '',
-                    location: 'Unknown',
-                    isCurrent: true,
-                    lastActive: '방금 전'
-                });
-            } finally {
-                setLoadingDevice(false);
-            }
-        };
-
-        detectDevice();
         checkMfaStatus();
     }, []);
 
@@ -264,35 +210,7 @@ const SecurityScreen: React.FC<SecurityScreenProps> = ({ navigate }) => {
                     </div>
                 </section>
 
-                {/* 4. Login Activity (Real Data) */}
-                <section>
-                    <h3 className="text-[13px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2 px-1">최근 로그인 활동</h3>
-                    <div className="bg-surface-light dark:bg-surface-dark rounded-[24px] overflow-hidden shadow-sm divide-y divide-slate-100 dark:divide-white/5">
-                        {loadingDevice ? (
-                            <div className="p-4 text-center text-slate-500 text-sm">기기 정보 불러오는 중...</div>
-                        ) : currentDevice ? (
-                            <div className="p-4 flex items-center gap-4">
-                                <span className="material-symbols-outlined text-3xl text-slate-400">
-                                    {currentDevice.device.toLowerCase().includes('mobile') ? 'smartphone' : 'computer'}
-                                </span>
-                                <div className="flex-1">
-                                    <h4 className="font-semibold text-[15px]">{currentDevice.browser} / {currentDevice.os}</h4>
-                                    <p className="text-[13px] text-slate-500 font-mono mt-0.5">
-                                        {currentDevice.location} • {currentDevice.lastActive}
-                                    </p>
-                                </div>
-                                <span className="text-[11px] font-bold text-green-600 bg-green-100 dark:bg-green-900/30 px-2 py-1 rounded-md">현재 기기</span>
-                            </div>
-                        ) : (
-                            <div className="p-4 text-center text-red-500 text-sm">정보를 가져올 수 없습니다.</div>
-                        )}
 
-                        {/* Disclaimer about history */}
-                        <div className="p-3 bg-slate-50 dark:bg-slate-800/50 text-[11px] text-slate-400 text-center">
-                            보안을 위해 현재 접속 중인 기기 정보만 정확히 표시됩니다.
-                        </div>
-                    </div>
-                </section>
 
             </main>
 
