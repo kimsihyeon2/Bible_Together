@@ -62,6 +62,7 @@ export async function POST(request: NextRequest) {
                 body: content,
                 target: targetRole,
                 created_by: userId,
+                data: { prayer_id: prayer.id, type: 'URGENT_PRAYER' }
             });
         } catch (notifError) {
             console.log('Notification table may not exist, skipping:', notifError);

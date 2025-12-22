@@ -68,10 +68,11 @@ export async function saveReadingProgress(
         }
 
         // 4. Save last read position to localStorage for instant access
+        // 4. Save last read position to localStorage for instant access (User Specific)
         if (typeof window !== 'undefined') {
-            localStorage.setItem('lastReadBook', book);
-            localStorage.setItem('lastReadChapter', String(chapter));
-            localStorage.setItem('lastReadTime', new Date().toISOString());
+            localStorage.setItem(`lastReadBook_${userId}`, book);
+            localStorage.setItem(`lastReadChapter_${userId}`, String(chapter));
+            localStorage.setItem(`lastReadTime_${userId}`, new Date().toISOString());
         }
 
         console.log(`✅ Reading progress saved: ${book} ${chapter}장 (${source})`);
@@ -114,10 +115,10 @@ export async function getLastReadPosition(userId: string): Promise<LastReadPosit
  * If user last read 창세기 3장, suggests 창세기 4장
  */
 export async function getContinueReading(userId: string, getChapterCount: (book: string) => number): Promise<{ book: string; chapter: number } | null> {
-    // First check localStorage for instant response
+    // First check localStorage for instant response (User Specific)
     if (typeof window !== 'undefined') {
-        const localBook = localStorage.getItem('lastReadBook');
-        const localChapter = localStorage.getItem('lastReadChapter');
+        const localBook = localStorage.getItem(`lastReadBook_${userId}`);
+        const localChapter = localStorage.getItem(`lastReadChapter_${userId}`);
         if (localBook && localChapter) {
             const ch = parseInt(localChapter);
             const maxChapters = getChapterCount(localBook);

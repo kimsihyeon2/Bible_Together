@@ -173,8 +173,9 @@ const BibleScreen: React.FC<BibleScreenProps> = ({ navigate }) => {
         }
 
         // Priority 2: Continue reading - load next chapter after last read
-        const lastReadBook = localStorage.getItem('lastReadBook');
-        const lastReadChapter = localStorage.getItem('lastReadChapter');
+        // Priority 2: Continue reading - load next chapter after last read (User Specific)
+        const lastReadBook = user ? localStorage.getItem(`lastReadBook_${user.id}`) : null;
+        const lastReadChapter = user ? localStorage.getItem(`lastReadChapter_${user.id}`) : null;
         if (lastReadBook && BIBLE_BOOKS.includes(lastReadBook) && lastReadChapter) {
             const lastChapter = parseInt(lastReadChapter) || 1;
             const maxChapters = getChapterCountFromContext(lastReadBook);
@@ -189,7 +190,7 @@ const BibleScreen: React.FC<BibleScreenProps> = ({ navigate }) => {
             }
         }
         // Otherwise: Keep default (창세기 1장)
-    }, [getChapterCountFromContext]);
+    }, [getChapterCountFromContext, user]);
 
     // Wait for Bible Load
     useEffect(() => {

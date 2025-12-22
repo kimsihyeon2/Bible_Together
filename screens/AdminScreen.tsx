@@ -267,20 +267,49 @@ const AdminScreen: React.FC<AdminScreenProps> = ({ navigate, t }) => {
     const handleDeleteMember = async (memberId: string, memberName: string) => {
         if (!confirm(`정말 "${memberName}" 회원을 삭제하시겠습니까?\n\n⚠️ 이 작업은 되돌릴 수 없습니다.`)) return;
 
-        // Delete from profiles (cascade will handle related data)
-        const { error } = await supabase.from('profiles').delete().eq('id', memberId);
+        // Manual Cascade Delete
+        try {
+            // 1. Delete dependent data
+            await supabase.from('reading_activities').delete().eq('user_id', memberId);
+            await supabase.from('user_reading_progress').delete().eq('user_id', memberId);
+            await supabase.from('daily_readings').delete().eq('user_id', memberId);
+            await supabase.from('bible_highlights').delete().eq('user_id', memberId);
+            await supabase.from('cell_members').delete().eq('user_id', memberId);
+            await supabase.from('cell_activities').delete().eq('user_id', memberId);
+            await supabase.from('push_subscriptions').delete().eq('user_id', memberId);
+            await supabase.from('prayer_participants').delete().eq('user_id', memberId);
 
-        if (error) {
-            alert(`❌ 삭제 실패: ${error.message}`);
-        } else {
+            // 2. Delete notifications
+            await supabase.from('notifications').delete().eq('user_id', memberId);
+            await supabase.from('notifications').delete().eq('sender_id', memberId);
+
+            // 3. Delete Urgent Prayers created by user
+            await supabase.from('urgent_prayers').delete().eq('created_by', memberId);
+
+            // 4. Finally delete profile
+            const { error } = await supabase.from('profiles').delete().eq('id', memberId);
+
+            if (error) throw error;
+
             setMembers(prev => prev.filter(m => m.id !== memberId));
             alert(`✅ "${memberName}" 회원이 삭제되었습니다.`);
+        } catch (error: any) {
+            alert(`❌ 삭제 실패: ${error.message || error}`);
         }
     };
 
     const handleDeletePrayer = async (id: string) => {
         if (!confirm('정말 삭제하시겠습니까?')) return;
+
+        // 1. Delete related notifications
+        await supabase.from('notifications').delete().contains('data', { prayer_id: id });
+
+        // 2. Delete participants
+        await supabase.from('prayer_participants').delete().eq('prayer_id', id);
+
+        // 3. Delete prayer
         const { error } = await supabase.from('urgent_prayers').delete().eq('id', id);
+
         if (!error) {
             setPrayers(prev => prev.filter(p => p.id !== id));
         } else {
