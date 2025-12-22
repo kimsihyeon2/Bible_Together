@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Community Chat</title>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script>
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#5BA4E6", // Softer Sky Blue
+                        "primary-hover": "#4A90E2",
+                        "accent-green": "#81C784", // Soft Pasture Green
+                        "pasture-grass": "#66BB6A",
+                        "bubble-rec-light": "#FFFFFF", 
+                        "bubble-rec-dark": "#1F2937",
+                        "text-main": "#374151", 
+                        "text-sub": "#64748B",
+                        "sky-light": "#E0F2FE",
+                        "grass-light": "#F0FDF4",
+                    },
+                    fontFamily: {
+                        "sans": ["Inter", "sans-serif"],
+                    },
+                    borderRadius: {
+                        "bubble": "1.5rem", // More organic roundness
+                    },
+                    boxShadow: {
+                        'soft': '0 2px 12px rgba(91, 164, 230, 0.08)',
+                        'float': '0 8px 20px -4px rgba(102, 187, 106, 0.15)',
+                    },
+                    backgroundImage: {
+                        'pasture-gradient': 'linear-gradient(180deg, #E0F7FA 0%, #E8F5E9 60%, #DCEDC8 100%)', // Sky to Field
+                        'pasture-dark': 'linear-gradient(to bottom, #0F172A 0%, #111827 50%, #064E3B 100%)',
+                        'bubble-sent-gradient': 'linear-gradient(135deg, #5BA4E6 0%, #4DB6AC 100%)', // Blue to Teal
+                    }
+                },
+            },
+        }
+    </script>
+<style>
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+        html { scroll-behavior: smooth; }
+        @keyframes messagePop {
+            0% { opacity: 0; transform: scale(0.95) translateY(10px); }
+            100% { opacity: 1; transform: scale(1) translateY(0); }
+        }
+        .animate-pop {
+            animation: messagePop 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-pasture-gradient dark:bg-pasture-dark font-sans h-[100dvh] flex flex-col overflow-hidden text-text-main dark:text-gray-100 antialiased selection:bg-primary/30 relative">
+<div class="absolute inset-0 pointer-events-none opacity-20 mix-blend-multiply bg-repeat" style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuBP7GnKpLhzPcoLqR3baowWcP2ure8_eWRORYP3V3Q_dfAogk42n3x1RPkpeoWvuotEuC8YQGUcnwRqGzfpobs7M_gvjq2NAvBEYUGfAdJFj-CctqvDaWLoc4kvewFfdosbOXJ_RL9Q54bQ0Y1f79cly8rlf2RQMFP1gBnEcJDtStNzAtOpTMEzEgTrEAOh6k7aky5223tQ6Qr9bwBTXuvLf6fF5VnjiXuIbRX5aCku3iJEaVMW_4WeKol09T7vqfzAU9CnI7SKteGB'); background-size: 400px;"></div>
+<header class="flex-none bg-white/60 dark:bg-gray-900/70 backdrop-blur-md border-b border-white/40 dark:border-gray-800 pt-12 pb-3 px-2 flex items-center justify-between sticky top-0 z-40 transition-all duration-300">
+<button class="flex items-center text-text-main hover:text-primary px-2 py-1 rounded-full hover:bg-white/40 dark:hover:bg-gray-800 transition-colors">
+<span class="material-symbols-outlined text-[26px]">chevron_left</span>
+<span class="text-[17px] font-medium leading-none pb-0.5 -ml-1">Back</span>
+</button>
+<div class="flex flex-col items-center justify-center -ml-4">
+<h2 class="text-[16px] font-bold text-slate-800 dark:text-white tracking-tight flex items-center gap-1">
+                Cell Group A
+                <span class="material-symbols-outlined text-[16px] text-accent-green filled">spa</span>
+</h2>
+<div class="flex items-center gap-1">
+<span class="size-1.5 rounded-full bg-accent-green animate-pulse"></span>
+<span class="text-[11px] text-text-sub dark:text-gray-400 font-medium">Psalm 23 • Online</span>
+</div>
+</div>
+<button class="flex items-center justify-center size-10 rounded-full text-text-main hover:text-primary hover:bg-white/40 dark:hover:bg-gray-800 transition-colors">
+<span class="material-symbols-outlined text-[22px]">info</span>
+</button>
+</header>
+<main class="flex-1 overflow-y-auto px-4 py-2 flex flex-col gap-3 scroll-smooth relative z-10">
+<div class="flex w-full justify-center py-6">
+<span class="bg-white/50 dark:bg-black/20 px-3 py-1 rounded-full text-text-sub dark:text-gray-400 text-[11px] font-semibold tracking-wide backdrop-blur-sm shadow-sm border border-white/40">Today 10:28 AM</span>
+</div>
+<div class="flex items-end gap-2 mb-1 group animate-pop" style="animation-delay: 0.1s; opacity: 0;">
+<div class="size-[34px] rounded-full bg-gray-200 bg-cover bg-center shrink-0 mb-1 border-2 border-white dark:border-gray-700 shadow-sm" style='background-image: url("https://lh3.googleusercontent.com/aida-public/AB6AXuB42cHXA047zAY3EUPcW2GJVvEzHBYekcLVDyvmvw7ZnIm08Qp1R4_k9qkcpdFhsVaZ0zX9SF5cXIiBwegTdkmzHzgrflYIsyGmpoRHfzO-xcxyVRGOeFyx8AcbDr37WHNcatugZkjDPBUeraXU536ISnGXp8Sk4LEdk-KQKt5EJKaWSF5BZJSgpVpnL4SZp4ku06Zd6BfAGUE3xtkUGZ9o3NhgC4P9kjG_iC1lHoXzJvR1oEFunUBuu4KJ3xwsIFUkjUB9hTHiPDLG");'></div>
+<div class="flex flex-col gap-1 max-w-[80%] items-start">
+<span class="text-[11px] text-text-sub dark:text-gray-400 ml-3 hidden group-hover:block transition-all">Sarah</span>
+<div class="px-5 py-3 bg-bubble-rec-light/90 dark:bg-bubble-rec-dark/90 backdrop-blur-sm rounded-bubble rounded-bl-[4px] text-[16px] text-slate-800 dark:text-white leading-[1.5] tracking-tight shadow-soft border border-white/50 dark:border-gray-600">
+                    Did anyone else struggle with verse 4 today?
+                </div>
+</div>
+</div>
+<div class="flex items-end gap-2 mb-1 group animate-pop" style="animation-delay: 0.2s; opacity: 0;">
+<div class="size-[34px] rounded-full bg-gray-200 bg-cover bg-center shrink-0 mb-1 border-2 border-white dark:border-gray-700 shadow-sm" style='background-image: url("https://lh3.googleusercontent.com/aida-public/AB6AXuAXwRZyDe7skClsV3SHYl6yPetrlN61clxjSku7cD7pGZNsWxjdYQ_GQ3928bggknU1G8AotCPLYtthWFfTJr2_n0yySyG40pBZ695YYPbzPK9IQhveMDYhvBIEuXvBV1NxkMToeiHoyFpwPZ3zt0X9lQYtnN_DR_QEW1sSdo_9aWQx5ZNpcQm1F8-m-xmrtePerv03bhwaFq1DmxBNyxOR9f2ktdQJhzH9_wI_QB3PBJnQdSF0Eo3TYEuFfavA0Ds0q8G-YHvK5hGF");'></div>
+<div class="flex flex-col gap-1 max-w-[80%] items-start">
+<span class="text-[11px] text-text-sub dark:text-gray-400 ml-3 hidden group-hover:block transition-all">David</span>
+<div class="px-5 py-3 bg-bubble-rec-light/90 dark:bg-bubble-rec-dark/90 backdrop-blur-sm rounded-bubble rounded-bl-[4px] text-[16px] text-slate-800 dark:text-white leading-[1.5] tracking-tight shadow-soft border border-white/50 dark:border-gray-600">
+                    I think it refers to comfort in difficult times. It felt really relatable. 🐑
+                </div>
+</div>
+</div>
+<div class="flex items-end gap-2 mb-4 mt-2 group animate-pop" style="animation-delay: 0.3s; opacity: 0;">
+<div class="size-[34px] rounded-full bg-emerald-100 dark:bg-emerald-900/30 flex items-center justify-center shrink-0 mb-1 border-2 border-white dark:border-gray-700 shadow-sm">
+<span class="material-symbols-outlined text-[18px] text-emerald-600">smart_toy</span>
+</div>
+<div class="flex flex-col gap-1 max-w-[90%] w-full sm:w-auto items-start">
+<span class="text-[11px] font-semibold text-emerald-600 ml-3 flex items-center gap-1">
+                    BibleBot
+                    <span class="size-1 rounded-full bg-emerald-500"></span>
+</span>
+<div class="overflow-hidden rounded-2xl bg-white/80 dark:bg-gray-800/90 border border-emerald-100/60 dark:border-gray-700 shadow-float w-full backdrop-blur-md">
+<div class="p-4 relative flex gap-3">
+<div class="shrink-0 w-1 rounded-full bg-gradient-to-b from-accent-green to-teal-400 my-1"></div>
+<div>
+<p class="text-[15px] italic text-slate-700 dark:text-gray-300 leading-relaxed font-serif">
+                                "Even though I walk through the darkest valley, I will fear no evil, for you are with me; your rod and your staff, they comfort me."
+                            </p>
+</div>
+</div>
+<div class="bg-gradient-to-r from-emerald-50/80 to-teal-50/80 dark:from-emerald-900/30 dark:to-teal-900/30 px-3 py-2.5 flex items-center justify-between border-t border-emerald-100/50 dark:border-gray-700/50 backdrop-blur-sm">
+<div class="flex flex-col">
+<span class="text-[13px] font-bold text-emerald-800 dark:text-emerald-100">Psalm 23:4</span>
+<span class="text-[10px] text-emerald-600/70 dark:text-emerald-300/70 uppercase tracking-wide font-medium">New International Version</span>
+</div>
+<button class="size-8 rounded-full bg-white dark:bg-gray-700 shadow-sm flex items-center justify-center text-accent-green hover:bg-emerald-50 transition-all active:scale-95 border border-emerald-100 dark:border-gray-600">
+<span class="material-symbols-outlined text-[18px]">arrow_forward</span>
+</button>
+</div>
+</div>
+</div>
+</div>
+<div class="flex flex-col items-end gap-1 mb-2 animate-pop" style="animation-delay: 0.4s; opacity: 0;">
+<div class="flex items-end gap-2 max-w-[80%] flex-row-reverse">
+<div class="px-5 py-3 bg-bubble-sent-gradient text-white rounded-bubble rounded-br-[4px] text-[16px] leading-[1.5] tracking-tight shadow-md shadow-teal-500/10 border border-white/10">
+                    That's a great insight, thanks for sharing! 🙏
+                </div>
+</div>
+<div class="flex items-center gap-1 mr-1">
+<span class="text-[10px] text-text-sub/70 font-medium">Read 10:45 AM</span>
+<span class="material-symbols-outlined text-[14px] text-primary">done_all</span>
+</div>
+</div>
+<div class="h-6"></div>
+</main>
+<footer class="flex-none bg-white/70 dark:bg-gray-900/80 backdrop-blur-xl border-t border-white/50 dark:border-gray-800 p-2 pb-8 z-40 shadow-[0_-8px_30px_rgba(0,0,0,0.03)]">
+<div class="flex items-end gap-2 max-w-4xl mx-auto w-full px-1">
+<button class="shrink-0 size-10 rounded-full bg-slate-50 dark:bg-gray-800 text-slate-400 dark:text-gray-300 flex items-center justify-center hover:bg-slate-100 dark:hover:bg-gray-700 transition-colors mb-[2px] active:scale-95 shadow-sm border border-slate-100">
+<span class="material-symbols-outlined text-[24px]">add</span>
+</button>
+<div class="flex-1 min-h-[44px] border border-slate-200/60 dark:border-gray-700 rounded-[22px] px-4 py-2 bg-white/80 dark:bg-gray-800 focus-within:border-primary/50 focus-within:ring-4 focus-within:ring-primary/10 transition-all flex items-center shadow-sm">
+<input class="w-full bg-transparent border-none p-0 text-[16px] text-slate-800 dark:text-white placeholder-slate-400 focus:ring-0 leading-normal" placeholder="Message..." type="text"/>
+<button class="shrink-0 ml-2 text-slate-400 hover:text-primary dark:text-gray-500 dark:hover:text-gray-300 transition-colors">
+<span class="material-symbols-outlined text-[24px] filled" style="font-variation-settings: 'FILL' 0;">sentiment_satisfied</span>
+</button>
+</div>
+<button class="shrink-0 size-10 rounded-full bg-bubble-sent-gradient text-white flex items-center justify-center hover:shadow-lg hover:shadow-teal-500/30 transition-all shadow-md shadow-blue-500/20 mb-[2px] active:scale-90 border border-white/20">
+<span class="material-symbols-outlined text-[20px] font-bold">arrow_upward</span>
+</button>
+</div>
+</footer>
+
+</body></html>

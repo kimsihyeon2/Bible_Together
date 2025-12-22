@@ -17,6 +17,7 @@ import SettingsScreen from '@/screens/SettingsScreen';
 import SecurityScreen from '@/screens/SecurityScreen';
 import PrivacyPolicyScreen from '@/screens/PrivacyPolicyScreen';
 import HelpScreen from '@/screens/HelpScreen';
+import ReadingScheduleScreen from '@/screens/ReadingScheduleScreen';
 import { BottomNav } from '@/components/BottomNav';
 
 // Hash-based routing map
@@ -36,6 +37,7 @@ const ROUTE_MAP: Record<string, Screen> = {
     '#/settings/security': Screen.SECURITY,
     '#/settings/privacy': Screen.PRIVACY,
     '#/settings/help': Screen.HELP,
+    '#/schedule': Screen.READING_SCHEDULE,
 };
 
 const SCREEN_TO_HASH: Record<Screen, string> = {
@@ -52,6 +54,7 @@ const SCREEN_TO_HASH: Record<Screen, string> = {
     [Screen.SECURITY]: '#/settings/security',
     [Screen.PRIVACY]: '#/settings/privacy',
     [Screen.HELP]: '#/settings/help',
+    [Screen.READING_SCHEDULE]: '#/schedule',
 };
 
 const getScreenFromHash = (): Screen => {
@@ -196,6 +199,11 @@ export default function HomePage() {
                 return <PrivacyPolicyScreen navigate={navigate} />;
             case Screen.HELP:
                 return <HelpScreen navigate={navigate} />;
+            case Screen.READING_SCHEDULE:
+                return <ReadingScheduleScreen navigate={navigate} onStartReading={(book, chapter) => {
+                    // Navigate to Bible with specific book/chapter
+                    navigate(Screen.BIBLE);
+                }} />;
             default:
                 return <LoginScreen navigate={navigate} t={t} />;
         }

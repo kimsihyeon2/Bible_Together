@@ -12,6 +12,7 @@ export enum Screen {
   SECURITY = 'SECURITY',
   PRIVACY = 'PRIVACY',
   HELP = 'HELP',
+  READING_SCHEDULE = 'READING_SCHEDULE',
 }
 
 export interface NavProps {
