@@ -125,6 +125,37 @@ export const NotificationBell: React.FC<NotificationBellProps> = ({ onPrayerClic
         setIsLoading(false);
     };
 
+    // Delete single notification
+    const deleteNotification = async (id: string, e: React.MouseEvent) => {
+        e.stopPropagation(); // Prevent triggering the parent onClick
+
+        // Optimistic update
+        setNotifications(prev => prev.filter(n => n.id !== id));
+
+        await supabase
+            .from('user_notifications')
+            .delete()
+            .eq('id', id);
+    };
+
+    // Clear all (delete all read notifications)
+    const clearAllRead = async () => {
+        if (!user) return;
+
+        setIsLoading(true);
+
+        // Delete all read notifications for this user
+        await supabase
+            .from('user_notifications')
+            .delete()
+            .eq('user_id', user.id)
+            .eq('is_read', true);
+
+        // Keep only unread in state
+        setNotifications(prev => prev.filter(n => !n.is_read));
+        setIsLoading(false);
+    };
+
     const formatTime = (dateStr: string) => {
         const date = new Date(dateStr);
         const now = new Date();
@@ -188,15 +219,26 @@ export const NotificationBell: React.FC<NotificationBellProps> = ({ onPrayerClic
                         {/* Header */}
                         <div className="flex items-center justify-between px-4 py-3 border-b border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50">
                             <h3 className="font-bold text-slate-800 dark:text-white">알림</h3>
-                            {unreadCount > 0 && (
-                                <button
-                                    onClick={markAllAsRead}
-                                    disabled={isLoading}
-                                    className="text-xs text-primary font-medium hover:underline disabled:opacity-50"
-                                >
-                                    모두 읽음
-                                </button>
-                            )}
+                            <div className="flex gap-2">
+                                {notifications.some(n => n.is_read) && (
+                                    <button
+                                        onClick={clearAllRead}
+                                        disabled={isLoading}
+                                        className="text-xs text-red-500 font-medium hover:underline disabled:opacity-50"
+                                    >
+                                        읽은 알림 삭제
+                                    </button>
+                                )}
+                                {unreadCount > 0 && (
+                                    <button
+                                        onClick={markAllAsRead}
+                                        disabled={isLoading}
+                                        className="text-xs text-primary font-medium hover:underline disabled:opacity-50"
+                                    >
+                                        모두 읽음
+                                    </button>
+                                )}
+                            </div>
                         </div>
 
                         {/* Notification List */}
@@ -242,10 +284,14 @@ export const NotificationBell: React.FC<NotificationBellProps> = ({ onPrayerClic
                                                     {notif.title}
                                                 </p>
 
-                                                {/* Unread Dot */}
-                                                {!notif.is_read && (
-                                                    <div className="w-2 h-2 rounded-full bg-primary shrink-0 mt-1.5" />
-                                                )}
+                                                {/* Dismiss Button */}
+                                                <button
+                                                    onClick={(e) => deleteNotification(notif.id, e)}
+                                                    className="p-1 -mr-1 text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-full transition-colors shrink-0"
+                                                    title="알림 삭제"
+                                                >
+                                                    <span className="material-symbols-outlined text-sm">close</span>
+                                                </button>
                                             </div>
 
                                             {notif.body && (
