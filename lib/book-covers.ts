@@ -75,7 +75,7 @@ export const BOOK_COVERS: Record<string, string> = {
     '요한이서': 'https://images.unsplash.com/photo-1528716321680-815a8cdb8cbe?q=80&w=800&auto=format&fit=crop', // Truth/Paper
     '요한삼서': 'https://images.unsplash.com/photo-1522202176988-66273c2fd55f?q=80&w=800&auto=format&fit=crop', // Hospitality/Door
     '유다서': 'https://images.unsplash.com/photo-1466853817435-05b43fe45b39?q=80&w=800&auto=format&fit=crop', // Contend/Waves
-    '요한계시록': 'https://images.unsplash.com/photo-1534796636912-3b95b3ab5980?q=80&w=800&auto=format&fit=crop', // New Heaven/New Earth
+    '요한계시록': 'https://images.unsplash.com/photo-1451187580459-43490279c0fa?q=80&w=800&auto=format&fit=crop', // Space/Heavenly
 
     // Fallback
     'default': 'https://images.unsplash.com/photo-1504052434569-70ad5836ab65?w=800'

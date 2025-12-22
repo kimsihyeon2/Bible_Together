@@ -82,34 +82,79 @@ const CommunityScreen: React.FC<CommunityScreenProps> = ({ navigate, t }) => {
                         .eq('cell_id', cell.id)
                         .order('joined_at', { ascending: true });
 
+                    let validMembers: CellMember[] = [];
                     if (membersData) {
-                        // Filter out members without profile data
-                        const validMembers = membersData.filter((m: { profile: unknown }) => m.profile && !Array.isArray(m.profile));
-                        setMembers(validMembers as unknown as CellMember[]);
+                        validMembers = membersData.filter((m: { profile: unknown }) => m.profile && !Array.isArray(m.profile)) as unknown as CellMember[];
+                        setMembers(validMembers);
                     }
 
-                    // Get recent activities (Unified Feed)
-                    const { data: activitiesData } = await supabase
-                        .from('cell_activities')
+                    const memberIds = validMembers.map(m => m.user_id);
+
+                    // --- SOTA Dual-Source Activity Fetching ---
+                    // Instead of relying on a separate log table, we fetch from source of truth
+
+                    // 1. Reading Activities
+                    const { data: readings } = await supabase
+                        .from('reading_activities')
                         .select(`
-                            *,
-                            profile:profiles!cell_activities_user_id_fkey (name)
+                            id, 
+                            user_id, 
+                            book, 
+                            chapter, 
+                            created_at,
+                            profile:profiles!reading_activities_user_id_fkey (name)
                         `)
-                        .eq('cell_id', cell.id)
+                        .in('user_id', memberIds)
                         .order('created_at', { ascending: false })
                         .limit(20);
 
-                    if (activitiesData) {
-                        // Map to Activity interface
-                        const formattedActivities = activitiesData.map((a: any) => ({
-                            id: a.id,
-                            user_name: a.profile?.name || '알 수 없음',
-                            type: a.type,
-                            title: a.title,
-                            created_at: a.created_at
+                    // 2. Highlights
+                    const { data: highlights } = await supabase
+                        .from('bible_highlights')
+                        .select(`
+                            id, 
+                            user_id, 
+                            book, 
+                            chapter, 
+                            verse, 
+                            created_at, 
+                            color,
+                            profile:profiles!bible_highlights_user_id_fkey (name)
+                        `)
+                        .in('user_id', memberIds)
+                        .order('created_at', { ascending: false })
+                        .limit(20);
+
+                    // 3. Merge and formatting
+                    let allActivities: Activity[] = [];
+
+                    if (readings) {
+                        const readingActs = readings.map((r: any) => ({
+                            id: r.id,
+                            user_name: r.profile?.name || '알 수 없음',
+                            type: 'READING',
+                            title: `${r.book} ${r.chapter}장을 읽었습니다.`,
+                            created_at: r.created_at
                         }));
-                        setActivities(formattedActivities);
+                        allActivities = [...allActivities, ...readingActs];
                     }
+
+                    if (highlights) {
+                        const highlightActs = highlights.map((h: any) => ({
+                            id: h.id,
+                            user_name: h.profile?.name || '알 수 없음',
+                            type: 'HIGHLIGHT', // New Type
+                            title: `${h.book} ${h.chapter}장 ${h.verse}절에 밑줄을 그었습니다.`,
+                            created_at: h.created_at
+                        }));
+                        allActivities = [...allActivities, ...highlightActs];
+                    }
+
+                    // Sort combined list
+                    allActivities.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+
+                    // Take top 30
+                    setActivities(allActivities.slice(0, 30));
                 }
             }
             setLoading(false);
@@ -275,11 +320,15 @@ const CommunityScreen: React.FC<CommunityScreenProps> = ({ navigate, t }) => {
                                     className="flex items-start gap-4 p-4 bg-surface-light dark:bg-surface-dark rounded-2xl shadow-sm"
                                 >
                                     <div className={`w-10 h-10 rounded-full flex items-center justify-center ${activity.type === 'PRAYER'
-                                        ? 'bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400'
-                                        : 'bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400'
+                                            ? 'bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400'
+                                            : activity.type === 'HIGHLIGHT'
+                                                ? 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-600 dark:text-yellow-400'
+                                                : 'bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400'
                                         }`}>
                                         <span className="material-symbols-outlined">
-                                            {activity.type === 'PRAYER' ? 'volunteer_activism' : 'menu_book'}
+                                            {activity.type === 'PRAYER' ? 'volunteer_activism'
+                                                : activity.type === 'HIGHLIGHT' ? 'border_color'
+                                                    : 'menu_book'}
                                         </span>
                                     </div>
                                     <div className="flex-1 min-w-0">

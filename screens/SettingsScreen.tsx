@@ -239,8 +239,18 @@ const SettingsScreen: React.FC<SettingsScreenProps> = ({ navigate, language, tog
             <section>
               <h3 className="text-[13px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2 px-1">계정</h3>
               <div className="bg-surface-light dark:bg-surface-dark rounded-[18px] divide-y divide-slate-200/50 dark:divide-slate-700/50 overflow-hidden shadow-sm">
-                <SettingsRow icon="security" label={t.settings.securityEmail} iconColor="text-ios-blue" />
-                <SettingsRow icon="group" label={t.settings.community} iconColor="text-ios-green" />
+                <SettingsRow
+                  icon="security"
+                  label={t.settings.securityEmail}
+                  iconColor="text-ios-blue"
+                  onClick={() => alert('보안 및 이메일 설정은 준비 중입니다.')}
+                />
+                <SettingsRow
+                  icon="group"
+                  label={t.settings.community}
+                  iconColor="text-ios-green"
+                  onClick={() => navigate(Screen.COMMUNITY)}
+                />
               </div>
             </section>
 
@@ -267,9 +277,27 @@ const SettingsScreen: React.FC<SettingsScreenProps> = ({ navigate, language, tog
             <section>
               <h3 className="text-[13px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2 px-1">읽기 설정</h3>
               <div className="bg-surface-light dark:bg-surface-dark rounded-[18px] divide-y divide-slate-200/50 dark:divide-slate-700/50 overflow-hidden shadow-sm">
-                <SettingsRow icon="menu_book" label={t.settings.translation} iconColor="text-ios-red" value="개역개정" />
-                <SettingsRow icon="format_size" label={t.settings.fontSize} iconColor="text-ios-orange" value="중간" />
-                <SettingsRow icon="speed" label={t.settings.audioSpeed} iconColor="text-ios-teal" value="1.0x" />
+                <SettingsRow
+                  icon="menu_book"
+                  label={t.settings.translation}
+                  iconColor="text-ios-red"
+                  value="개역개정"
+                  onClick={() => alert('성경 번역 변경은 성경 읽기 화면에서 가능합니다.')}
+                />
+                <SettingsRow
+                  icon="format_size"
+                  label={t.settings.fontSize}
+                  iconColor="text-ios-orange"
+                  value="18px"
+                  onClick={() => alert('글자 크기 변경은 성경 읽기 화면에서 가능합니다.')}
+                />
+                <SettingsRow
+                  icon="speed"
+                  label={t.settings.audioSpeed}
+                  iconColor="text-ios-teal"
+                  value="1.0x"
+                  onClick={() => alert('오디오 속도 변경은 성경 읽기 화면에서 가능합니다.')}
+                />
               </div>
             </section>
 
@@ -286,8 +314,18 @@ const SettingsScreen: React.FC<SettingsScreenProps> = ({ navigate, language, tog
             <section>
               <h3 className="text-[13px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2 px-1">지원</h3>
               <div className="bg-surface-light dark:bg-surface-dark rounded-[18px] divide-y divide-slate-200/50 dark:divide-slate-700/50 overflow-hidden shadow-sm">
-                <SettingsRow icon="help" label={t.settings.helpCenter} iconColor="text-ios-blue" />
-                <SettingsRow icon="shield" label={t.settings.privacyPolicy} iconColor="text-ios-green" />
+                <SettingsRow
+                  icon="help"
+                  label={t.settings.helpCenter}
+                  iconColor="text-ios-blue"
+                  onClick={() => alert('고객센터는 준비 중입니다.')}
+                />
+                <SettingsRow
+                  icon="shield"
+                  label={t.settings.privacyPolicy}
+                  iconColor="text-ios-green"
+                  onClick={() => window.open('https://policy.greenbible.com', '_blank')}
+                />
               </div>
             </section>
 
@@ -371,9 +409,12 @@ const SettingsScreen: React.FC<SettingsScreenProps> = ({ navigate, language, tog
 };
 
 // Settings Row Component
-function SettingsRow({ icon, label, iconColor, value }: { icon: string; label: string; iconColor: string; value?: string }) {
+function SettingsRow({ icon, label, iconColor, value, onClick }: { icon: string; label: string; iconColor: string; value?: string; onClick?: () => void }) {
   return (
-    <div className="flex items-center justify-between px-4 py-3">
+    <button
+      onClick={onClick}
+      className="w-full flex items-center justify-between px-4 py-3 active:bg-slate-100 dark:active:bg-white/5 transition-colors text-left"
+    >
       <div className="flex items-center gap-3">
         <span className={`material-symbols-outlined ${iconColor} text-[22px]`}>{icon}</span>
         <span className="text-[17px] text-black dark:text-white">{label}</span>
@@ -382,7 +423,7 @@ function SettingsRow({ icon, label, iconColor, value }: { icon: string; label: s
         {value && <span className="text-[15px]">{value}</span>}
         <span className="material-symbols-outlined text-[18px]">chevron_right</span>
       </div>
-    </div>
+    </button>
   );
 }
 
