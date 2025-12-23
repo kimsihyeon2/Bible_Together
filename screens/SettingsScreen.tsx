@@ -378,6 +378,13 @@ const SettingsScreen: React.FC<SettingsScreenProps> = ({ navigate, language, tog
                   iconColor="text-ios-green"
                   onClick={() => navigate(Screen.PRIVACY)}
                 />
+
+                <SettingsRow
+                  icon="groups_2"
+                  label="그린시티교회 미디어 홍보팀"
+                  iconColor="text-indigo-500"
+                  onClick={() => navigate(Screen.MEDIA_TEAM)}
+                />
               </div>
             </section>
 

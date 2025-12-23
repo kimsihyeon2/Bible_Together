@@ -13,6 +13,7 @@ export enum Screen {
   PRIVACY = 'PRIVACY',
   HELP = 'HELP',
   READING_SCHEDULE = 'READING_SCHEDULE',
+  MEDIA_TEAM = 'MEDIA_TEAM',
 }
 
 export interface NavProps {

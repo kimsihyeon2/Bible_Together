@@ -17,6 +17,7 @@ import SettingsScreen from '@/screens/SettingsScreen';
 import SecurityScreen from '@/screens/SecurityScreen';
 import PrivacyPolicyScreen from '@/screens/PrivacyPolicyScreen';
 import HelpScreen from '@/screens/HelpScreen';
+import MediaTeamScreen from '@/screens/MediaTeamScreen';
 import ReadingScheduleScreen from '@/screens/ReadingScheduleScreen';
 import { BottomNav } from '@/components/BottomNav';
 
@@ -37,6 +38,7 @@ const ROUTE_MAP: Record<string, Screen> = {
     '#/settings/security': Screen.SECURITY,
     '#/settings/privacy': Screen.PRIVACY,
     '#/settings/help': Screen.HELP,
+    '#/media-team': Screen.MEDIA_TEAM,
     '#/schedule': Screen.READING_SCHEDULE,
 };
 
@@ -54,6 +56,7 @@ const SCREEN_TO_HASH: Record<Screen, string> = {
     [Screen.SECURITY]: '#/settings/security',
     [Screen.PRIVACY]: '#/settings/privacy',
     [Screen.HELP]: '#/settings/help',
+    [Screen.MEDIA_TEAM]: '#/media-team',
     [Screen.READING_SCHEDULE]: '#/schedule',
 };
 
@@ -199,6 +202,8 @@ export default function HomePage() {
                 return <PrivacyPolicyScreen navigate={navigate} />;
             case Screen.HELP:
                 return <HelpScreen navigate={navigate} />;
+            case Screen.MEDIA_TEAM:
+                return <MediaTeamScreen navigate={navigate} />;
             case Screen.READING_SCHEDULE:
                 return <ReadingScheduleScreen navigate={navigate} onStartReading={(book, chapter) => {
                     // Navigate to Bible with specific book/chapter

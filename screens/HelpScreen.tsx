@@ -122,9 +122,9 @@ const HelpScreen: React.FC<HelpScreenProps> = ({ navigate }) => {
                 {/* Footer Contact */}
                 <div className="mt-12 text-center">
                     <p className="text-sm text-slate-500 mb-2">원하는 답변을 찾지 못하셨나요?</p>
-                    <button className="bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300 px-6 py-3 rounded-xl text-sm font-semibold hover:bg-slate-300 transition-colors">
+                    <a href="mailto:kimsi539816@mju.ac.kr" className="inline-block bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300 px-6 py-3 rounded-xl text-sm font-semibold hover:bg-slate-300 transition-colors">
                         1:1 문의하기
-                    </button>
+                    </a>
                 </div>
             </main>
         </div>
