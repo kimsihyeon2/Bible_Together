@@ -1,6 +1,18 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import {
+    Heart,
+    Briefcase,
+    Activity,
+    HelpCircle,
+    MoreHorizontal,
+    CheckCircle2,
+    Clock,
+    Plus,
+    Users,
+    ChevronLeft
+} from 'lucide-react';
 import { Screen } from '../types';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/lib/auth-context';
@@ -80,10 +92,8 @@ const PrayerWallScreen: React.FC<PrayerWallScreenProps> = ({ navigate, t }) => {
             setNewContent('');
             setShowAddModal(false);
             fetchPrayers();
-            alert(t.prayer.successAdd);
         } catch (error) {
             console.error('Error adding prayer:', error);
-            alert('Failed to add prayer.');
         }
     };
 
@@ -118,12 +128,14 @@ const PrayerWallScreen: React.FC<PrayerWallScreenProps> = ({ navigate, t }) => {
 
     const formatDate = (dateStr: string) => {
         const date = new Date(dateStr);
+        const timeStr = date.toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' });
+        // The user wants "오늘, 오후 08:00" style or "n일 전 추가됨"
         const now = new Date();
         const diffTime = Math.abs(now.getTime() - date.getTime());
         const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
 
-        if (diffDays <= 1) {
-            return t.prayer.addedToday.replace('{time}', date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }));
+        if (diffDays <= 1 && date.getDate() === now.getDate()) {
+            return t.prayer.addedToday.replace('{time}', timeStr);
         } else {
             return t.prayer.addedDaysAgo.replace('{days}', String(diffDays));
         }
@@ -131,213 +143,257 @@ const PrayerWallScreen: React.FC<PrayerWallScreenProps> = ({ navigate, t }) => {
 
     const getCategoryIcon = (category: string) => {
         switch (category.toLowerCase()) {
-            case 'family': return 'favorite';
-            case 'guidance': return 'work';
-            case 'community': return 'groups';
-            default: return 'bookmark';
+            case 'family': return <Heart className="w-5 h-5 text-orange-500 fill-orange-500" />;
+            case 'guidance': return <Briefcase className="w-5 h-5 text-blue-500 fill-blue-500" />;
+            case 'community': return <Users className="w-5 h-5 text-emerald-500 fill-emerald-500" />;
+            default: return <HelpCircle className="w-5 h-5 text-gray-500" />;
         }
     };
 
     const getCategoryColor = (category: string) => {
         switch (category.toLowerCase()) {
-            case 'family': return 'bg-orange-100 text-orange-500 dark:bg-orange-900/50 dark:text-orange-300';
-            case 'guidance': return 'bg-blue-100 text-blue-500 dark:bg-blue-900/50 dark:text-blue-300';
-            case 'community': return 'bg-purple-100 text-purple-500 dark:bg-purple-900/50 dark:text-purple-300';
-            default: return 'bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400';
+            case 'family': return 'bg-orange-100';
+            case 'guidance': return 'bg-blue-100';
+            case 'community': return 'bg-emerald-100';
+            default: return 'bg-gray-100';
         }
     };
 
     return (
-        <div className="font-display antialiased text-gray-800 dark:text-gray-100 bg-background-light dark:bg-background-dark min-h-screen relative overflow-hidden pb-24">
-            {/* SOTA Background Elements */}
-            <div className="fixed inset-0 z-0 pasture-bg dark:pasture-bg-dark transition-colors duration-500 opacity-60">
-                <div className="absolute top-[-10%] right-[-10%] w-64 h-64 bg-yellow-200/40 dark:bg-yellow-600/20 rounded-full blur-3xl pointer-events-none"></div>
-                <div className="absolute bottom-0 left-0 right-0 h-1/3 bg-gradient-to-t from-green-200/50 to-transparent dark:from-emerald-900/50 pointer-events-none rounded-t-[50%] scale-150 translate-y-20"></div>
-            </div>
-
-            <div className="relative z-10 flex flex-col max-w-md mx-auto h-full">
-                {/* Header */}
-                <header className="px-6 pt-12 pb-4 flex items-center justify-between">
-                    <button
-                        onClick={() => navigate(Screen.DASHBOARD)}
-                        className="p-2 -ml-2 rounded-full hover:bg-white/20 active:scale-95 transition text-slate-600 dark:text-slate-200"
-                    >
-                        <span className="material-icons-round text-2xl">arrow_back_ios_new</span>
-                    </button>
-                    <h1 className="text-xl font-bold text-slate-700 dark:text-white tracking-wide">{t.prayer.title}</h1>
-                    <div className="w-10 h-10 rounded-full overflow-hidden border-2 border-white/50 dark:border-slate-600 shadow-sm">
-                        {profile?.avatar_url ? (
-                            <img alt="Profile" className="w-full h-full object-cover" src={profile.avatar_url} />
-                        ) : (
-                            <div className="w-full h-full bg-primary flex items-center justify-center text-white font-bold">
-                                {profile?.name?.charAt(0) || user?.email?.charAt(0) || 'U'}
-                            </div>
-                        )}
-                    </div>
-                </header>
-
-                <main className="flex-1 overflow-y-auto no-scrollbar px-6 space-y-6">
-                    {/* Welcome Card - SOTA Paper Design */}
-                    <div className="glass dark:glass-dark rounded-3xl p-6 shadow-soft relative overflow-hidden group border border-white/50 dark:border-white/10">
-                        <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-bl from-orange-100/80 to-transparent dark:from-orange-900/10 rounded-bl-full pointer-events-none"></div>
-                        <div className="relative z-10">
-                            <h2 className="text-2xl font-bold text-slate-800 dark:text-white mb-2">{t.prayer.myPrayers}</h2>
-                            <p className="text-slate-500 dark:text-slate-300 text-sm mb-6 leading-relaxed italic">
-                                {t.prayer.subtitle}
-                            </p>
-                            <button
-                                onClick={() => setShowAddModal(true)}
-                                className="w-full bg-primary hover:bg-primary-dark text-white font-bold py-4 rounded-2xl flex items-center justify-center space-x-2 shadow-glow transition-all active:scale-95 mb-1"
-                            >
-                                <span className="material-icons-round">add_circle</span>
-                                <span>{t.prayer.addNew}</span>
-                            </button>
+        <div className="min-h-screen bg-gradient-to-b from-teal-50 to-emerald-50 dark:from-slate-950 dark:to-slate-900 pb-24 font-sans antialiased text-slate-800 dark:text-slate-100">
+            {/* Top Header */}
+            <header className="pt-8 pb-4 px-6 flex items-center justify-between sticky top-0 bg-gradient-to-b from-teal-50/95 to-teal-50/80 dark:from-slate-950/95 dark:to-slate-950/80 backdrop-blur-sm z-30">
+                <button
+                    onClick={() => navigate(Screen.DASHBOARD)}
+                    className="p-2 -ml-2 rounded-full hover:bg-black/5 dark:hover:bg-white/5 text-slate-700 dark:text-slate-300 transition-colors"
+                >
+                    <ChevronLeft className="w-6 h-6" />
+                </button>
+                <h1 className="text-xl font-bold text-slate-800 dark:text-white tracking-tight">{t.prayer.title}</h1>
+                <div className="w-10 h-10 rounded-full bg-orange-200 dark:bg-orange-900/50 border-2 border-white dark:border-slate-700 shadow-sm overflow-hidden">
+                    {profile?.avatar_url ? (
+                        <img src={profile.avatar_url} alt="Profile" className="w-full h-full object-cover" />
+                    ) : (
+                        <div className="w-full h-full bg-emerald-500 flex items-center justify-center text-white font-bold opacity-80">
+                            {profile?.name?.charAt(0) || 'U'}
                         </div>
-                    </div>
+                    )}
+                </div>
+            </header>
 
-                    {/* Filters */}
-                    <div className="flex space-x-3 overflow-x-auto no-scrollbar pb-2 pt-2">
-                        <button
-                            onClick={() => setFilter('ONGOING')}
-                            className={`${filter === 'ONGOING'
-                                ? 'bg-white dark:bg-slate-700 text-primary dark:text-primary-400 ring-2 ring-primary/20'
-                                : 'bg-white/40 dark:bg-slate-800/40 text-slate-600 dark:text-slate-400 border-white/50 dark:border-slate-600'} 
-                                font-bold px-6 py-2.5 rounded-full shadow-sm text-sm border whitespace-nowrap backdrop-blur-sm transition-all`}
-                        >
-                            {t.prayer.ongoing} ({prayers.filter(p => !p.is_answered).length || 0})
-                        </button>
-                        <button
-                            onClick={() => setFilter('ANSWERED')}
-                            className={`${filter === 'ANSWERED'
-                                ? 'bg-white dark:bg-slate-700 text-primary dark:text-primary-400 ring-2 ring-primary/20'
-                                : 'bg-white/40 dark:bg-slate-800/40 text-slate-600 dark:text-slate-400 border-white/50 dark:border-slate-600'} 
-                                font-bold px-6 py-2.5 rounded-full shadow-sm text-sm border whitespace-nowrap backdrop-blur-sm transition-all`}
-                        >
-                            {t.prayer.answered}
-                        </button>
-                    </div>
+            <main className="px-5">
+                {/* Journal Section - Implementation of the Book Page effect */}
+                <section className="relative mb-8 mt-2">
+                    <div className="bg-[#fefcf8] dark:bg-slate-800 rounded-xl shadow-[0_10px_20px_-5px_rgba(0,0,0,0.1),inset_16px_0_20px_-10px_rgba(0,0,0,0.05)] border-l-4 border-l-[#e3d8c8] dark:border-l-emerald-900/30 p-6 relative overflow-hidden">
+                        {/* Decorative notebook lines */}
+                        <div className="absolute top-0 left-0 w-full h-full pointer-events-none opacity-40 notebook-lines mt-10"></div>
 
-                    {/* Prayer Cards */}
-                    <div className="space-y-4 pb-8">
-                        {loading ? (
-                            <div className="flex flex-col items-center justify-center py-20 space-y-4">
-                                <div className="w-10 h-10 border-4 border-primary border-t-transparent rounded-full animate-spin"></div>
-                                <p className="text-slate-400 text-sm">Loading prayers...</p>
+                        <h2 className="text-2xl font-bold text-slate-800 dark:text-white mb-2 font-serif relative z-10">{t.prayer.myPrayers}</h2>
+                        <p className="text-slate-600 dark:text-slate-300 italic font-serif text-sm leading-relaxed mb-6 relative z-10 bg-[#fefcf8]/60 dark:bg-slate-800/60 backdrop-blur-[1px] rounded p-1">
+                            "{t.prayer.subtitle}"
+                        </p>
+
+                        <button
+                            onClick={() => setShowAddModal(true)}
+                            className="w-full bg-emerald-500 hover:bg-emerald-600 active:bg-emerald-700 text-white font-semibold py-3 px-4 rounded-full shadow-lg shadow-emerald-200 dark:shadow-none flex items-center justify-center gap-2 transition-all relative z-10 active:scale-95"
+                        >
+                            <div className="bg-white/20 p-1 rounded-full">
+                                <Plus className="w-4 h-4 text-white" />
                             </div>
-                        ) : prayers.length === 0 ? (
-                            <div className="text-center py-20 px-10 text-slate-400 bg-white/30 dark:bg-slate-800/20 rounded-3xl border border-dashed border-slate-300 dark:border-slate-700">
-                                <span className="material-icons-round text-5xl mb-4 block opacity-30">spa</span>
-                                <p>{filter === 'ONGOING' ? 'No ongoing prayers yet.' : 'No answered prayers yet.'}</p>
-                            </div>
-                        ) : (
-                            prayers.map((prayer) => (
-                                <div key={prayer.id} className="bg-white/90 dark:bg-slate-800/90 backdrop-blur-md rounded-3xl p-5 shadow-sm border border-white/60 dark:border-slate-700/50 group hover:shadow-md transition-shadow">
-                                    <div className="flex justify-between items-start mb-3">
-                                        <div className="flex items-center space-x-3">
-                                            <span className={`${getCategoryColor(prayer.category)} p-2 rounded-xl`}>
-                                                <span className="material-icons-round text-lg">{getCategoryIcon(prayer.category)}</span>
-                                            </span>
-                                            <span className="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider">
-                                                {prayer.category}
+                            {t.prayer.addNew}
+                        </button>
+
+                        {/* Subtle decorative circle in top right */}
+                        <div className="absolute -top-10 -right-10 w-32 h-32 bg-orange-100/50 dark:bg-orange-900/10 rounded-full blur-2xl pointer-events-none"></div>
+                    </div>
+                </section>
+
+                {/* Tabs */}
+                <div className="flex items-end gap-1 mb-6 overflow-x-auto no-scrollbar px-1">
+                    <button
+                        onClick={() => setFilter('ONGOING')}
+                        className={`px-5 py-2.5 rounded-t-xl text-sm font-semibold transition-all relative whitespace-nowrap ${filter === 'ONGOING'
+                                ? 'bg-white dark:bg-slate-800 text-emerald-700 dark:text-emerald-400 shadow-[0_-2px_4px_rgba(0,0,0,0.02)] z-10 border-t border-x border-slate-100 dark:border-slate-700'
+                                : 'bg-white/40 dark:bg-slate-900/40 text-slate-500 dark:text-slate-500 hover:bg-white/60 dark:hover:bg-slate-800/60'
+                            }`}
+                    >
+                        {t.prayer.ongoing} <span className="ml-0.5 opacity-70">({prayers.filter(p => !p.is_answered).length})</span>
+                        {filter === 'ONGOING' && (
+                            <div className="absolute bottom-0 left-0 w-full h-1 bg-emerald-500 rounded-t-full"></div>
+                        )}
+                    </button>
+
+                    <button
+                        onClick={() => setFilter('ANSWERED')}
+                        className={`px-5 py-2.5 rounded-t-xl text-sm font-semibold transition-all relative whitespace-nowrap ${filter === 'ANSWERED'
+                                ? 'bg-white dark:bg-slate-800 text-emerald-700 dark:text-emerald-400 shadow-[0_-2px_4px_rgba(0,0,0,0.02)] z-10 border-t border-x border-slate-100 dark:border-slate-700'
+                                : 'bg-white/40 dark:bg-slate-900/40 text-slate-500 dark:text-slate-500 hover:bg-white/60 dark:hover:bg-slate-800/60'
+                            }`}
+                    >
+                        {t.prayer.answered} <span className="ml-0.5 opacity-70">({prayers.filter(p => p.is_answered).length})</span>
+                        {filter === 'ANSWERED' && (
+                            <div className="absolute bottom-0 left-0 w-full h-1 bg-emerald-500 rounded-t-full"></div>
+                        )}
+                    </button>
+
+                    <button className="px-5 py-2.5 rounded-t-xl text-sm font-semibold bg-white/20 dark:bg-slate-900/20 text-slate-400 dark:text-slate-600 transition-all opacity-60 cursor-not-allowed whitespace-nowrap">
+                        {t.prayer.shared}
+                    </button>
+                </div>
+
+                {/* Prayer List */}
+                <div className="space-y-6 min-h-[300px] pb-10">
+                    {loading ? (
+                        <div className="flex flex-col items-center justify-center py-20">
+                            <div className="w-10 h-10 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin"></div>
+                            <p className="text-slate-400 text-sm mt-4 tracking-tight">기도 노트를 불러오는 중...</p>
+                        </div>
+                    ) : prayers.length > 0 ? (
+                        prayers.map(prayer => (
+                            <div key={prayer.id} className="relative mb-6 group animate-pop">
+                                {/* Stack effect behind the card */}
+                                <div className="absolute inset-x-1 bottom-[-4px] h-full bg-white dark:bg-slate-800/60 rounded-xl border border-stone-200 dark:border-slate-800 shadow-sm z-0"></div>
+                                <div className="absolute inset-x-2 bottom-[-8px] h-full bg-white dark:bg-slate-800/40 rounded-xl border border-stone-200 dark:border-slate-800 shadow-sm z-[-1]"></div>
+
+                                <div className="relative bg-[#fdfbf7] dark:bg-slate-800 p-5 rounded-xl border border-stone-100 dark:border-slate-700 shadow-sm z-10 flex flex-col gap-3 group-hover:translate-y-[-2px] transition-transform">
+                                    {/* Header: Category & Menu */}
+                                    <div className="flex justify-between items-center">
+                                        <div className="flex items-center gap-3">
+                                            <div className={`p-2 rounded-full ${getCategoryColor(prayer.category)} dark:bg-slate-700 transition-colors`}>
+                                                {getCategoryIcon(prayer.category)}
+                                            </div>
+                                            <span className="text-[10px] font-bold tracking-[0.1em] text-slate-400 dark:text-slate-500 uppercase">
+                                                {prayer.category === 'Family' ? t.prayer.family :
+                                                    prayer.category === 'Guidance' ? t.prayer.guidance :
+                                                        prayer.category === 'Community' ? t.prayer.community : prayer.category}
                                             </span>
                                         </div>
-                                        <div className="flex space-x-2">
+                                        <div className="flex items-center gap-1">
                                             <button
                                                 onClick={() => toggleAnswered(prayer.id, prayer.is_answered)}
-                                                className={`p-1.5 rounded-lg transition-colors ${prayer.is_answered ? 'bg-green-100 text-green-600 dark:bg-green-900/30 dark:text-green-400' : 'text-slate-300 hover:text-slate-500 dark:text-slate-600 dark:hover:text-slate-400'}`}
-                                                title={prayer.is_answered ? 'Mark as ongoing' : 'Mark as answered'}
+                                                className={`p-1.5 rounded-lg transition-colors ${prayer.is_answered ? 'text-emerald-500 bg-emerald-50 dark:bg-emerald-900/20' : 'text-slate-300 hover:text-slate-500'}`}
                                             >
-                                                <span className="material-icons-round text-xl">check_circle</span>
+                                                <CheckCircle2 className="w-5 h-5" />
                                             </button>
-                                            <button className="text-slate-300 hover:text-slate-500 dark:text-slate-600 dark:hover:text-slate-400">
-                                                <span className="material-icons-round">more_horiz</span>
+                                            <button className="p-1.5 text-slate-300 hover:text-slate-500 transition-colors">
+                                                <MoreHorizontal className="w-5 h-5" />
                                             </button>
                                         </div>
                                     </div>
 
-                                    <h3 className="text-lg font-bold text-slate-800 dark:text-slate-100 mb-1 leading-tight">{prayer.title}</h3>
-                                    <p className="text-slate-500 dark:text-slate-400 text-sm line-clamp-3 leading-relaxed">
-                                        {prayer.content}
-                                    </p>
+                                    {/* Content */}
+                                    <div className="py-1">
+                                        <h3 className="text-lg font-bold text-slate-800 dark:text-white mb-1.5 leading-snug">
+                                            {prayer.title}
+                                        </h3>
+                                        <p className="text-slate-600 dark:text-slate-300 text-[14px] leading-[1.6] border-b border-dashed border-stone-200 dark:border-slate-700 pb-4">
+                                            {prayer.content}
+                                        </p>
+                                    </div>
 
-                                    <div className="mt-4 flex items-center justify-between border-t border-slate-100 dark:border-slate-700/50 pt-3">
-                                        <div className="flex items-center text-[11px] text-slate-400 dark:text-slate-500">
-                                            <span className="material-icons-round text-sm mr-1">schedule</span>
+                                    {/* Footer */}
+                                    <div className="flex justify-between items-center pt-1">
+                                        <div className="flex items-center gap-1.5 text-[11px] font-medium text-slate-400 dark:text-slate-500">
+                                            <Clock className="w-3.5 h-3.5" />
                                             <span>{formatDate(prayer.created_at)}</span>
                                         </div>
+
                                         <button
                                             onClick={() => incrementPrayed(prayer.id, prayer.prayer_count)}
-                                            className="flex items-center space-x-1.5 text-primary text-[11px] font-bold bg-primary/5 px-3 py-1.5 rounded-full hover:bg-primary/10 transition-colors"
+                                            className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-100 dark:hover:bg-emerald-900/30 transition-all active:scale-95 group/btn"
                                         >
-                                            <span className="material-icons-round text-[14px]">spa</span>
-                                            <span>{t.prayer.prayedCount.replace('{count}', String(prayer.prayer_count))}</span>
+                                            <span className="material-symbols-outlined text-[16px] group-active/btn:scale-125 transition-transform">spa</span>
+                                            <span className="text-[12px] font-bold">{t.prayer.prayedCount.replace('{count}', String(prayer.prayer_count))}</span>
                                         </button>
                                     </div>
                                 </div>
-                            ))
-                        )}
-                    </div>
-                </main>
-            </div>
+                            </div>
+                        ))
+                    ) : (
+                        <div className="flex flex-col items-center justify-center py-20 text-slate-400 bg-white/30 dark:bg-slate-800/30 rounded-3xl border border-dashed border-slate-300 dark:border-slate-700">
+                            <span className="material-symbols-outlined text-5xl mb-4 opacity-20">spa</span>
+                            <p className="text-sm font-medium">{filter === 'ONGOING' ? '진행 중인 기도가 없습니다.' : '응답 완료된 기도가 없습니다.'}</p>
+                        </div>
+                    )}
+                </div>
+            </main>
 
             {/* Add Prayer Modal */}
             {showAddModal && (
-                <div className="fixed inset-0 z-[100] flex items-center justify-center px-6">
-                    <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onClick={() => setShowAddModal(false)}></div>
-                    <div className="bg-white dark:bg-slate-800 w-full max-w-sm rounded-[2.5rem] p-8 relative z-10 shadow-2xl transition-all scale-100 animate-in fade-in zoom-in duration-300">
-                        <h2 className="text-2xl font-bold text-slate-800 dark:text-white mb-6 flex items-center">
-                            <span className="bg-primary/10 p-2 rounded-xl mr-3">
-                                <span className="material-icons-round text-primary">edit_note</span>
-                            </span>
-                            {t.prayer.addNew}
-                        </h2>
+                <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center bg-slate-900/40 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+                    <div className="w-full max-w-md bg-white dark:bg-slate-800 rounded-2xl shadow-xl overflow-hidden animate-in slide-in-from-bottom-10 duration-300">
+                        <div className="flex justify-between items-center p-4 border-b border-gray-100 dark:border-slate-700">
+                            <h2 className="text-lg font-bold text-slate-800 dark:text-white">새 기도 제목 추가</h2>
+                            <button
+                                onClick={() => setShowAddModal(false)}
+                                className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-slate-700 text-slate-500 transition-colors"
+                            >
+                                <span className="material-symbols-outlined">close</span>
+                            </button>
+                        </div>
 
-                        <div className="space-y-4">
+                        <form className="p-5 space-y-5" onSubmit={(e) => { e.preventDefault(); handleAddPrayer(); }}>
                             <div>
-                                <label className="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1 mb-1.5 block">Category</label>
-                                <div className="flex space-x-2">
+                                <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest mb-2.5">카테고리</label>
+                                <div className="flex gap-2 overflow-x-auto pb-2 no-scrollbar">
                                     {['Family', 'Guidance', 'Community'].map((cat) => (
                                         <button
                                             key={cat}
+                                            type="button"
                                             onClick={() => setNewCategory(cat)}
-                                            className={`px-4 py-2 rounded-xl text-xs font-bold transition-all ${newCategory === cat ? 'bg-primary text-white shadow-glow' : 'bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400'}`}
+                                            className={`px-4 py-2 text-[12px] font-bold rounded-full border transition-all whitespace-nowrap ${newCategory === cat
+                                                    ? 'bg-emerald-500 border-emerald-500 text-white shadow-md'
+                                                    : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 hover:bg-slate-50'
+                                                }`}
                                         >
-                                            {cat}
+                                            {cat === 'Family' ? t.prayer.family :
+                                                cat === 'Guidance' ? t.prayer.guidance :
+                                                    cat === 'Community' ? t.prayer.community : cat}
                                         </button>
                                     ))}
                                 </div>
                             </div>
 
-                            <input
-                                type="text"
-                                placeholder={t.prayer.placeholderTitle}
-                                className="w-full bg-slate-50 dark:bg-slate-900 border-none rounded-2xl py-4 px-5 text-slate-800 dark:text-white placeholder-slate-400 focus:ring-2 focus:ring-primary/50 transition-all font-bold"
-                                value={newTitle}
-                                onChange={(e) => setNewTitle(e.target.value)}
-                            />
+                            <div>
+                                <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest mb-1.5">기도 제목</label>
+                                <input
+                                    type="text"
+                                    value={newTitle}
+                                    onChange={(e) => setNewTitle(e.target.value)}
+                                    placeholder={t.prayer.placeholderTitle}
+                                    className="w-full px-4 py-3.5 rounded-xl border border-slate-200 dark:border-slate-700 dark:bg-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all font-semibold"
+                                    required
+                                />
+                            </div>
 
-                            <textarea
-                                placeholder={t.prayer.placeholderContent}
-                                className="w-full bg-slate-50 dark:bg-slate-900 border-none rounded-2xl py-4 px-5 text-slate-800 dark:text-white placeholder-slate-400 focus:ring-2 focus:ring-primary/50 transition-all min-h-[120px]"
-                                value={newContent}
-                                onChange={(e) => setNewContent(e.target.value)}
-                            />
+                            <div>
+                                <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest mb-1.5">내용</label>
+                                <textarea
+                                    value={newContent}
+                                    onChange={(e) => setNewContent(e.target.value)}
+                                    placeholder={t.prayer.placeholderContent}
+                                    rows={4}
+                                    className="w-full px-4 py-4 rounded-xl border border-slate-200 dark:border-slate-700 dark:bg-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all resize-none bg-stone-50/50 dark:bg-slate-900/50 leading-relaxed"
+                                    required
+                                />
+                            </div>
 
-                            <div className="flex space-x-3 pt-2">
+                            <div className="flex gap-3 pt-2">
                                 <button
+                                    type="button"
                                     onClick={() => setShowAddModal(false)}
-                                    className="flex-1 bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400 font-bold py-4 rounded-2xl hover:bg-slate-200 transition-all"
+                                    className="flex-1 py-4 bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 font-bold rounded-xl active:scale-95 transition-all text-sm"
                                 >
                                     {t.prayer.cancel}
                                 </button>
                                 <button
-                                    onClick={handleAddPrayer}
-                                    className="flex-2 bg-primary hover:bg-primary-dark text-white font-bold py-4 px-6 rounded-2xl shadow-glow transition-all active:scale-95 flex-grow"
+                                    type="submit"
+                                    className="flex-[2] py-4 bg-emerald-500 hover:bg-emerald-600 text-white font-bold rounded-xl shadow-lg shadow-emerald-200 dark:shadow-none active:scale-95 transition-all text-sm"
                                 >
                                     {t.prayer.save}
                                 </button>
                             </div>
-                        </div>
+                        </form>
                     </div>
                 </div>
             )}
