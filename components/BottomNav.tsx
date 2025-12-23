@@ -41,6 +41,14 @@ export const BottomNav: React.FC<BottomNavProps> = ({ currentScreen, navigate, t
         </button>
 
         <button
+          onClick={() => navigate(Screen.PRAYER_WALL)}
+          className={`flex flex-col items-center gap-1 p-2 w-16 ${getIconClass(Screen.PRAYER_WALL)}`}
+        >
+          <span className={`material-symbols-outlined text-[26px] ${currentScreen === Screen.PRAYER_WALL ? "font-variation-settings-fill-1" : ""}`}>favorite</span>
+          <span className="text-[10px] font-medium">{t.prayer.title}</span>
+        </button>
+
+        <button
           onClick={() => navigate(Screen.SETTINGS)}
           className={`flex flex-col items-center gap-1 p-2 w-16 ${getIconClass(Screen.SETTINGS)}`}
         >

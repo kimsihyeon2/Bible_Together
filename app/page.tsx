@@ -19,6 +19,7 @@ import PrivacyPolicyScreen from '@/screens/PrivacyPolicyScreen';
 import HelpScreen from '@/screens/HelpScreen';
 import MediaTeamScreen from '@/screens/MediaTeamScreen';
 import ReadingScheduleScreen from '@/screens/ReadingScheduleScreen';
+import PrayerWallScreen from '@/screens/PrayerWallScreen';
 import { BottomNav } from '@/components/BottomNav';
 
 // Hash-based routing map
@@ -40,6 +41,7 @@ const ROUTE_MAP: Record<string, Screen> = {
     '#/settings/help': Screen.HELP,
     '#/media-team': Screen.MEDIA_TEAM,
     '#/schedule': Screen.READING_SCHEDULE,
+    '#/prayers': Screen.PRAYER_WALL,
 };
 
 const SCREEN_TO_HASH: Record<Screen, string> = {
@@ -58,6 +60,7 @@ const SCREEN_TO_HASH: Record<Screen, string> = {
     [Screen.HELP]: '#/settings/help',
     [Screen.MEDIA_TEAM]: '#/media-team',
     [Screen.READING_SCHEDULE]: '#/schedule',
+    [Screen.PRAYER_WALL]: '#/prayers',
 };
 
 const getScreenFromHash = (): Screen => {
@@ -209,6 +212,8 @@ export default function HomePage() {
                     // Navigate to Bible with specific book/chapter
                     navigate(Screen.BIBLE);
                 }} />;
+            case Screen.PRAYER_WALL:
+                return <PrayerWallScreen navigate={navigate} t={t} />;
             default:
                 return <LoginScreen navigate={navigate} t={t} />;
         }
@@ -220,6 +225,7 @@ export default function HomePage() {
         Screen.COMMUNITY,
         Screen.SETTINGS,
         Screen.PROGRESS,
+        Screen.PRAYER_WALL,
         // Screen.CHAT, // Hide BottomNav in Chat to allowing typed input
     ].includes(currentScreen);
 

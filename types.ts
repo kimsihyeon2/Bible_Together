@@ -14,6 +14,7 @@ export enum Screen {
   HELP = 'HELP',
   READING_SCHEDULE = 'READING_SCHEDULE',
   MEDIA_TEAM = 'MEDIA_TEAM',
+  PRAYER_WALL = 'PRAYER_WALL',
 }
 
 export interface NavProps {
