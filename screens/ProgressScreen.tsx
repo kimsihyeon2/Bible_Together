@@ -36,16 +36,14 @@ const ProgressScreen: React.FC<ProgressScreenProps> = ({ navigate, t }) => {
   // 월간 캘린더 데이터
   const [monthlyReadDays, setMonthlyReadDays] = useState<Set<number>>(new Set());
 
-  // 목표 설정 - Persistent
+  // 목표 설정
   const [showGoalModal, setShowGoalModal] = useState(false);
   const [dailyGoal, setDailyGoal] = useState(1);
   const [savedGoal, setSavedGoal] = useState(1);
 
-  // 성경 전체 장 수 (1189장)
   const TOTAL_BIBLE_CHAPTERS = 1189;
 
   useEffect(() => {
-    // Load saved goal
     const saved = localStorage.getItem('dailyGoal');
     if (saved) {
       setSavedGoal(parseInt(saved, 10));
@@ -61,21 +59,64 @@ const ProgressScreen: React.FC<ProgressScreenProps> = ({ navigate, t }) => {
     setLoading(true);
 
     try {
-      // 1. Fetch reading_activities - 개별 읽기 기록
+      // 1. reading_activities에서 직접 모든 데이터 가져오기 (Source of Truth)
       const { data: readings } = await supabase
         .from('reading_activities')
-        .select('*')
+        .select('created_at, book, chapter')
         .eq('user_id', user.id)
         .order('created_at', { ascending: false });
 
-      // 2. Fetch daily_readings - 일별 집계 데이터
-      const { data: dailyReadings } = await supabase
-        .from('daily_readings')
-        .select('*')
-        .eq('user_id', user.id)
-        .order('reading_date', { ascending: false });
+      if (!readings) {
+        setLoading(false);
+        return;
+      }
 
-      // 3. Cell 멤버십 확인 & 리더보드
+      // 2. 총 읽은 장 수
+      const totalChapters = readings.length;
+      const totalVerses = totalChapters * 25;
+      const completionPercent = Math.min(100, Math.round((totalChapters / TOTAL_BIBLE_CHAPTERS) * 100));
+
+      // 3. 총 시간 계산 (1장당 5분 추정)
+      const totalMinutes = totalChapters * 5;
+
+      // 4. 날짜별 집계 (로컬 시간대로 변환)
+      const dailyMap = new Map<string, number>();
+      readings.forEach((r) => {
+        const date = new Date(r.created_at);
+        const year = date.getFullYear();
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const day = String(date.getDate()).padStart(2, '0');
+        const dateStr = `${year}-${month}-${day}`;
+        dailyMap.set(dateStr, (dailyMap.get(dateStr) || 0) + 1);
+      });
+
+      // 5. 연속 기록 계산
+      const streak = calculateStreak(dailyMap);
+
+      // 6. 주간 활동 계산 (최근 7일)
+      const weekly = calculateWeeklyActivity(dailyMap);
+
+      // 7. 월간 달력 데이터
+      const readDays = new Set<number>();
+      const now = new Date();
+      dailyMap.forEach((count, dateStr) => {
+        const d = new Date(dateStr);
+        if (d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear()) {
+          readDays.add(d.getDate());
+        }
+      });
+      setMonthlyReadDays(readDays);
+
+      setStats({
+        totalChapters,
+        totalVerses,
+        totalMinutes,
+        streak,
+        completionPercent,
+      });
+      setWeeklyActivity(weekly);
+
+      // 8. Cell 리더보드
       const { data: cellMembership } = await supabase
         .from('cell_members')
         .select('cell_id')
@@ -111,44 +152,7 @@ const ProgressScreen: React.FC<ProgressScreenProps> = ({ navigate, t }) => {
         }
       }
 
-      // 통계 계산 - readings 기반 (실제 기록 수)
-      const totalChapters = readings?.length || 0;
-      const totalVerses = totalChapters * 25;
-      const completionPercent = Math.min(100, Math.round((totalChapters / TOTAL_BIBLE_CHAPTERS) * 100));
-
-      // 총 시간: dailyReadings에서 합산 또는 추정 (1장당 5분)
-      const totalMinutes = dailyReadings?.reduce((acc: number, r: { minutes_read?: number }) =>
-        acc + (r.minutes_read || 0), 0) || (totalChapters * 5);
-
-      // 연속 기록 계산
-      const streak = calculateStreak(dailyReadings || []);
-
-      // 주간 활동 계산
-      const weekly = calculateWeeklyActivity(dailyReadings || []);
-
-      // 월간 달력 데이터
-      const readDays = new Set<number>();
-      const now = new Date();
-      if (dailyReadings) {
-        dailyReadings.forEach((r: { reading_date: string }) => {
-          const date = new Date(r.reading_date);
-          if (date.getMonth() === now.getMonth() && date.getFullYear() === now.getFullYear()) {
-            readDays.add(date.getDate());
-          }
-        });
-      }
-      setMonthlyReadDays(readDays);
-
-      setStats({
-        totalChapters,
-        totalVerses,
-        totalMinutes,
-        streak,
-        completionPercent,
-      });
-      setWeeklyActivity(weekly);
-
-      // 목표 달성 시 축하 효과
+      // 목표 달성 시 축하
       if (weekly[6] >= savedGoal && weekly[6] > 0) {
         const hasCelebrated = localStorage.getItem(`celebrated_${new Date().toDateString()}`);
         if (!hasCelebrated) {
@@ -169,9 +173,7 @@ const ProgressScreen: React.FC<ProgressScreenProps> = ({ navigate, t }) => {
     }
   };
 
-  const calculateStreak = (dailyReadings: any[]) => {
-    if (dailyReadings.length === 0) return 0;
-
+  const calculateStreak = (dailyMap: Map<string, number>) => {
     let streak = 0;
     const today = new Date();
     today.setHours(0, 0, 0, 0);
@@ -179,10 +181,12 @@ const ProgressScreen: React.FC<ProgressScreenProps> = ({ navigate, t }) => {
     for (let i = 0; i < 365; i++) {
       const checkDate = new Date(today);
       checkDate.setDate(checkDate.getDate() - i);
-      const dateStr = checkDate.toISOString().split('T')[0];
+      const year = checkDate.getFullYear();
+      const month = String(checkDate.getMonth() + 1).padStart(2, '0');
+      const day = String(checkDate.getDate()).padStart(2, '0');
+      const dateStr = `${year}-${month}-${day}`;
 
-      const hasReading = dailyReadings.some((r) => r.reading_date === dateStr);
-      if (hasReading) {
+      if (dailyMap.has(dateStr)) {
         streak++;
       } else if (i > 0) {
         break;
@@ -192,26 +196,39 @@ const ProgressScreen: React.FC<ProgressScreenProps> = ({ navigate, t }) => {
     return streak;
   };
 
-  const calculateWeeklyActivity = (dailyReadings: any[]) => {
+  const calculateWeeklyActivity = (dailyMap: Map<string, number>) => {
     const weekly = [0, 0, 0, 0, 0, 0, 0];
     const today = new Date();
 
     for (let i = 0; i < 7; i++) {
       const checkDate = new Date(today);
       checkDate.setDate(checkDate.getDate() - (6 - i));
-      const dateStr = checkDate.toISOString().split('T')[0];
+      const year = checkDate.getFullYear();
+      const month = String(checkDate.getMonth() + 1).padStart(2, '0');
+      const day = String(checkDate.getDate()).padStart(2, '0');
+      const dateStr = `${year}-${month}-${day}`;
 
-      const reading = dailyReadings.find((r) => r.reading_date === dateStr);
-      if (reading) {
-        weekly[i] = reading.chapters_read || 1;
-      }
+      weekly[i] = dailyMap.get(dateStr) || 0;
     }
 
     return weekly;
   };
 
+  // 요일 라벨 (오늘 기준으로 동적 생성)
+  const getDayLabels = () => {
+    const labels = [];
+    const dayNames = ['일', '월', '화', '수', '목', '금', '토'];
+    const today = new Date();
+    for (let i = 6; i >= 0; i--) {
+      const d = new Date(today);
+      d.setDate(d.getDate() - i);
+      labels.push(dayNames[d.getDay()]);
+    }
+    return labels;
+  };
+  const dayLabels = getDayLabels();
+
   const getMaxActivity = () => Math.max(...weeklyActivity, 1);
-  const dayLabels = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
 
   const circumference = 2 * Math.PI * 42;
   const strokeDashoffset = circumference - (stats.completionPercent / 100) * circumference;
@@ -228,7 +245,7 @@ const ProgressScreen: React.FC<ProgressScreenProps> = ({ navigate, t }) => {
     <div className="bg-gradient-to-b from-[#e0f2fe] to-[#ecfccb] dark:from-slate-900 dark:to-slate-800 text-slate-800 dark:text-slate-100 font-sans antialiased min-h-screen pb-32">
       <div className="relative flex flex-col h-full max-w-md mx-auto">
 
-        {/* Header - 한국어 */}
+        {/* Header */}
         <div className="flex items-center justify-between px-6 pt-4 pb-2 sticky top-0 z-30 backdrop-blur-sm">
           <button
             onClick={() => navigate(Screen.DASHBOARD)}
@@ -247,7 +264,7 @@ const ProgressScreen: React.FC<ProgressScreenProps> = ({ navigate, t }) => {
 
         <div className="flex flex-col gap-5 px-4 pt-4">
 
-          {/* 상태 메시지 - 한국어 */}
+          {/* 상태 메시지 */}
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
@@ -261,39 +278,57 @@ const ProgressScreen: React.FC<ProgressScreenProps> = ({ navigate, t }) => {
                       t.progress.statusCompleted}
           </motion.div>
 
-          {/* 통계 그리드 - 한국어 */}
+          {/* 통계 그리드 - SOTA 디자인 */}
           <div className="grid grid-cols-2 gap-4">
+            {/* 총 시간 카드 */}
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.1 }}
-              className="bg-white dark:bg-slate-800 p-5 rounded-[2rem] shadow-sm border border-slate-100 dark:border-slate-700 flex flex-col justify-between h-32"
+              className="bg-white dark:bg-slate-800 p-5 rounded-[2rem] shadow-sm border border-slate-100 dark:border-slate-700 flex flex-col justify-between h-36 relative overflow-hidden"
             >
+              <div className="absolute top-2 right-2 opacity-10">
+                <span className="material-symbols-outlined text-5xl text-blue-500">schedule</span>
+              </div>
               <div className="w-10 h-10 rounded-full bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center text-blue-500">
                 <span className="material-symbols-outlined">schedule</span>
               </div>
               <div>
-                <span className="text-3xl font-bold text-slate-900 dark:text-white">{Math.floor(stats.totalMinutes / 60)}<span className="text-lg text-slate-400 ml-1">h</span></span>
+                <div className="flex items-baseline gap-1">
+                  <span className="text-4xl font-black text-slate-900 dark:text-white tabular-nums">
+                    {Math.floor(stats.totalMinutes / 60)}
+                  </span>
+                  <span className="text-lg text-slate-400 font-bold">h</span>
+                  <span className="text-2xl font-bold text-slate-700 dark:text-slate-300 ml-1">
+                    {stats.totalMinutes % 60}
+                  </span>
+                  <span className="text-sm text-slate-400 font-bold">m</span>
+                </div>
                 <p className="text-xs font-bold text-slate-400 uppercase tracking-wide mt-1">{t.progress.totalTime}</p>
               </div>
             </motion.div>
+
+            {/* 총 읽은 장 카드 */}
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.2 }}
-              className="bg-white dark:bg-slate-800 p-5 rounded-[2rem] shadow-sm border border-slate-100 dark:border-slate-700 flex flex-col justify-between h-32"
+              className="bg-white dark:bg-slate-800 p-5 rounded-[2rem] shadow-sm border border-slate-100 dark:border-slate-700 flex flex-col justify-between h-36 relative overflow-hidden"
             >
+              <div className="absolute top-2 right-2 opacity-10">
+                <span className="material-symbols-outlined text-5xl text-purple-500">menu_book</span>
+              </div>
               <div className="w-10 h-10 rounded-full bg-purple-100 dark:bg-purple-900/30 flex items-center justify-center text-purple-500">
                 <span className="material-symbols-outlined">menu_book</span>
               </div>
               <div>
-                <span className="text-3xl font-bold text-slate-900 dark:text-white">{stats.totalChapters}</span>
+                <span className="text-4xl font-black text-slate-900 dark:text-white tabular-nums">{stats.totalChapters}</span>
                 <p className="text-xs font-bold text-slate-400 uppercase tracking-wide mt-1">{t.progress.totalChapters}</p>
               </div>
             </motion.div>
           </div>
 
-          {/* 주간 활동 - 한국어 */}
+          {/* 주간 활동 - SOTA 그래프 */}
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
@@ -302,26 +337,60 @@ const ProgressScreen: React.FC<ProgressScreenProps> = ({ navigate, t }) => {
           >
             <div className="flex justify-between items-center mb-6">
               <h3 className="text-lg font-bold text-slate-900 dark:text-white">{t.progress.weeklyActivity}</h3>
-              <span className="text-[10px] font-bold bg-slate-100 dark:bg-slate-700 text-slate-500 px-2 py-1 rounded-lg">{t.progress.last7Days}</span>
+              <span className="text-[10px] font-bold bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400 px-2 py-1 rounded-lg">{t.progress.last7Days}</span>
             </div>
-            <div className="flex items-end justify-between h-32 gap-3">
-              {weeklyActivity.map((value, idx) => (
-                <div key={idx} className="flex flex-col items-center gap-2 flex-1 group">
-                  <div className="w-full bg-slate-100 dark:bg-slate-700 rounded-full h-full relative overflow-hidden">
-                    <motion.div
-                      initial={{ height: 0 }}
-                      animate={{ height: value > 0 ? `${(value / getMaxActivity()) * 100}%` : '4px' }}
-                      transition={{ delay: idx * 0.1, duration: 0.5 }}
-                      className={`absolute bottom-0 w-full rounded-full transition-all ${value > 0 ? 'bg-green-500 shadow-[0_0_10px_rgba(74,222,128,0.4)]' : 'bg-transparent'}`}
-                    ></motion.div>
+
+            <div className="flex items-end justify-between h-40 gap-2">
+              {weeklyActivity.map((value, idx) => {
+                const isToday = idx === 6;
+                const barHeight = value > 0 ? Math.max(20, (value / getMaxActivity()) * 100) : 8;
+
+                return (
+                  <div key={idx} className="flex flex-col items-center gap-2 flex-1">
+                    {/* 숫자 표시 */}
+                    <span className={`text-xs font-bold ${value > 0 ? 'text-green-600 dark:text-green-400' : 'text-slate-300'}`}>
+                      {value > 0 ? value : ''}
+                    </span>
+
+                    {/* 바 */}
+                    <div className="w-full bg-slate-100 dark:bg-slate-700 rounded-full h-28 relative overflow-hidden">
+                      <motion.div
+                        initial={{ height: 0 }}
+                        animate={{ height: `${barHeight}%` }}
+                        transition={{
+                          type: "spring",
+                          stiffness: 100,
+                          damping: 15,
+                          delay: idx * 0.1
+                        }}
+                        className={`absolute bottom-0 w-full rounded-full ${isToday
+                            ? 'bg-gradient-to-t from-green-600 to-green-400 shadow-lg shadow-green-500/30'
+                            : value > 0
+                              ? 'bg-gradient-to-t from-green-500 to-green-300'
+                              : 'bg-slate-200 dark:bg-slate-600'
+                          }`}
+                      />
+                    </div>
+
+                    {/* 요일 */}
+                    <span className={`text-xs font-bold ${isToday ? 'text-green-600 dark:text-green-400' : 'text-slate-400'}`}>
+                      {dayLabels[idx]}
+                    </span>
                   </div>
-                  <span className="text-[10px] font-bold text-slate-400">{dayLabels[idx]}</span>
-                </div>
-              ))}
+                );
+              })}
+            </div>
+
+            {/* 요약 */}
+            <div className="mt-4 pt-4 border-t border-slate-100 dark:border-slate-700 flex justify-between items-center">
+              <span className="text-sm text-slate-500">이번 주 총</span>
+              <span className="text-lg font-black text-green-600 dark:text-green-400">
+                {weeklyActivity.reduce((a, b) => a + b, 0)}장
+              </span>
             </div>
           </motion.div>
 
-          {/* 셀 리더보드 - 한국어 */}
+          {/* 셀 리더보드 */}
           {cellLeaderboard.length > 0 && (
             <motion.div
               initial={{ opacity: 0, y: 20 }}
@@ -350,7 +419,7 @@ const ProgressScreen: React.FC<ProgressScreenProps> = ({ navigate, t }) => {
             </motion.div>
           )}
 
-          {/* 월간 캘린더 - 한국어 */}
+          {/* 월간 달력 */}
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
@@ -362,7 +431,9 @@ const ProgressScreen: React.FC<ProgressScreenProps> = ({ navigate, t }) => {
               <span className="text-xs font-bold text-green-600 bg-green-100 px-2 py-1 rounded-lg">{monthlyReadDays.size} {t.progress.days}</span>
             </div>
             <div className="grid grid-cols-7 gap-y-3 gap-x-1 text-center">
-              {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((d, i) => <span key={i} className="text-[10px] font-bold text-slate-400">{d}</span>)}
+              {['일', '월', '화', '수', '목', '금', '토'].map((d, i) => (
+                <span key={i} className="text-[10px] font-bold text-slate-400">{d}</span>
+              ))}
               {(() => {
                 const now = new Date();
                 const firstDay = new Date(now.getFullYear(), now.getMonth(), 1).getDay();
@@ -377,11 +448,17 @@ const ProgressScreen: React.FC<ProgressScreenProps> = ({ navigate, t }) => {
                   const isRead = monthlyReadDays.has(day);
                   const isToday = day === today;
                   cells.push(
-                    <div key={day} className={`h-8 w-8 rounded-full flex items-center justify-center text-xs font-bold mx-auto transition-all ${isRead ? 'bg-green-500 text-white shadow-md shadow-green-500/30' :
-                      isToday ? 'border-2 border-green-500 text-green-600' : 'text-slate-400'
-                      }`}>
+                    <motion.div
+                      key={day}
+                      initial={{ scale: 0 }}
+                      animate={{ scale: 1 }}
+                      transition={{ delay: day * 0.02 }}
+                      className={`h-8 w-8 rounded-full flex items-center justify-center text-xs font-bold mx-auto transition-all ${isRead ? 'bg-green-500 text-white shadow-md shadow-green-500/30' :
+                          isToday ? 'border-2 border-green-500 text-green-600' : 'text-slate-400'
+                        }`}
+                    >
                       {day}
-                    </div>
+                    </motion.div>
                   );
                 }
                 return cells;
@@ -389,7 +466,7 @@ const ProgressScreen: React.FC<ProgressScreenProps> = ({ navigate, t }) => {
             </div>
           </motion.div>
 
-          {/* 일일 목표 - 한국어 */}
+          {/* 일일 목표 */}
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
@@ -420,7 +497,7 @@ const ProgressScreen: React.FC<ProgressScreenProps> = ({ navigate, t }) => {
         </div>
       </div>
 
-      {/* 목표 설정 모달 - 한국어 */}
+      {/* 목표 설정 모달 */}
       {showGoalModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
           <motion.div
