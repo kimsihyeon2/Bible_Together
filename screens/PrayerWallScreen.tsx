@@ -169,6 +169,23 @@ const PrayerWallScreen: React.FC<PrayerWallScreenProps> = ({ navigate, t }) => {
         }
     }, [isModalOpen]);
 
+    // Handle closing menu when clicking outside
+    useEffect(() => {
+        if (!activeMenuId) return;
+
+        const handleClickOutside = () => {
+            setActiveMenuId(null);
+        };
+
+        // Add event listener with a small delay to prevent immediate triggering
+        // from the click that opened the menu (though stopPropagation handles this usually)
+        document.addEventListener('click', handleClickOutside);
+
+        return () => {
+            document.removeEventListener('click', handleClickOutside);
+        };
+    }, [activeMenuId]);
+
     const fetchPrayers = async () => {
         setLoading(true);
         try {
@@ -482,7 +499,7 @@ const PrayerWallScreen: React.FC<PrayerWallScreenProps> = ({ navigate, t }) => {
                         prayers.map((prayer) => {
                             const catStyle = getCategoryStyle(prayer.category);
                             return (
-                                <div key={prayer.id} className={`relative ${activeMenuId === prayer.id ? 'z-[60]' : ''}`}>
+                                <div key={prayer.id} className="relative">
                                     <div className="bg-[#fdfbf7] dark:bg-slate-800 p-5 rounded-xl border border-stone-200 dark:border-slate-700 shadow-sm flex flex-col gap-3">
                                         <div className="absolute inset-0 pointer-events-none opacity-20 notebook-lines bg-[size:100%_28px] mt-12 px-5 rounded-xl"></div>
 
@@ -578,13 +595,7 @@ const PrayerWallScreen: React.FC<PrayerWallScreenProps> = ({ navigate, t }) => {
                 </div>
             </main>
 
-            {/* Invisible Overlay for closing menus */}
-            {activeMenuId && (
-                <div
-                    className="fixed inset-0 z-[55]"
-                    onClick={() => setActiveMenuId(null)}
-                />
-            )}
+
 
             {/* Delete Confirmation Modal */}
             <ConfirmationModal
