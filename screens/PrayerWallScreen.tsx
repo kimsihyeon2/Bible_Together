@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
     Heart,
     Briefcase,
@@ -49,37 +49,35 @@ const PRAYER_VERSES = [
 
 const PrayerWallScreen: React.FC<PrayerWallScreenProps> = ({ navigate, t }) => {
     const { user, profile } = useAuth();
-    // 모든 기도제목을 저장 (필터링 없이)
     const [allPrayers, setAllPrayers] = useState<Prayer[]>([]);
     const [loading, setLoading] = useState(true);
     const [filter, setFilter] = useState<'ONGOING' | 'ANSWERED'>('ONGOING');
-    const [activeMenuId, setActiveMenuId] = useState<string | null>(null);
-    const menuRef = useRef<HTMLDivElement>(null);
 
-    // Modal state
+    // Edit/Add Modal
     const [isModalOpen, setIsModalOpen] = useState(false);
-    const [isModalVisible, setIsModalVisible] = useState(false);
     const [editingPrayer, setEditingPrayer] = useState<Prayer | null>(null);
 
-    // Delete Confirmation State
-    const [deleteId, setDeleteId] = useState<string | null>(null);
+    // ★ 새로운 접근: Bottom Action Sheet
+    const [actionSheetPrayer, setActionSheetPrayer] = useState<Prayer | null>(null);
+
+    // Delete Confirmation
     const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+    const [deleteTargetPrayer, setDeleteTargetPrayer] = useState<Prayer | null>(null);
 
     // Form State
     const [title, setTitle] = useState('');
     const [content, setContent] = useState('');
     const [category, setCategory] = useState('Family');
 
-    // Dynamic Verse State
+    // Verse cycling
     const [verseIndex, setVerseIndex] = useState(0);
     const [verseFading, setVerseFading] = useState(false);
 
-    // 필터링된 prayers (클라이언트에서 계산)
+    // Computed values
     const ongoingPrayers = allPrayers.filter(p => !p.is_answered);
     const answeredPrayers = allPrayers.filter(p => p.is_answered);
     const displayedPrayers = filter === 'ONGOING' ? ongoingPrayers : answeredPrayers;
 
-    // 전체 데이터를 한번에 가져오기 (필터 없이)
     const fetchAllPrayers = useCallback(async () => {
         if (!user) return;
         setLoading(true);
@@ -100,12 +98,9 @@ const PrayerWallScreen: React.FC<PrayerWallScreenProps> = ({ navigate, t }) => {
     }, [user]);
 
     useEffect(() => {
-        if (user) {
-            fetchAllPrayers();
-        }
+        if (user) fetchAllPrayers();
     }, [user, fetchAllPrayers]);
 
-    // Smooth verse cycling
     useEffect(() => {
         const interval = setInterval(() => {
             setVerseFading(true);
@@ -117,19 +112,39 @@ const PrayerWallScreen: React.FC<PrayerWallScreenProps> = ({ navigate, t }) => {
         return () => clearInterval(interval);
     }, []);
 
-    // Modal animation
-    useEffect(() => {
-        if (isModalOpen) {
-            requestAnimationFrame(() => setIsModalVisible(true));
-        }
-    }, [isModalOpen]);
-
     // =============================================
-    // ACTION HANDLERS - 완전히 새로 작성
+    // ACTION SHEET 방식 (새로운 접근)
     // =============================================
 
+    const openActionSheet = (prayer: Prayer) => {
+        setActionSheetPrayer(prayer);
+    };
+
+    const closeActionSheet = () => {
+        setActionSheetPrayer(null);
+    };
+
+    // 편집 모달 열기
+    const handleEditFromSheet = () => {
+        if (!actionSheetPrayer) return;
+        setEditingPrayer(actionSheetPrayer);
+        setTitle(actionSheetPrayer.title);
+        setContent(actionSheetPrayer.content);
+        setCategory(actionSheetPrayer.category);
+        closeActionSheet();
+        setTimeout(() => setIsModalOpen(true), 100);
+    };
+
+    // 삭제 확인 모달 열기
+    const handleDeleteFromSheet = () => {
+        if (!actionSheetPrayer) return;
+        setDeleteTargetPrayer(actionSheetPrayer);
+        closeActionSheet();
+        setTimeout(() => setIsDeleteModalOpen(true), 100);
+    };
+
+    // 새 기도 추가
     const openAddModal = () => {
-        setActiveMenuId(null);
         setEditingPrayer(null);
         setTitle('');
         setContent('');
@@ -137,21 +152,9 @@ const PrayerWallScreen: React.FC<PrayerWallScreenProps> = ({ navigate, t }) => {
         setIsModalOpen(true);
     };
 
-    const openEditModal = (prayer: Prayer) => {
-        console.log('Edit clicked:', prayer.id);
-        setActiveMenuId(null);
-        setEditingPrayer(prayer);
-        setTitle(prayer.title);
-        setContent(prayer.content);
-        setCategory(prayer.category);
-        // 약간의 delay 후 모달 열기 (메뉴 닫힘 애니메이션 대기)
-        setTimeout(() => setIsModalOpen(true), 50);
-    };
-
     const closeModal = () => {
-        setIsModalVisible(false);
+        setIsModalOpen(false);
         setTimeout(() => {
-            setIsModalOpen(false);
             setEditingPrayer(null);
             setTitle('');
             setContent('');
@@ -161,24 +164,19 @@ const PrayerWallScreen: React.FC<PrayerWallScreenProps> = ({ navigate, t }) => {
 
     const handleSavePrayer = async () => {
         if (!user || !title.trim()) return;
-
         closeModal();
 
         try {
             if (editingPrayer) {
-                // 수정
                 const { error } = await supabase
                     .from('personal_prayers')
                     .update({ title, content, category })
                     .eq('id', editingPrayer.id);
                 if (error) throw error;
-
-                // Optimistic update
                 setAllPrayers(prev => prev.map(p =>
                     p.id === editingPrayer.id ? { ...p, title, content, category } : p
                 ));
             } else {
-                // 새로 추가
                 const { error, data } = await supabase
                     .from('personal_prayers')
                     .insert({
@@ -193,9 +191,7 @@ const PrayerWallScreen: React.FC<PrayerWallScreenProps> = ({ navigate, t }) => {
                     .single();
 
                 if (error) throw error;
-                if (data) {
-                    setAllPrayers(prev => [data, ...prev]);
-                }
+                if (data) setAllPrayers(prev => [data, ...prev]);
             }
         } catch (error) {
             console.error('Error saving prayer:', error);
@@ -204,25 +200,18 @@ const PrayerWallScreen: React.FC<PrayerWallScreenProps> = ({ navigate, t }) => {
         }
     };
 
-    const openDeleteConfirm = (id: string) => {
-        console.log('Delete clicked:', id);
-        setActiveMenuId(null);
-        setDeleteId(id);
-        setTimeout(() => setIsDeleteModalOpen(true), 50);
-    };
-
     const handleDeletePrayer = async () => {
-        if (!deleteId) return;
-
-        // Optimistic delete
-        setAllPrayers(prev => prev.filter(p => p.id !== deleteId));
+        if (!deleteTargetPrayer) return;
+        const id = deleteTargetPrayer.id;
+        setAllPrayers(prev => prev.filter(p => p.id !== id));
         setIsDeleteModalOpen(false);
+        setDeleteTargetPrayer(null);
 
         try {
             const { error } = await supabase
                 .from('personal_prayers')
                 .delete()
-                .eq('id', deleteId);
+                .eq('id', id);
             if (error) throw error;
         } catch (error) {
             console.error('Error deleting prayer:', error);
@@ -232,7 +221,6 @@ const PrayerWallScreen: React.FC<PrayerWallScreenProps> = ({ navigate, t }) => {
     };
 
     const incrementPrayed = async (id: string, currentCount: number) => {
-        // Optimistic update
         setAllPrayers(prev => prev.map(p =>
             p.id === id ? { ...p, prayer_count: p.prayer_count + 1 } : p
         ));
@@ -244,13 +232,12 @@ const PrayerWallScreen: React.FC<PrayerWallScreenProps> = ({ navigate, t }) => {
                 .eq('id', id);
             if (error) throw error;
         } catch (error) {
-            console.error('Error incrementing prayer count:', error);
+            console.error('Error:', error);
             fetchAllPrayers();
         }
     };
 
     const toggleAnswered = async (id: string, currentStatus: boolean) => {
-        // Optimistic update - allPrayers에서 상태 변경
         setAllPrayers(prev => prev.map(p =>
             p.id === id ? { ...p, is_answered: !currentStatus } : p
         ));
@@ -262,7 +249,7 @@ const PrayerWallScreen: React.FC<PrayerWallScreenProps> = ({ navigate, t }) => {
                 .eq('id', id);
             if (error) throw error;
         } catch (error) {
-            console.error('Error toggling answered status:', error);
+            console.error('Error:', error);
             fetchAllPrayers();
         }
     };
@@ -290,57 +277,22 @@ const PrayerWallScreen: React.FC<PrayerWallScreenProps> = ({ navigate, t }) => {
         }
     };
 
-    // 메뉴 토글 핸들러
-    const toggleMenu = (e: React.MouseEvent, prayerId: string) => {
-        e.preventDefault();
-        e.stopPropagation();
-        setActiveMenuId(prev => prev === prayerId ? null : prayerId);
-    };
-
     return (
         <div className="min-h-screen bg-stone-50 dark:bg-slate-950 pb-24 font-sans text-slate-800 dark:text-slate-100 overflow-x-hidden">
-            {/* CSS Animations */}
-            <style jsx global>{`
-                @keyframes slideUp {
-                    from { transform: translateY(100%); opacity: 0.5; }
-                    to { transform: translateY(0); opacity: 1; }
-                }
-                @keyframes slideDown {
-                    from { transform: translateY(0); opacity: 1; }
-                    to { transform: translateY(100%); opacity: 0; }
-                }
-                @keyframes fadeIn {
-                    from { opacity: 0; }
-                    to { opacity: 1; }
-                }
-                @keyframes fadeOut {
-                    from { opacity: 1; }
-                    to { opacity: 0; }
-                }
-                .modal-overlay-enter { animation: fadeIn 0.15s ease-out forwards; }
-                .modal-overlay-exit { animation: fadeOut 0.15s ease-in forwards; }
-                .modal-content-enter { animation: slideUp 0.2s cubic-bezier(0.32, 0.72, 0, 1) forwards; }
-                .modal-content-exit { animation: slideDown 0.15s ease-in forwards; }
-                .verse-fade-out { opacity: 0; transition: opacity 0.3s ease-out; }
-                .verse-fade-in { opacity: 1; transition: opacity 0.3s ease-in; }
-            `}</style>
-
             {/* Header */}
             <header className="pt-8 pb-4 px-6 flex items-center justify-between sticky top-0 bg-stone-50/95 dark:bg-slate-950/95 z-30 border-b border-stone-100 dark:border-slate-800">
                 <button
                     onClick={() => navigate(Screen.DASHBOARD)}
-                    className="p-2 -ml-2 rounded-full hover:bg-black/5 dark:hover:bg-white/5 text-slate-700 dark:text-slate-300 transition-colors"
+                    className="p-2 -ml-2 rounded-full hover:bg-black/5 dark:hover:bg-white/5"
                 >
                     <ChevronLeft className="w-6 h-6" />
                 </button>
-                <h1 className="text-xl font-bold text-slate-800 dark:text-white tracking-tight">
-                    {t.prayer.title}
-                </h1>
+                <h1 className="text-xl font-bold">{t.prayer.title}</h1>
                 <div className="w-10 h-10 rounded-full bg-orange-200 dark:bg-orange-900/50 border-2 border-white dark:border-slate-700 shadow-sm overflow-hidden">
                     {profile?.avatar_url ? (
                         <img src={profile.avatar_url} alt="Profile" className="w-full h-full object-cover" />
                     ) : (
-                        <div className="w-full h-full bg-emerald-500 flex items-center justify-center text-white font-bold opacity-80">
+                        <div className="w-full h-full bg-emerald-500 flex items-center justify-center text-white font-bold">
                             {profile?.name?.charAt(0) || 'U'}
                         </div>
                     )}
@@ -350,52 +302,43 @@ const PrayerWallScreen: React.FC<PrayerWallScreenProps> = ({ navigate, t }) => {
             <main className="px-5 max-w-2xl mx-auto pt-6">
                 {/* Journal Section */}
                 <section className="relative mb-8">
-                    <div className="bg-[#fefcf8] dark:bg-slate-800 rounded-xl shadow-sm border border-[#e5e5e5] dark:border-slate-700 p-6 relative overflow-hidden">
-                        <h2 className="text-2xl font-bold text-slate-800 dark:text-white mb-2 font-serif relative z-10 flex items-center gap-2">
+                    <div className="bg-[#fefcf8] dark:bg-slate-800 rounded-xl shadow-sm border border-[#e5e5e5] dark:border-slate-700 p-6">
+                        <h2 className="text-2xl font-bold mb-2 flex items-center gap-2">
                             <Sparkles className="w-5 h-5 text-orange-400" />
                             {t.prayer.myPrayers}
                         </h2>
 
-                        <div className="h-[100px] mb-6 relative z-10 flex items-start overflow-hidden">
-                            <p className={`text-slate-700 dark:text-slate-200 italic font-serif text-[15px] leading-[32px] bg-[#fefcf8]/90 dark:bg-slate-800/90 rounded p-2 shadow-sm line-clamp-3 ${verseFading ? 'verse-fade-out' : 'verse-fade-in'}`}>
+                        <div className="h-[100px] mb-6 flex items-start overflow-hidden">
+                            <p className={`italic text-[15px] leading-[32px] transition-opacity duration-300 ${verseFading ? 'opacity-0' : 'opacity-100'}`}>
                                 "{PRAYER_VERSES[verseIndex]}"
                             </p>
                         </div>
 
                         <button
                             onClick={openAddModal}
-                            className="w-full bg-emerald-500 hover:bg-emerald-600 active:bg-emerald-700 text-white font-semibold py-3.5 px-4 rounded-full shadow-md flex items-center justify-center gap-2 transition-all active:scale-[0.98] relative z-10"
+                            className="w-full bg-emerald-500 hover:bg-emerald-600 text-white font-semibold py-3.5 rounded-full shadow-md flex items-center justify-center gap-2"
                         >
-                            <div className="bg-white/20 p-1 rounded-full">
-                                <Plus className="w-4 h-4 text-white" />
-                            </div>
+                            <Plus className="w-5 h-5" />
                             {t.prayer.addNew}
                         </button>
                     </div>
                 </section>
 
-                {/* Tabs - 실시간 카운트 */}
+                {/* Tabs */}
                 <div className="flex items-end gap-1 mb-6 px-1">
                     <button
                         onClick={() => setFilter('ONGOING')}
-                        className={`px-5 py-2.5 rounded-t-xl text-sm font-semibold transition-colors relative whitespace-nowrap ${filter === 'ONGOING'
-                            ? 'bg-white dark:bg-slate-800 text-emerald-700 dark:text-emerald-400 border-t border-x border-slate-200 dark:border-slate-700'
-                            : 'bg-transparent text-slate-500 hover:text-slate-700'
-                            }`}
+                        className={`px-5 py-2.5 rounded-t-xl text-sm font-semibold transition-colors relative ${filter === 'ONGOING' ? 'bg-white dark:bg-slate-800 text-emerald-700' : 'text-slate-500'}`}
                     >
-                        {t.prayer.ongoing} <span className="ml-0.5 opacity-70">({ongoingPrayers.length})</span>
-                        {filter === 'ONGOING' && <div className="absolute bottom-0 left-0 w-full h-0.5 bg-emerald-500"></div>}
+                        {t.prayer.ongoing} ({ongoingPrayers.length})
+                        {filter === 'ONGOING' && <div className="absolute bottom-0 left-0 w-full h-0.5 bg-emerald-500" />}
                     </button>
-
                     <button
                         onClick={() => setFilter('ANSWERED')}
-                        className={`px-5 py-2.5 rounded-t-xl text-sm font-semibold transition-colors relative whitespace-nowrap ${filter === 'ANSWERED'
-                            ? 'bg-white dark:bg-slate-800 text-emerald-700 dark:text-emerald-400 border-t border-x border-slate-200 dark:border-slate-700'
-                            : 'bg-transparent text-slate-500 hover:text-slate-700'
-                            }`}
+                        className={`px-5 py-2.5 rounded-t-xl text-sm font-semibold transition-colors relative ${filter === 'ANSWERED' ? 'bg-white dark:bg-slate-800 text-emerald-700' : 'text-slate-500'}`}
                     >
-                        {t.prayer.answered} <span className="ml-0.5 opacity-70">({answeredPrayers.length})</span>
-                        {filter === 'ANSWERED' && <div className="absolute bottom-0 left-0 w-full h-0.5 bg-emerald-500"></div>}
+                        {t.prayer.answered} ({answeredPrayers.length})
+                        {filter === 'ANSWERED' && <div className="absolute bottom-0 left-0 w-full h-0.5 bg-emerald-500" />}
                     </button>
                 </div>
 
@@ -403,151 +346,175 @@ const PrayerWallScreen: React.FC<PrayerWallScreenProps> = ({ navigate, t }) => {
                 <div className="space-y-4 min-h-[300px] pb-10">
                     {loading ? (
                         <div className="flex flex-col items-center justify-center py-20">
-                            <div className="w-8 h-8 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin"></div>
+                            <div className="w-8 h-8 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin" />
                             <p className="text-slate-400 text-sm mt-4">로딩 중...</p>
                         </div>
                     ) : displayedPrayers.length > 0 ? (
                         displayedPrayers.map((prayer) => {
                             const catStyle = getCategoryStyle(prayer.category);
-                            const isMenuOpen = activeMenuId === prayer.id;
 
                             return (
-                                <div key={prayer.id} className="relative">
-                                    <div className="bg-[#fdfbf7] dark:bg-slate-800 p-5 rounded-xl border border-stone-200 dark:border-slate-700 shadow-sm flex flex-col gap-3">
-                                        <div className="flex justify-between items-start relative z-10">
-                                            <div className="flex items-center gap-2">
-                                                <div className={`p-1.5 rounded-lg ${catStyle.bg} ${catStyle.text}`}>
-                                                    {catStyle.icon}
-                                                </div>
-                                                <span className="text-[11px] font-bold tracking-wider text-slate-400 dark:text-slate-500 uppercase">
-                                                    {prayer.category === 'Family' ? t.prayer.family :
-                                                        prayer.category === 'Guidance' ? t.prayer.guidance :
-                                                            prayer.category === 'Community' ? t.prayer.community : prayer.category}
-                                                </span>
+                                <div key={prayer.id} className="bg-[#fdfbf7] dark:bg-slate-800 p-5 rounded-xl border border-stone-200 dark:border-slate-700 shadow-sm">
+                                    <div className="flex justify-between items-start">
+                                        <div className="flex items-center gap-2">
+                                            <div className={`p-1.5 rounded-lg ${catStyle.bg} ${catStyle.text}`}>
+                                                {catStyle.icon}
                                             </div>
-
-                                            <div className="flex items-center gap-1">
-                                                <button
-                                                    onClick={() => toggleAnswered(prayer.id, prayer.is_answered)}
-                                                    className={`p-2 rounded-lg transition-colors ${prayer.is_answered ? 'text-emerald-500 bg-emerald-50 dark:bg-emerald-900/20' : 'text-slate-300 hover:text-slate-500'}`}
-                                                >
-                                                    <CheckCircle2 className="w-5 h-5" />
-                                                </button>
-
-                                                {/* Menu Button & Dropdown */}
-                                                <div className="relative" ref={isMenuOpen ? menuRef : null}>
-                                                    <button
-                                                        onClick={(e) => toggleMenu(e, prayer.id)}
-                                                        className={`p-2 rounded-lg transition-colors ${isMenuOpen ? 'bg-slate-100 dark:bg-slate-700 text-slate-600' : 'text-slate-300 hover:text-slate-500'}`}
-                                                    >
-                                                        <MoreHorizontal className="w-5 h-5" />
-                                                    </button>
-
-                                                    {isMenuOpen && (
-                                                        <div
-                                                            className="absolute right-0 mt-2 w-36 bg-white dark:bg-slate-800 rounded-xl shadow-xl border border-slate-100 dark:border-slate-700 p-1.5 z-[100] pointer-events-auto"
-                                                            onClick={(e) => e.stopPropagation()}
-                                                        >
-                                                            <button
-                                                                type="button"
-                                                                onClick={() => {
-                                                                    console.log('EDIT BUTTON CLICKED');
-                                                                    openEditModal(prayer);
-                                                                }}
-                                                                className="w-full flex items-center gap-2.5 px-3 py-2.5 text-sm text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700/50 rounded-lg transition-colors text-left font-medium cursor-pointer"
-                                                            >
-                                                                <Edit2 className="w-4 h-4" /> 편집하기
-                                                            </button>
-                                                            <button
-                                                                type="button"
-                                                                onClick={() => {
-                                                                    console.log('DELETE BUTTON CLICKED');
-                                                                    openDeleteConfirm(prayer.id);
-                                                                }}
-                                                                className="w-full flex items-center gap-2.5 px-3 py-2.5 text-sm text-red-500 hover:bg-red-50 dark:hover:bg-red-900/10 rounded-lg transition-colors text-left font-medium cursor-pointer"
-                                                            >
-                                                                <Trash2 className="w-4 h-4" /> 삭제하기
-                                                            </button>
-                                                        </div>
-                                                    )}
-                                                </div>
-                                            </div>
+                                            <span className="text-[11px] font-bold tracking-wider text-slate-400 uppercase">
+                                                {prayer.category === 'Family' ? t.prayer.family :
+                                                    prayer.category === 'Guidance' ? t.prayer.guidance :
+                                                        prayer.category === 'Community' ? t.prayer.community : prayer.category}
+                                            </span>
                                         </div>
 
-                                        <div className="py-1 relative z-10">
-                                            <h3 className="text-lg font-bold text-slate-800 dark:text-white mb-2 leading-tight">
-                                                {prayer.title}
-                                            </h3>
-                                            <p className="text-slate-600 dark:text-slate-300 text-[15px] leading-[32px] min-h-[2em] whitespace-pre-wrap">
-                                                {prayer.content}
-                                            </p>
-                                        </div>
-
-                                        <div className="flex justify-between items-center pt-3 border-t border-dashed border-stone-200 dark:border-stone-700 relative z-10">
-                                            <div className="flex items-center gap-1.5 text-[11px] font-medium text-slate-400">
-                                                <Clock className="w-3.5 h-3.5" />
-                                                <span>{formatDate(prayer.created_at)}</span>
-                                            </div>
-
+                                        <div className="flex items-center gap-1">
                                             <button
-                                                onClick={() => incrementPrayed(prayer.id, prayer.prayer_count)}
-                                                className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-100 dark:hover:bg-emerald-900/30 transition-colors font-bold text-xs"
+                                                onClick={() => toggleAnswered(prayer.id, prayer.is_answered)}
+                                                className={`p-2 rounded-lg ${prayer.is_answered ? 'text-emerald-500 bg-emerald-50' : 'text-slate-300'}`}
                                             >
-                                                <span className="material-symbols-outlined text-[16px]">spa</span>
-                                                {t.prayer.prayedCount.replace('{count}', String(prayer.prayer_count))}
+                                                <CheckCircle2 className="w-5 h-5" />
+                                            </button>
+
+                                            {/* ★ 메뉴 버튼 - Action Sheet 열기 */}
+                                            <button
+                                                onClick={() => openActionSheet(prayer)}
+                                                className="p-2 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100"
+                                            >
+                                                <MoreHorizontal className="w-5 h-5" />
                                             </button>
                                         </div>
+                                    </div>
+
+                                    <div className="py-3">
+                                        <h3 className="text-lg font-bold mb-2">{prayer.title}</h3>
+                                        <p className="text-slate-600 dark:text-slate-300 text-[15px] leading-relaxed whitespace-pre-wrap">
+                                            {prayer.content}
+                                        </p>
+                                    </div>
+
+                                    <div className="flex justify-between items-center pt-3 border-t border-dashed border-stone-200">
+                                        <div className="flex items-center gap-1.5 text-[11px] font-medium text-slate-400">
+                                            <Clock className="w-3.5 h-3.5" />
+                                            <span>{formatDate(prayer.created_at)}</span>
+                                        </div>
+
+                                        <button
+                                            onClick={() => incrementPrayed(prayer.id, prayer.prayer_count)}
+                                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-emerald-50 text-emerald-700 font-bold text-xs"
+                                        >
+                                            🙏 {t.prayer.prayedCount.replace('{count}', String(prayer.prayer_count))}
+                                        </button>
                                     </div>
                                 </div>
                             );
                         })
                     ) : (
-                        <div className="flex flex-col items-center justify-center py-20 text-slate-400 bg-white/30 dark:bg-slate-800/30 rounded-3xl border border-dashed border-slate-300 dark:border-slate-700">
-                            <span className="material-symbols-outlined text-5xl mb-4 opacity-20">spa</span>
-                            <p className="text-sm font-medium">{filter === 'ONGOING' ? '진행 중인 기도가 없습니다.' : '응답 완료된 기도가 없습니다.'}</p>
+                        <div className="flex flex-col items-center justify-center py-20 text-slate-400 bg-white/30 rounded-3xl border border-dashed">
+                            <span className="text-5xl mb-4 opacity-20">🙏</span>
+                            <p className="text-sm">{filter === 'ONGOING' ? '진행 중인 기도가 없습니다.' : '응답 완료된 기도가 없습니다.'}</p>
                         </div>
                     )}
                 </div>
             </main>
 
-            {/* Invisible Overlay for closing menus */}
-            {activeMenuId && (
-                <div
-                    className="fixed inset-0 z-[55]"
-                    onClick={() => setActiveMenuId(null)}
-                />
+            {/* ★★★ BOTTOM ACTION SHEET (새로운 방식) ★★★ */}
+            {actionSheetPrayer && (
+                <div className="fixed inset-0 z-[200]">
+                    {/* 배경 오버레이 */}
+                    <div
+                        className="absolute inset-0 bg-black/50 transition-opacity"
+                        onClick={closeActionSheet}
+                    />
+
+                    {/* 하단 시트 */}
+                    <div className="absolute bottom-0 left-0 right-0 bg-white dark:bg-slate-800 rounded-t-3xl shadow-2xl animate-slide-up">
+                        {/* 헤더 */}
+                        <div className="flex items-center justify-between p-5 border-b border-slate-100 dark:border-slate-700">
+                            <div>
+                                <p className="text-xs text-slate-400 uppercase tracking-wider font-bold">기도 제목</p>
+                                <h3 className="text-lg font-bold text-slate-800 dark:text-white mt-1">
+                                    {actionSheetPrayer.title}
+                                </h3>
+                            </div>
+                            <button
+                                onClick={closeActionSheet}
+                                className="p-2 rounded-full bg-slate-100 dark:bg-slate-700"
+                            >
+                                <X className="w-5 h-5 text-slate-500" />
+                            </button>
+                        </div>
+
+                        {/* 액션 버튼들 */}
+                        <div className="p-4 space-y-2">
+                            <button
+                                onClick={handleEditFromSheet}
+                                className="w-full flex items-center gap-4 p-4 rounded-2xl bg-slate-50 dark:bg-slate-700/50 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
+                            >
+                                <div className="w-12 h-12 rounded-full bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center">
+                                    <Edit2 className="w-6 h-6 text-blue-500" />
+                                </div>
+                                <div className="text-left">
+                                    <p className="font-bold text-slate-800 dark:text-white">편집하기</p>
+                                    <p className="text-sm text-slate-500">기도 제목 내용을 수정합니다</p>
+                                </div>
+                            </button>
+
+                            <button
+                                onClick={handleDeleteFromSheet}
+                                className="w-full flex items-center gap-4 p-4 rounded-2xl bg-red-50 dark:bg-red-900/10 hover:bg-red-100 dark:hover:bg-red-900/20 transition-colors"
+                            >
+                                <div className="w-12 h-12 rounded-full bg-red-100 dark:bg-red-900/30 flex items-center justify-center">
+                                    <Trash2 className="w-6 h-6 text-red-500" />
+                                </div>
+                                <div className="text-left">
+                                    <p className="font-bold text-red-600 dark:text-red-400">삭제하기</p>
+                                    <p className="text-sm text-red-400">이 기도 제목을 삭제합니다</p>
+                                </div>
+                            </button>
+                        </div>
+
+                        {/* 취소 버튼 */}
+                        <div className="p-4 pt-0">
+                            <button
+                                onClick={closeActionSheet}
+                                className="w-full py-4 bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 font-bold rounded-2xl"
+                            >
+                                취소
+                            </button>
+                        </div>
+
+                        {/* Safe area */}
+                        <div className="h-6 bg-white dark:bg-slate-800" />
+                    </div>
+                </div>
             )}
 
             {/* Delete Confirmation Modal */}
-            {isDeleteModalOpen && (
-                <div className="fixed inset-0 z-[110] flex items-center justify-center p-4">
-                    <div
-                        className="absolute inset-0 bg-black/40 backdrop-blur-sm"
-                        onClick={() => setIsDeleteModalOpen(false)}
-                    />
-                    <div className="w-full max-w-sm bg-white dark:bg-slate-800 rounded-2xl shadow-2xl overflow-hidden relative z-10 transform transition-all">
-                        <div className="p-6 text-center">
-                            <div className="w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-4 bg-red-100 dark:bg-red-900/30 text-red-500">
-                                <Trash2 className="w-6 h-6" />
-                            </div>
-                            <h3 className="text-xl font-bold text-slate-800 dark:text-white mb-2">기도 제목 삭제</h3>
-                            <p className="text-slate-600 dark:text-slate-300 text-sm leading-relaxed mb-6">
-                                정말로 이 기도 제목을 삭제하시겠습니까?<br />이 작업은 되돌릴 수 없습니다.
-                            </p>
-                            <div className="flex gap-3">
-                                <button
-                                    onClick={() => setIsDeleteModalOpen(false)}
-                                    className="flex-1 py-3 text-sm font-bold text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-slate-700/50 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-xl transition-colors"
-                                >
-                                    취소
-                                </button>
-                                <button
-                                    onClick={handleDeletePrayer}
-                                    className="flex-1 py-3 text-sm font-bold text-white rounded-xl shadow-lg transition-transform active:scale-95 bg-red-500 hover:bg-red-600"
-                                >
-                                    삭제하기
-                                </button>
-                            </div>
+            {isDeleteModalOpen && deleteTargetPrayer && (
+                <div className="fixed inset-0 z-[210] flex items-center justify-center p-4">
+                    <div className="absolute inset-0 bg-black/50" onClick={() => setIsDeleteModalOpen(false)} />
+                    <div className="w-full max-w-sm bg-white dark:bg-slate-800 rounded-3xl shadow-2xl p-6 relative z-10">
+                        <div className="w-16 h-16 rounded-full bg-red-100 flex items-center justify-center mx-auto mb-4">
+                            <Trash2 className="w-8 h-8 text-red-500" />
+                        </div>
+                        <h3 className="text-xl font-bold text-center mb-2">기도 제목 삭제</h3>
+                        <p className="text-slate-500 text-center text-sm mb-6">
+                            "{deleteTargetPrayer.title}"<br />
+                            정말 삭제하시겠습니까?
+                        </p>
+                        <div className="flex gap-3">
+                            <button
+                                onClick={() => setIsDeleteModalOpen(false)}
+                                className="flex-1 py-3.5 bg-slate-100 text-slate-600 font-bold rounded-xl"
+                            >
+                                취소
+                            </button>
+                            <button
+                                onClick={handleDeletePrayer}
+                                className="flex-1 py-3.5 bg-red-500 text-white font-bold rounded-xl"
+                            >
+                                삭제
+                            </button>
                         </div>
                     </div>
                 </div>
@@ -555,89 +522,94 @@ const PrayerWallScreen: React.FC<PrayerWallScreenProps> = ({ navigate, t }) => {
 
             {/* Edit/Add Modal */}
             {isModalOpen && (
-                <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center p-0 sm:p-4">
-                    <div
-                        onClick={closeModal}
-                        className={`absolute inset-0 bg-black/50 ${isModalVisible ? 'modal-overlay-enter' : 'modal-overlay-exit'}`}
-                    />
-
-                    <div
-                        className={`w-full max-w-md bg-white dark:bg-slate-800 rounded-t-3xl sm:rounded-2xl shadow-xl overflow-hidden relative z-10 ${isModalVisible ? 'modal-content-enter' : 'modal-content-exit'}`}
-                    >
-                        <div className="flex justify-between items-center p-5 border-b border-slate-100 dark:border-slate-700">
-                            <h2 className="text-xl font-bold text-slate-800 dark:text-white">
-                                {editingPrayer ? '기도 제목 수정' : '새 기도 제목 추가'}
+                <div className="fixed inset-0 z-[220] flex items-end sm:items-center justify-center">
+                    <div className="absolute inset-0 bg-black/50" onClick={closeModal} />
+                    <div className="w-full max-w-md bg-white dark:bg-slate-800 rounded-t-3xl sm:rounded-2xl shadow-xl relative z-10 max-h-[90vh] overflow-y-auto">
+                        <div className="flex justify-between items-center p-5 border-b border-slate-100 dark:border-slate-700 sticky top-0 bg-white dark:bg-slate-800">
+                            <h2 className="text-xl font-bold">
+                                {editingPrayer ? '기도 제목 수정' : '새 기도 제목'}
                             </h2>
-                            <button onClick={closeModal} className="p-2 rounded-full hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-400">
-                                <X className="w-6 h-6" />
+                            <button onClick={closeModal} className="p-2 rounded-full hover:bg-slate-100">
+                                <X className="w-6 h-6 text-slate-400" />
                             </button>
                         </div>
 
-                        <form className="p-6 space-y-6" onSubmit={(e) => { e.preventDefault(); handleSavePrayer(); }}>
+                        <form className="p-6 space-y-5" onSubmit={(e) => { e.preventDefault(); handleSavePrayer(); }}>
                             <div>
-                                <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-3">카테고리</label>
-                                <div className="flex gap-2 overflow-x-auto pb-1 no-scrollbar">
+                                <label className="block text-xs font-bold text-slate-400 uppercase mb-3">카테고리</label>
+                                <div className="flex gap-2">
                                     {['Family', 'Guidance', 'Community'].map((cat) => (
                                         <button
                                             key={cat}
                                             type="button"
                                             onClick={() => setCategory(cat)}
-                                            className={`px-4 py-2 text-xs font-bold rounded-full border transition-all whitespace-nowrap ${category === cat
-                                                ? 'bg-emerald-500 border-emerald-500 text-white shadow-md'
-                                                : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700 text-slate-500 hover:border-emerald-300'
+                                            className={`px-4 py-2 text-xs font-bold rounded-full border ${category === cat
+                                                ? 'bg-emerald-500 border-emerald-500 text-white'
+                                                : 'border-slate-200 text-slate-500'
                                                 }`}
                                         >
                                             {cat === 'Family' ? t.prayer.family :
                                                 cat === 'Guidance' ? t.prayer.guidance :
-                                                    cat === 'Community' ? t.prayer.community : cat}
+                                                    t.prayer.community}
                                         </button>
                                     ))}
                                 </div>
                             </div>
 
-                            <div className="space-y-1.5">
-                                <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest">기도 제목</label>
+                            <div>
+                                <label className="block text-xs font-bold text-slate-400 uppercase mb-2">기도 제목</label>
                                 <input
                                     type="text"
                                     value={title}
                                     onChange={(e) => setTitle(e.target.value)}
                                     placeholder={t.prayer.placeholderTitle}
-                                    className="w-full px-4 py-4 rounded-xl border border-slate-200 dark:border-slate-700 dark:bg-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all font-bold text-lg"
+                                    className="w-full px-4 py-4 rounded-xl border border-slate-200 dark:border-slate-700 dark:bg-slate-900 font-bold text-lg"
                                     required
                                 />
                             </div>
 
-                            <div className="space-y-1.5">
-                                <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest">내용</label>
+                            <div>
+                                <label className="block text-xs font-bold text-slate-400 uppercase mb-2">내용</label>
                                 <textarea
                                     value={content}
                                     onChange={(e) => setContent(e.target.value)}
                                     placeholder={t.prayer.placeholderContent}
                                     rows={4}
-                                    className="w-full px-4 py-4 rounded-xl border border-slate-200 dark:border-slate-700 dark:bg-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all resize-none leading-relaxed text-sm"
+                                    className="w-full px-4 py-4 rounded-xl border border-slate-200 dark:border-slate-700 dark:bg-slate-900 resize-none"
                                     required
                                 />
                             </div>
 
-                            <div className="flex gap-3 pt-4">
+                            <div className="flex gap-3 pt-2">
                                 <button
                                     type="button"
                                     onClick={closeModal}
-                                    className="flex-1 py-4 bg-slate-50 dark:bg-slate-700 text-slate-500 dark:text-slate-300 font-bold rounded-xl active:scale-95 transition-transform"
+                                    className="flex-1 py-4 bg-slate-100 text-slate-600 font-bold rounded-xl"
                                 >
                                     취소
                                 </button>
                                 <button
                                     type="submit"
-                                    className="flex-[2] py-4 bg-emerald-500 hover:bg-emerald-600 text-white font-bold rounded-xl shadow-lg active:scale-95 transition-transform"
+                                    className="flex-[2] py-4 bg-emerald-500 text-white font-bold rounded-xl"
                                 >
-                                    {editingPrayer ? t.prayer.save : '추가하기'}
+                                    {editingPrayer ? '수정하기' : '추가하기'}
                                 </button>
                             </div>
                         </form>
                     </div>
                 </div>
             )}
+
+            {/* CSS for animation */}
+            <style jsx global>{`
+                @keyframes slide-up {
+                    from { transform: translateY(100%); }
+                    to { transform: translateY(0); }
+                }
+                .animate-slide-up {
+                    animation: slide-up 0.3s ease-out;
+                }
+            `}</style>
         </div>
     );
 };
