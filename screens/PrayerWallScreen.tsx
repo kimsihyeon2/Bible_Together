@@ -47,6 +47,76 @@ const PRAYER_VERSES = [
     "우리가 구하거나 생각하는 모든 것에 더 넘치도록 능히 하실 이에게 (엡 3:20)"
 ];
 
+// Delete Confirmation Modal Component
+const ConfirmationModal = ({
+    isOpen,
+    onClose,
+    onConfirm,
+    title,
+    message,
+    confirmText = '삭제',
+    cancelText = '취소',
+    isDistructive = false
+}: {
+    isOpen: boolean;
+    onClose: () => void;
+    onConfirm: () => void;
+    title: string;
+    message: string;
+    confirmText?: string;
+    cancelText?: string;
+    isDistructive?: boolean;
+}) => {
+    const [isVisible, setIsVisible] = useState(false);
+
+    useEffect(() => {
+        if (isOpen) {
+            requestAnimationFrame(() => setIsVisible(true));
+        } else {
+            const timer = setTimeout(() => setIsVisible(false), 200);
+            return () => clearTimeout(timer);
+        }
+    }, [isOpen]);
+
+    if (!isOpen && !isVisible) return null;
+
+    return (
+        <div className="fixed inset-0 z-[110] flex items-center justify-center p-4">
+            <div
+                className={`absolute inset-0 bg-black/40 backdrop-blur-sm transition-opacity duration-200 ${isVisible ? 'opacity-100' : 'opacity-0'}`}
+                onClick={onClose}
+            />
+            <div
+                className={`w-full max-w-sm bg-white dark:bg-slate-800 rounded-2xl shadow-2xl overflow-hidden relative z-10 transform transition-all duration-200 ${isVisible ? 'scale-100 opacity-100 translate-y-0' : 'scale-95 opacity-0 translate-y-4'}`}
+            >
+                <div className="p-6 text-center">
+                    <div className={`w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-4 ${isDistructive ? 'bg-red-100 dark:bg-red-900/30 text-red-500' : 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-500'}`}>
+                        {isDistructive ? <Trash2 className="w-6 h-6" /> : <HelpCircle className="w-6 h-6" />}
+                    </div>
+                    <h3 className="text-xl font-bold text-slate-800 dark:text-white mb-2">{title}</h3>
+                    <p className="text-slate-600 dark:text-slate-300 text-sm leading-relaxed mb-6">
+                        {message}
+                    </p>
+                    <div className="flex gap-3">
+                        <button
+                            onClick={onClose}
+                            className="flex-1 py-3 text-sm font-bold text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-slate-700/50 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-xl transition-colors"
+                        >
+                            {cancelText}
+                        </button>
+                        <button
+                            onClick={() => { onConfirm(); onClose(); }}
+                            className={`flex-1 py-3 text-sm font-bold text-white rounded-xl shadow-lg transition-transform active:scale-95 ${isDistructive ? 'bg-red-500 hover:bg-red-600' : 'bg-emerald-500 hover:bg-emerald-600'}`}
+                        >
+                            {confirmText}
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
+};
+
 const PrayerWallScreen: React.FC<PrayerWallScreenProps> = ({ navigate, t }) => {
     const { user, profile } = useAuth();
     const [prayers, setPrayers] = useState<Prayer[]>([]);
@@ -58,6 +128,10 @@ const PrayerWallScreen: React.FC<PrayerWallScreenProps> = ({ navigate, t }) => {
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [isModalVisible, setIsModalVisible] = useState(false);
     const [editingPrayer, setEditingPrayer] = useState<Prayer | null>(null);
+
+    // Delete Confirmation State
+    const [deleteId, setDeleteId] = useState<string | null>(null);
+    const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
 
     // Form State
     const [title, setTitle] = useState('');
@@ -151,6 +225,26 @@ const PrayerWallScreen: React.FC<PrayerWallScreenProps> = ({ navigate, t }) => {
     const handleSavePrayer = async () => {
         if (!user || !title.trim()) return;
 
+        // Optimistic update
+        const newPrayer = {
+            id: editingPrayer ? editingPrayer.id : 'temp-' + Date.now(),
+            user_id: user.id,
+            title,
+            content,
+            category,
+            is_answered: false,
+            prayer_count: editingPrayer ? editingPrayer.prayer_count : 0,
+            created_at: new Date().toISOString()
+        };
+
+        if (editingPrayer) {
+            setPrayers(prev => prev.map(p => p.id === editingPrayer.id ? { ...p, title, content, category } : p));
+        } else {
+            setPrayers(prev => [newPrayer as Prayer, ...prev]);
+        }
+
+        closeModal();
+
         try {
             if (editingPrayer) {
                 const { error } = await supabase
@@ -159,7 +253,7 @@ const PrayerWallScreen: React.FC<PrayerWallScreenProps> = ({ navigate, t }) => {
                     .eq('id', editingPrayer.id);
                 if (error) throw error;
             } else {
-                const { error } = await supabase
+                const { error, data } = await supabase
                     .from('personal_prayers')
                     .insert({
                         user_id: user.id,
@@ -168,33 +262,53 @@ const PrayerWallScreen: React.FC<PrayerWallScreenProps> = ({ navigate, t }) => {
                         category,
                         is_answered: false,
                         prayer_count: 0
-                    });
-                if (error) throw error;
-            }
+                    })
+                    .select()
+                    .single();
 
-            closeModal();
-            fetchPrayers();
+                if (error) throw error;
+                // Replace temp ID with real ID
+                if (data) {
+                    setPrayers(prev => prev.map(p => p.id === newPrayer.id ? data : p));
+                }
+            }
+            fetchPrayers(); // Sync with server ensure consistency
         } catch (error) {
             console.error('Error saving prayer:', error);
+            alert('저장에 실패했습니다. 다시 시도해주세요.');
+            fetchPrayers(); // Revert on error
         }
     };
 
-    const handleDeletePrayer = async (id: string) => {
+    const confirmDelete = (id: string) => {
         setActiveMenuId(null);
-        if (!confirm('정말 삭제하시겠습니까?')) return;
+        setDeleteId(id);
+        setIsDeleteModalOpen(true);
+    };
+
+    const handleDeletePrayer = async () => {
+        if (!deleteId) return;
+
+        // Optimistic delete
+        setPrayers(prev => prev.filter(p => p.id !== deleteId));
+
         try {
             const { error } = await supabase
                 .from('personal_prayers')
                 .delete()
-                .eq('id', id);
+                .eq('id', deleteId);
             if (error) throw error;
-            fetchPrayers();
         } catch (error) {
             console.error('Error deleting prayer:', error);
+            alert('삭제에 실패했습니다.');
+            fetchPrayers(); // Revert
         }
     };
 
     const incrementPrayed = async (id: string, currentCount: number) => {
+        // Optimistic update
+        setPrayers(prev => prev.map(p => p.id === id ? { ...p, prayer_count: p.prayer_count + 1 } : p));
+
         try {
             const { error } = await supabase
                 .from('personal_prayers')
@@ -202,13 +316,16 @@ const PrayerWallScreen: React.FC<PrayerWallScreenProps> = ({ navigate, t }) => {
                 .eq('id', id);
 
             if (error) throw error;
-            setPrayers(prev => prev.map(p => p.id === id ? { ...p, prayer_count: p.prayer_count + 1 } : p));
         } catch (error) {
             console.error('Error incrementing prayer count:', error);
+            fetchPrayers(); // Revert
         }
     };
 
     const toggleAnswered = async (id: string, currentStatus: boolean) => {
+        // Optimistic update
+        setPrayers(prev => prev.map(p => p.id === id ? { ...p, is_answered: !currentStatus } : p));
+
         try {
             const { error } = await supabase
                 .from('personal_prayers')
@@ -216,9 +333,11 @@ const PrayerWallScreen: React.FC<PrayerWallScreenProps> = ({ navigate, t }) => {
                 .eq('id', id);
 
             if (error) throw error;
-            fetchPrayers();
+            // Delay fetch to let animation finish if needed, or just let local state handle it
+            // fetchPrayers(); 
         } catch (error) {
             console.error('Error toggling answered status:', error);
+            fetchPrayers(); // Revert
         }
     };
 
@@ -391,15 +510,21 @@ const PrayerWallScreen: React.FC<PrayerWallScreenProps> = ({ navigate, t }) => {
                                                 {/* Menu Trigger */}
                                                 <div className="relative">
                                                     <button
-                                                        onClick={() => setActiveMenuId(activeMenuId === prayer.id ? null : prayer.id)}
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            setActiveMenuId(activeMenuId === prayer.id ? null : prayer.id);
+                                                        }}
                                                         className={`p-2 rounded-lg transition-colors ${activeMenuId === prayer.id ? 'bg-slate-100 dark:bg-slate-700 text-slate-600' : 'text-slate-300 hover:text-slate-500'}`}
                                                     >
                                                         <MoreHorizontal className="w-5 h-5" />
                                                     </button>
 
-                                                    {/* Dropdown Menu - Fixed z-index issue */}
+                                                    {/* Dropdown Menu - Fixed click propagation */}
                                                     {activeMenuId === prayer.id && (
-                                                        <div className="absolute right-0 mt-2 w-36 bg-white dark:bg-slate-800 rounded-xl shadow-xl border border-slate-100 dark:border-slate-700 p-1.5 z-[60]">
+                                                        <div
+                                                            className="absolute right-0 mt-2 w-36 bg-white dark:bg-slate-800 rounded-xl shadow-xl border border-slate-100 dark:border-slate-700 p-1.5 z-[60]"
+                                                            onClick={(e) => e.stopPropagation()}
+                                                        >
                                                             <button
                                                                 onClick={() => openEditModalDirect(prayer)}
                                                                 className="w-full flex items-center gap-2.5 px-3 py-2.5 text-sm text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700/50 rounded-lg transition-colors text-left font-medium"
@@ -407,7 +532,7 @@ const PrayerWallScreen: React.FC<PrayerWallScreenProps> = ({ navigate, t }) => {
                                                                 <Edit2 className="w-4 h-4" /> 편집하기
                                                             </button>
                                                             <button
-                                                                onClick={() => handleDeletePrayer(prayer.id)}
+                                                                onClick={() => confirmDelete(prayer.id)}
                                                                 className="w-full flex items-center gap-2.5 px-3 py-2.5 text-sm text-red-500 hover:bg-red-50 dark:hover:bg-red-900/10 rounded-lg transition-colors text-left font-medium"
                                                             >
                                                                 <Trash2 className="w-4 h-4" /> 삭제하기
@@ -422,7 +547,7 @@ const PrayerWallScreen: React.FC<PrayerWallScreenProps> = ({ navigate, t }) => {
                                             <h3 className="text-lg font-bold text-slate-800 dark:text-white mb-2 leading-tight">
                                                 {prayer.title}
                                             </h3>
-                                            <p className="text-slate-600 dark:text-slate-300 text-[15px] leading-[32px] min-h-[2em]">
+                                            <p className="text-slate-600 dark:text-slate-300 text-[15px] leading-[32px] min-h-[2em] whitespace-pre-wrap">
                                                 {prayer.content}
                                             </p>
                                         </div>
@@ -454,7 +579,7 @@ const PrayerWallScreen: React.FC<PrayerWallScreenProps> = ({ navigate, t }) => {
                 </div>
             </main>
 
-            {/* Invisible Overlay for closing menus - placed OUTSIDE the prayer list */}
+            {/* Invisible Overlay for closing menus */}
             {activeMenuId && (
                 <div
                     className="fixed inset-0 z-[55]"
@@ -462,7 +587,18 @@ const PrayerWallScreen: React.FC<PrayerWallScreenProps> = ({ navigate, t }) => {
                 />
             )}
 
-            {/* Modal */}
+            {/* Delete Confirmation Modal */}
+            <ConfirmationModal
+                isOpen={isDeleteModalOpen}
+                onClose={() => setIsDeleteModalOpen(false)}
+                onConfirm={handleDeletePrayer}
+                title="기도 제목 삭제"
+                message="정말로 이 기도 제목을 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다."
+                confirmText="삭제하기"
+                isDistructive={true}
+            />
+
+            {/* Edit/Add Modal */}
             {isModalOpen && (
                 <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center p-0 sm:p-4">
                     <div
