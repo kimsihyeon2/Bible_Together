@@ -274,15 +274,15 @@ const PrayerWallScreen: React.FC<PrayerWallScreenProps> = ({ navigate, t }) => {
                             {t.prayer.myPrayers}
                         </h2>
 
-                        <div className="min-h-[50px] mb-6 relative z-10">
+                        <div className="min-h-[80px] mb-8 relative z-10 flex items-center">
                             <AnimatePresence mode="wait">
                                 <motion.p
                                     key={verseIndex}
-                                    initial={{ opacity: 0, x: 20 }}
-                                    animate={{ opacity: 1, x: 0 }}
-                                    exit={{ opacity: 0, x: -20 }}
+                                    initial={{ opacity: 0, y: 10 }}
+                                    animate={{ opacity: 1, y: 0 }}
+                                    exit={{ opacity: 0, y: -10 }}
                                     transition={{ duration: 0.5, ease: "easeOut" }}
-                                    className="text-slate-600 dark:text-slate-300 italic font-serif text-sm leading-relaxed bg-[#fefcf8]/60 dark:bg-slate-800/60 backdrop-blur-[1px] rounded p-1"
+                                    className="text-slate-700 dark:text-slate-200 italic font-serif text-[15px] leading-[32px] bg-[#fefcf8]/80 dark:bg-slate-800/80 backdrop-blur-sm rounded p-2 shadow-sm"
                                 >
                                     "{PRAYER_VERSES[verseIndex]}"
                                 </motion.p>
@@ -310,8 +310,8 @@ const PrayerWallScreen: React.FC<PrayerWallScreenProps> = ({ navigate, t }) => {
                     <button
                         onClick={() => setFilter('ONGOING')}
                         className={`px-5 py-2.5 rounded-t-xl text-sm font-semibold transition-all relative whitespace-nowrap ${filter === 'ONGOING'
-                                ? 'bg-white dark:bg-slate-800 text-emerald-700 dark:text-emerald-400 shadow-[0_-2px_4px_rgba(0,0,0,0.02)] z-10 border-t border-x border-slate-100 dark:border-slate-700'
-                                : 'bg-white/40 dark:bg-slate-900/40 text-slate-500 dark:text-slate-500 hover:bg-white/60 dark:hover:bg-slate-800/60'
+                            ? 'bg-white dark:bg-slate-800 text-emerald-700 dark:text-emerald-400 shadow-[0_-2px_4px_rgba(0,0,0,0.02)] z-10 border-t border-x border-slate-100 dark:border-slate-700'
+                            : 'bg-white/40 dark:bg-slate-900/40 text-slate-500 dark:text-slate-500 hover:bg-white/60 dark:hover:bg-slate-800/60'
                             }`}
                     >
                         {t.prayer.ongoing} <span className="ml-0.5 opacity-70">({prayers.filter(p => !p.is_answered).length})</span>
@@ -323,8 +323,8 @@ const PrayerWallScreen: React.FC<PrayerWallScreenProps> = ({ navigate, t }) => {
                     <button
                         onClick={() => setFilter('ANSWERED')}
                         className={`px-5 py-2.5 rounded-t-xl text-sm font-semibold transition-all relative whitespace-nowrap ${filter === 'ANSWERED'
-                                ? 'bg-white dark:bg-slate-800 text-emerald-700 dark:text-emerald-400 shadow-[0_-2px_4px_rgba(0,0,0,0.02)] z-10 border-t border-x border-slate-100 dark:border-slate-700'
-                                : 'bg-white/40 dark:bg-slate-900/40 text-slate-500 dark:text-slate-500 hover:bg-white/60 dark:hover:bg-slate-800/60'
+                            ? 'bg-white dark:bg-slate-800 text-emerald-700 dark:text-emerald-400 shadow-[0_-2px_4px_rgba(0,0,0,0.02)] z-10 border-t border-x border-slate-100 dark:border-slate-700'
+                            : 'bg-white/40 dark:bg-slate-900/40 text-slate-500 dark:text-slate-500 hover:bg-white/60 dark:hover:bg-slate-800/60'
                             }`}
                     >
                         {t.prayer.answered} <span className="ml-0.5 opacity-70">({prayers.filter(p => p.is_answered).length})</span>
@@ -499,8 +499,8 @@ const PrayerWallScreen: React.FC<PrayerWallScreenProps> = ({ navigate, t }) => {
                                                 type="button"
                                                 onClick={() => setCategory(cat)}
                                                 className={`px-4 py-2 text-xs font-bold rounded-full border transition-all whitespace-nowrap ${category === cat
-                                                        ? 'bg-emerald-500 border-emerald-500 text-white shadow-md'
-                                                        : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700 text-slate-500 hover:border-emerald-300'
+                                                    ? 'bg-emerald-500 border-emerald-500 text-white shadow-md'
+                                                    : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700 text-slate-500 hover:border-emerald-300'
                                                     }`}
                                             >
                                                 {cat === 'Family' ? t.prayer.family :
