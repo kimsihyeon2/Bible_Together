@@ -106,8 +106,10 @@ export const BibleProvider = ({ children }: { children: ReactNode }) => {
         if (!cache[key]) return [];
         const chData = cache[key][chapter.toString()];
         if (!chData) return [];
-        // Sort by verse number
-        return Object.entries(chData as Record<string, string>).sort((a, b) => parseInt(a[0]) - parseInt(b[0]));
+        // Sort by verse number and Clean text
+        return Object.entries(chData as Record<string, string>)
+            .sort((a, b) => parseInt(a[0]) - parseInt(b[0]))
+            .map(([verse, text]) => [verse, text.replace(/\[[a-zA-Z0-9]+\]/g, '')]);
     }, [currentTranslation]);
 
     const getChapterCount = useCallback((book: string): number => {

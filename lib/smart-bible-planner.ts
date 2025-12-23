@@ -184,7 +184,9 @@ export class SmartBiblePlanner {
 
                 for (const verseNum of verseNums) {
                     const text = chapterData[verseNum.toString()] || '';
-                    wordCount += text.replace(/\s/g, '').length;
+                    // Clean text (remove footnotes like [a], [1], etc.)
+                    const cleanText = text.replace(/\[[a-zA-Z0-9]+\]/g, '').replace(/\s/g, '');
+                    wordCount += cleanText.length;
                 }
 
                 // 난이도 보정

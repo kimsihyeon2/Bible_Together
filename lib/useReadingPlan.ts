@@ -17,6 +17,7 @@ import {
     markDayComplete,
     calculateStats,
 } from './smart-bible-planner';
+import { supabase } from './supabase';
 
 interface UseReadingPlanReturn {
     // State
@@ -32,6 +33,7 @@ interface UseReadingPlanReturn {
     completeTodayReading: () => void;
     getMonthPlans: (year: number, month: number) => Map<number, DailyPlan>;
     resetPlan: () => void;
+    syncWithServer: () => Promise<void>;
 }
 
 /**
@@ -72,6 +74,19 @@ export const useReadingPlan = (): UseReadingPlanReturn => {
             // Calculate stats
             const calculatedStats = calculateStats(loadedPlans, loadedProgress);
             setStats(calculatedStats);
+
+            // Trigger background sync
+            syncWithServerProgress(user.id, loadedPlans, loadedProgress).then(syncedProgress => {
+                if (syncedProgress) {
+                    setProgress(syncedProgress);
+                    const newStats = calculateStats(loadedPlans, syncedProgress);
+                    setStats(newStats);
+
+                    // Update today assignment based on synced progress
+                    const newToday = SmartBiblePlanner.getTodayAssignment(loadedPlans, syncedProgress.completedDays);
+                    setTodayAssignment(newToday);
+                }
+            });
         }
 
         setIsLoading(false);
@@ -212,6 +227,89 @@ export const useReadingPlan = (): UseReadingPlanReturn => {
         setTodayAssignment(null);
     }, [user?.id]);
 
+    /**
+     * SOTA Sync: Check server reading_activities and update progress
+     */
+    const syncWithServerProgress = async (
+        userId: string,
+        currentPlans: DailyPlan[],
+        currentProgress: UserReadingProgress
+    ): Promise<UserReadingProgress | null> => {
+        try {
+            // Get all reading activities for this user
+            const { data: activities } = await supabase
+                .from('reading_activities')
+                .select('book, chapter')
+                .eq('user_id', userId);
+
+            if (!activities || activities.length === 0) return null;
+
+            // Create a set of "Book Chapter" strings for fast lookup
+            const readSet = new Set(activities.map((a: { book: string; chapter: number }) => `${a.book} ${a.chapter}`));
+
+            let hasChanges = false;
+            const newCompletedDays = [...currentProgress.completedDays];
+            const newCompletedDates = [...currentProgress.completedDates];
+
+            // Check each uncompleted plan
+            currentPlans.forEach(plan => {
+                if (plan.isBufferDay) return;
+                if (newCompletedDays.includes(plan.dayNumber)) return;
+
+                // Check if all chapters in this plan are read
+                const range = plan.endChapter - plan.startChapter + 1;
+                let allRead = true;
+
+                // We handle single book plans mainly. Cross-book plans needs more complex logic, 
+                // but v2 algorithm is mostly single book or sequential.
+                // For simplicity, we check the main range.
+                if (plan.book) {
+                    for (let ch = plan.startChapter; ch <= plan.endChapter; ch++) {
+                        if (!readSet.has(`${plan.book} ${ch}`)) {
+                            allRead = false;
+                            break;
+                        }
+                    }
+                }
+
+                if (allRead) {
+                    newCompletedDays.push(plan.dayNumber);
+                    // Use a proxy date (today) or we'd need to fetch actual dates
+                    newCompletedDates.push(new Date().toISOString());
+                    hasChanges = true;
+                }
+            });
+
+            if (hasChanges) {
+                const updatedProgress: UserReadingProgress = {
+                    ...currentProgress,
+                    completedDays: newCompletedDays,
+                    completedDates: newCompletedDates,
+                    lastReadDate: new Date().toISOString(),
+                    currentDay: Math.max(...newCompletedDays, 0) + 1
+                };
+                saveProgress(userId, updatedProgress);
+                return updatedProgress;
+            }
+
+            return null;
+        } catch (e) {
+            console.error('Sync error:', e);
+            return null;
+        }
+    };
+
+    const syncWithServer = useCallback(async () => {
+        if (user?.id && plans.length > 0 && progress) {
+            const result = await syncWithServerProgress(user.id, plans, progress);
+            if (result) {
+                setProgress(result);
+                setStats(calculateStats(plans, result));
+                setTodayAssignment(SmartBiblePlanner.getTodayAssignment(plans, result.completedDays));
+            }
+        }
+    }, [user?.id, plans, progress]);
+
     return {
         isLoading,
         isGenerating,
@@ -223,6 +321,7 @@ export const useReadingPlan = (): UseReadingPlanReturn => {
         completeTodayReading,
         getMonthPlans,
         resetPlan,
+        syncWithServer,
     };
 };
 

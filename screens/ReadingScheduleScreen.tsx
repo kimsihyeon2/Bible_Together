@@ -134,6 +134,11 @@ const ReadingScheduleScreen: React.FC<ReadingScheduleScreenProps> = ({ navigate,
 
     const handleStartReading = (plan: DailyPlan) => {
         if (onStartReading && plan.book) {
+            // SOTA Navigation: Save context to localStorage for instant load
+            if (typeof window !== 'undefined') {
+                localStorage.setItem('selectedBook', plan.book);
+                localStorage.setItem('selectedChapter', plan.startChapter.toString());
+            }
             onStartReading(plan.book, plan.startChapter);
             navigate(Screen.BIBLE);
         }
@@ -185,7 +190,7 @@ const ReadingScheduleScreen: React.FC<ReadingScheduleScreenProps> = ({ navigate,
                 onClick={() => handleDayClick(day)}
             >
                 <span className={`text-xs font-medium mb-1 ${isToday ? 'text-slate-800 font-bold' :
-                        isRest ? 'text-sky-400' : 'text-slate-400'
+                    isRest ? 'text-sky-400' : 'text-slate-400'
                     }`}>
                     {day.day}
                 </span>
@@ -237,7 +242,7 @@ const ReadingScheduleScreen: React.FC<ReadingScheduleScreenProps> = ({ navigate,
     };
 
     return (
-        <div className="min-h-screen bg-gradient-to-b from-sky-50 to-green-50 dark:from-slate-900 dark:to-slate-800 relative overflow-hidden">
+        <div className="min-h-screen bg-gradient-to-b from-sky-50 to-green-50 dark:from-slate-900 dark:to-slate-800 relative overflow-x-hidden">
             {/* Decorative Blobs */}
             <div className="absolute -top-20 -right-20 w-80 h-80 bg-sky-100/50 rounded-full blur-3xl pointer-events-none" />
             <div className="absolute top-40 -left-20 w-72 h-72 bg-green-100/40 rounded-full blur-3xl pointer-events-none" />
@@ -291,7 +296,7 @@ const ReadingScheduleScreen: React.FC<ReadingScheduleScreenProps> = ({ navigate,
 
             {/* Calendar Grid */}
             {!isLoading && !isGenerating && (
-                <main className="relative z-10 px-4 pb-48">
+                <main className="relative z-10 px-4 pb-[500px]">
                     <div className="bg-white/40 dark:bg-slate-800/40 backdrop-blur-xl rounded-[2rem] p-4 shadow-lg shadow-green-900/5 border border-white/50 dark:border-slate-700">
                         <div className="grid grid-cols-7 mb-4">
                             {WEEKDAYS.map((day, i) => (
@@ -378,8 +383,8 @@ const ReadingScheduleScreen: React.FC<ReadingScheduleScreenProps> = ({ navigate,
                             <div className="flex items-center justify-between mb-4">
                                 <div>
                                     <span className={`text-xs font-bold uppercase tracking-wider ${selectedDay.status === 'completed' ? 'text-green-600' :
-                                            selectedDay.status === 'today' ? 'text-emerald-600' :
-                                                selectedDay.status === 'missed' ? 'text-amber-600' : 'text-slate-400'
+                                        selectedDay.status === 'today' ? 'text-emerald-600' :
+                                            selectedDay.status === 'missed' ? 'text-amber-600' : 'text-slate-400'
                                         }`}>
                                         {selectedDay.status === 'completed' ? '✓ 완료' :
                                             selectedDay.status === 'today' ? '오늘' :
