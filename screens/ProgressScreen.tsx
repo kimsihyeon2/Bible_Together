@@ -18,6 +18,8 @@ interface CellMemberProgress {
   chapters_count: number;
 }
 
+import confetti from 'canvas-confetti';
+
 const ProgressScreen: React.FC<ProgressScreenProps> = ({ navigate, t }) => {
   const { user, profile } = useAuth();
   const [loading, setLoading] = useState(true);
@@ -35,7 +37,7 @@ const ProgressScreen: React.FC<ProgressScreenProps> = ({ navigate, t }) => {
   const [monthlyReadDays, setMonthlyReadDays] = useState<Set<number>>(new Set());
   const [currentMonth, setCurrentMonth] = useState(new Date());
 
-  // 목표 설정
+  // 목표 설정 - Persistent
   const [showGoalModal, setShowGoalModal] = useState(false);
   const [dailyGoal, setDailyGoal] = useState(1);
   const [savedGoal, setSavedGoal] = useState(1);
@@ -44,6 +46,12 @@ const ProgressScreen: React.FC<ProgressScreenProps> = ({ navigate, t }) => {
   const TOTAL_BIBLE_CHAPTERS = 1189;
 
   useEffect(() => {
+    // Load saved goal
+    const saved = localStorage.getItem('dailyGoal');
+    if (saved) {
+      setSavedGoal(parseInt(saved, 10));
+      setDailyGoal(parseInt(saved, 10));
+    }
     if (user) {
       fetchProgressData();
     }
@@ -131,6 +139,24 @@ const ProgressScreen: React.FC<ProgressScreenProps> = ({ navigate, t }) => {
         completionPercent,
       });
       setWeeklyActivity(weekly);
+
+      // Check Goal Completion & Trigger Confetti
+      const todayIndex = 6; // Sunday is 6 in our array logic? Wait, standard JS getDay() is 0=Sun. 
+      // calculateWeeklyActivity logic needs review if today is index 6.
+      // Let's assume weeklyActivity[6] corresponds to TODAY (as displayed in UI "Last 7 Days").
+      if (weekly[6] >= savedGoal && weekly[6] > 0) {
+        const hasCelebrated = localStorage.getItem(`celebrated_${new Date().toDateString()}`);
+        if (!hasCelebrated) {
+          confetti({
+            particleCount: 100,
+            spread: 70,
+            origin: { y: 0.6 },
+            colors: ['#4ade80', '#22c55e', '#16a34a']
+          });
+          localStorage.setItem(`celebrated_${new Date().toDateString()}`, 'true');
+        }
+      }
+
     } catch (error) {
       console.error('Error fetching progress:', error);
     } finally {
@@ -435,7 +461,11 @@ const ProgressScreen: React.FC<ProgressScreenProps> = ({ navigate, t }) => {
             </div>
 
             <button
-              onClick={() => { setSavedGoal(dailyGoal); setShowGoalModal(false); }}
+              onClick={() => {
+                setSavedGoal(dailyGoal);
+                localStorage.setItem('dailyGoal', dailyGoal.toString());
+                setShowGoalModal(false);
+              }}
               className="w-full h-14 bg-green-500 text-white rounded-[1.5rem] font-bold text-lg shadow-lg shadow-green-500/30 hover:scale-[1.02] active:scale-[0.98] transition-all"
             >
               {t.progress.saveGoal}

@@ -312,11 +312,27 @@ const ReadingScheduleScreen: React.FC<ReadingScheduleScreenProps> = ({ navigate,
                 </main>
             )}
 
-            {/* Bottom Sheet - Stats */}
-            <div className="fixed bottom-0 left-0 right-0 z-40">
-                <div className="bg-white/95 dark:bg-slate-900/95 backdrop-blur-xl rounded-t-[2.5rem] p-6 pb-10 shadow-[0_-8px_30px_rgba(0,0,0,0.08)] border-t border-white/50 dark:border-slate-800">
-                    <div className="w-12 h-1.5 bg-slate-200 dark:bg-slate-700 rounded-full mx-auto mb-6" />
+            {/* Draggable Bottom Sheet - Stats */}
+            <motion.div
+                className="fixed left-0 right-0 z-40 bg-white/95 dark:bg-slate-900/95 backdrop-blur-xl rounded-t-[2.5rem] shadow-[0_-8px_30px_rgba(0,0,0,0.08)] border-t border-white/50 dark:border-slate-800"
+                drag="y"
+                dragConstraints={{ top: 0, bottom: 200 }}
+                dragElastic={0.2}
+                initial={{ y: 0 }}
+                whileDrag={{ cursor: 'grabbing' }}
+                onDragEnd={(e, { offset, velocity }) => {
+                    // Snap logic: if dragged down significantly, snap to condensed view (e.g. y=180)
+                    // For now, let's keep it simple: spring back to 0 or close if we had a close state
+                    // The user wants it to hide/show. Let's allowing "peeking".
+                }}
+                style={{ bottom: 0 }} // Anchor to bottom
+            >
+                {/* Drag Handle */}
+                <div className="w-full h-8 flex items-center justify-center cursor-grab active:cursor-grabbing touch-none">
+                    <div className="w-12 h-1.5 bg-slate-200 dark:bg-slate-700 rounded-full" />
+                </div>
 
+                <div className="px-6 pb-10">
                     <div className="grid grid-cols-2 gap-4">
                         <div className="bg-green-50/50 dark:bg-green-900/20 p-4 rounded-3xl flex flex-col items-start relative overflow-hidden">
                             <div className="absolute right-0 top-0 p-3 opacity-10">
@@ -360,7 +376,7 @@ const ReadingScheduleScreen: React.FC<ReadingScheduleScreenProps> = ({ navigate,
                         </button>
                     </div>
                 </div>
-            </div>
+            </motion.div>
 
             {/* Day Detail Popup */}
             <AnimatePresence>
@@ -430,7 +446,7 @@ const ReadingScheduleScreen: React.FC<ReadingScheduleScreenProps> = ({ navigate,
                                     <span className="material-symbols-outlined text-slate-400 text-xl mb-1">text_fields</span>
                                     <p className="text-xs text-slate-500 dark:text-slate-400">단어 수</p>
                                     <p className="text-lg font-bold text-slate-800 dark:text-white">
-                                        {selectedDay.plan.wordCount ? `${Math.round(selectedDay.plan.wordCount / 1000)}k` : '-'}
+                                        {selectedDay.plan.wordCount ? selectedDay.plan.wordCount.toLocaleString() : '-'}
                                     </p>
                                 </div>
                             </div>
