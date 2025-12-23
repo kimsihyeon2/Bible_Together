@@ -323,8 +323,8 @@ const PrayerWallScreen: React.FC<PrayerWallScreenProps> = ({ navigate, t }) => {
     };
 
     const toggleAnswered = async (id: string, currentStatus: boolean) => {
-        // Optimistic update
-        setPrayers(prev => prev.map(p => p.id === id ? { ...p, is_answered: !currentStatus } : p));
+        // Optimistic update: Remove from list as it no longer matches filter
+        setPrayers(prev => prev.filter(p => p.id !== id));
 
         try {
             const { error } = await supabase
@@ -333,10 +333,9 @@ const PrayerWallScreen: React.FC<PrayerWallScreenProps> = ({ navigate, t }) => {
                 .eq('id', id);
 
             if (error) throw error;
-            // Delay fetch to let animation finish if needed, or just let local state handle it
-            // fetchPrayers(); 
         } catch (error) {
             console.error('Error toggling answered status:', error);
+            alert('상태 변경에 실패했습니다.');
             fetchPrayers(); // Revert
         }
     };
@@ -483,7 +482,7 @@ const PrayerWallScreen: React.FC<PrayerWallScreenProps> = ({ navigate, t }) => {
                         prayers.map((prayer) => {
                             const catStyle = getCategoryStyle(prayer.category);
                             return (
-                                <div key={prayer.id} className="relative">
+                                <div key={prayer.id} className={`relative ${activeMenuId === prayer.id ? 'z-[60]' : ''}`}>
                                     <div className="bg-[#fdfbf7] dark:bg-slate-800 p-5 rounded-xl border border-stone-200 dark:border-slate-700 shadow-sm flex flex-col gap-3">
                                         <div className="absolute inset-0 pointer-events-none opacity-20 notebook-lines bg-[size:100%_28px] mt-12 px-5 rounded-xl"></div>
 
