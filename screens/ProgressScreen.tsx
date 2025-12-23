@@ -66,7 +66,7 @@ const ProgressScreen: React.FC<ProgressScreenProps> = ({ navigate, t }) => {
         .eq('user_id', user.id)
         .order('created_at', { ascending: false });
 
-      if (!readings) {
+      if (!readings || readings.length === 0) {
         setLoading(false);
         return;
       }
@@ -81,14 +81,14 @@ const ProgressScreen: React.FC<ProgressScreenProps> = ({ navigate, t }) => {
 
       // 4. 날짜별 집계 (로컬 시간대로 변환)
       const dailyMap = new Map<string, number>();
-      readings.forEach((r) => {
+      for (const r of readings) {
         const date = new Date(r.created_at);
         const year = date.getFullYear();
         const month = String(date.getMonth() + 1).padStart(2, '0');
         const day = String(date.getDate()).padStart(2, '0');
         const dateStr = `${year}-${month}-${day}`;
         dailyMap.set(dateStr, (dailyMap.get(dateStr) || 0) + 1);
-      });
+      }
 
       // 5. 연속 기록 계산
       const streak = calculateStreak(dailyMap);
@@ -364,10 +364,10 @@ const ProgressScreen: React.FC<ProgressScreenProps> = ({ navigate, t }) => {
                           delay: idx * 0.1
                         }}
                         className={`absolute bottom-0 w-full rounded-full ${isToday
-                            ? 'bg-gradient-to-t from-green-600 to-green-400 shadow-lg shadow-green-500/30'
-                            : value > 0
-                              ? 'bg-gradient-to-t from-green-500 to-green-300'
-                              : 'bg-slate-200 dark:bg-slate-600'
+                          ? 'bg-gradient-to-t from-green-600 to-green-400 shadow-lg shadow-green-500/30'
+                          : value > 0
+                            ? 'bg-gradient-to-t from-green-500 to-green-300'
+                            : 'bg-slate-200 dark:bg-slate-600'
                           }`}
                       />
                     </div>
@@ -454,7 +454,7 @@ const ProgressScreen: React.FC<ProgressScreenProps> = ({ navigate, t }) => {
                       animate={{ scale: 1 }}
                       transition={{ delay: day * 0.02 }}
                       className={`h-8 w-8 rounded-full flex items-center justify-center text-xs font-bold mx-auto transition-all ${isRead ? 'bg-green-500 text-white shadow-md shadow-green-500/30' :
-                          isToday ? 'border-2 border-green-500 text-green-600' : 'text-slate-400'
+                        isToday ? 'border-2 border-green-500 text-green-600' : 'text-slate-400'
                         }`}
                     >
                       {day}
