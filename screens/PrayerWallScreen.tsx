@@ -299,10 +299,11 @@ const PrayerWallScreen: React.FC<PrayerWallScreenProps> = ({ navigate, t }) => {
                             {t.prayer.myPrayers}
                         </h2>
 
-                        <div className="min-h-[80px] mb-6 relative z-10 flex items-center">
+                        {/* Fixed height verse container - prevents layout shift */}
+                        <div className="h-[100px] mb-6 relative z-10 flex items-start overflow-hidden">
                             <p
                                 key={verseIndex}
-                                className="text-slate-700 dark:text-slate-200 italic font-serif text-[15px] leading-[32px] bg-[#fefcf8]/90 dark:bg-slate-800/90 rounded p-2 shadow-sm transition-opacity duration-300"
+                                className="text-slate-700 dark:text-slate-200 italic font-serif text-[15px] leading-[32px] bg-[#fefcf8]/90 dark:bg-slate-800/90 rounded p-2 shadow-sm transition-opacity duration-300 line-clamp-3"
                             >
                                 "{PRAYER_VERSES[verseIndex]}"
                             </p>
