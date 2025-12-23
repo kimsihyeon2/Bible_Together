@@ -57,6 +57,7 @@ const PrayerWallScreen: React.FC<PrayerWallScreenProps> = ({ navigate, t }) => {
     const [showAddModal, setShowAddModal] = useState(false);
     const [editingPrayer, setEditingPrayer] = useState<Prayer | null>(null);
     const [activeMenuId, setActiveMenuId] = useState<string | null>(null);
+    const menuRef = useRef<HTMLDivElement>(null);
 
     // Dynamic Verse State
     const [verseIndex, setVerseIndex] = useState(0);
@@ -81,11 +82,16 @@ const PrayerWallScreen: React.FC<PrayerWallScreenProps> = ({ navigate, t }) => {
 
     // Close menu when clicking outside
     useEffect(() => {
-        const handleClickOutside = () => setActiveMenuId(null);
+        const handleClickOutside = (event: MouseEvent) => {
+            if (activeMenuId && menuRef.current && !menuRef.current.contains(event.target as Node)) {
+                setActiveMenuId(null);
+            }
+        };
+
         if (activeMenuId) {
-            document.addEventListener('click', handleClickOutside);
+            document.addEventListener('mousedown', handleClickOutside);
         }
-        return () => document.removeEventListener('click', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
     }, [activeMenuId]);
 
     const fetchPrayers = async () => {
@@ -153,12 +159,17 @@ const PrayerWallScreen: React.FC<PrayerWallScreenProps> = ({ navigate, t }) => {
     };
 
     const openEditModal = (prayer: Prayer) => {
+        // Close menu immediately
+        setActiveMenuId(null);
+
+        // Prepare form data
         setEditingPrayer(prayer);
         setTitle(prayer.title);
         setContent(prayer.content);
         setCategory(prayer.category);
+
+        // Open modal
         setShowAddModal(true);
-        setActiveMenuId(null);
     };
 
     const resetForm = () => {
@@ -211,43 +222,37 @@ const PrayerWallScreen: React.FC<PrayerWallScreenProps> = ({ navigate, t }) => {
         }
     };
 
-    const getCategoryIcon = (cat: string) => {
+    const getCategoryColor = (cat: string) => {
         switch (cat.toLowerCase()) {
-            case 'family': return <Heart className="w-5 h-5 text-orange-500 fill-orange-500" />;
-            case 'guidance': return <Briefcase className="w-5 h-5 text-blue-500 fill-blue-500" />;
-            case 'community': return <Users className="w-5 h-5 text-emerald-500 fill-emerald-500" />;
-            default: return <HelpCircle className="w-5 h-5 text-gray-500" />;
+            case 'family': return 'bg-orange-100 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400';
+            case 'guidance': return 'bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400';
+            case 'community': return 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400';
+            default: return 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400';
         }
     };
 
-    const getCategoryColor = (cat: string) => {
+    const getCategoryIcon = (cat: string) => {
         switch (cat.toLowerCase()) {
-            case 'family': return 'bg-orange-100';
-            case 'guidance': return 'bg-blue-100';
-            case 'community': return 'bg-emerald-100';
-            default: return 'bg-gray-100';
+            case 'family': return <Heart className="w-4 h-4 fill-current" />;
+            case 'guidance': return <Briefcase className="w-4 h-4 fill-current" />;
+            case 'community': return <Users className="w-4 h-4 fill-current" />;
+            default: return <HelpCircle className="w-4 h-4" />;
         }
     };
 
     return (
-        <div className="min-h-screen bg-gradient-to-b from-teal-50 to-emerald-50 dark:from-slate-950 dark:to-slate-900 pb-24 font-sans antialiased text-slate-800 dark:text-slate-100 overflow-x-hidden">
-            {/* Top Header */}
-            <header className="pt-8 pb-4 px-6 flex items-center justify-between sticky top-0 bg-gradient-to-b from-teal-50/95 to-teal-50/80 dark:from-slate-950/95 dark:to-slate-950/80 backdrop-blur-sm z-30">
-                <motion.button
-                    whileHover={{ scale: 1.1 }}
-                    whileTap={{ scale: 0.9 }}
+        <div className="min-h-screen bg-stone-50 dark:bg-slate-950 pb-24 font-sans text-slate-800 dark:text-slate-100 overflow-x-hidden">
+            {/* Top Header - Optimized */}
+            <header className="pt-8 pb-4 px-6 flex items-center justify-between sticky top-0 bg-stone-50/95 dark:bg-slate-950/95 z-30 border-b border-stone-100 dark:border-slate-800">
+                <button
                     onClick={() => navigate(Screen.DASHBOARD)}
                     className="p-2 -ml-2 rounded-full hover:bg-black/5 dark:hover:bg-white/5 text-slate-700 dark:text-slate-300 transition-colors"
                 >
                     <ChevronLeft className="w-6 h-6" />
-                </motion.button>
-                <motion.h1
-                    initial={{ opacity: 0, y: -10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    className="text-xl font-bold text-slate-800 dark:text-white tracking-tight"
-                >
+                </button>
+                <h1 className="text-xl font-bold text-slate-800 dark:text-white tracking-tight">
                     {t.prayer.title}
-                </motion.h1>
+                </h1>
                 <div className="w-10 h-10 rounded-full bg-orange-200 dark:bg-orange-900/50 border-2 border-white dark:border-slate-700 shadow-sm overflow-hidden">
                     {profile?.avatar_url ? (
                         <img src={profile.avatar_url} alt="Profile" className="w-full h-full object-cover" />
@@ -259,118 +264,103 @@ const PrayerWallScreen: React.FC<PrayerWallScreenProps> = ({ navigate, t }) => {
                 </div>
             </header>
 
-            <main className="px-5 max-w-2xl mx-auto">
+            <main className="px-5 max-w-2xl mx-auto pt-6">
                 {/* Journal Section */}
-                <motion.section
-                    initial={{ opacity: 0, scale: 0.95 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    className="relative mb-8 mt-2"
-                >
-                    <div className="bg-[#fefcf8] dark:bg-slate-800 rounded-xl shadow-[0_10px_20px_-5px_rgba(0,0,0,0.1),inset_16px_0_20px_-10px_rgba(0,0,0,0.05)] border-l-4 border-l-[#e3d8c8] dark:border-l-emerald-900/30 p-6 relative overflow-hidden">
-                        <div className="absolute top-0 left-0 w-full h-full pointer-events-none opacity-40 notebook-lines mt-10"></div>
+                <section className="relative mb-8">
+                    <div className="bg-[#fefcf8] dark:bg-slate-800 rounded-xl shadow-sm border border-[#e5e5e5] dark:border-slate-700 p-6 relative overflow-hidden">
+                        {/* Static Notebook Lines - refined */}
+                        <div className="absolute top-0 left-0 w-full h-full pointer-events-none opacity-40 notebook-lines"></div>
 
                         <h2 className="text-2xl font-bold text-slate-800 dark:text-white mb-2 font-serif relative z-10 flex items-center gap-2">
                             <Sparkles className="w-5 h-5 text-orange-400" />
                             {t.prayer.myPrayers}
                         </h2>
 
-                        <div className="min-h-[80px] mb-8 relative z-10 flex items-center">
+                        <div className="min-h-[80px] mb-6 relative z-10 flex items-center">
                             <AnimatePresence mode="wait">
                                 <motion.p
                                     key={verseIndex}
-                                    initial={{ opacity: 0, y: 10 }}
+                                    initial={{ opacity: 0, y: 5 }}
                                     animate={{ opacity: 1, y: 0 }}
-                                    exit={{ opacity: 0, y: -10 }}
-                                    transition={{ duration: 0.5, ease: "easeOut" }}
-                                    className="text-slate-700 dark:text-slate-200 italic font-serif text-[15px] leading-[32px] bg-[#fefcf8]/80 dark:bg-slate-800/80 backdrop-blur-sm rounded p-2 shadow-sm"
+                                    exit={{ opacity: 0, y: -5 }}
+                                    transition={{ duration: 0.4 }}
+                                    className="text-slate-700 dark:text-slate-200 italic font-serif text-[15px] leading-[32px] bg-[#fefcf8]/90 dark:bg-slate-800/90 rounded p-2 shadow-sm"
                                 >
                                     "{PRAYER_VERSES[verseIndex]}"
                                 </motion.p>
                             </AnimatePresence>
                         </div>
 
-                        <motion.button
-                            whileHover={{ scale: 1.02 }}
-                            whileTap={{ scale: 0.98 }}
+                        <button
                             onClick={() => { resetForm(); setShowAddModal(true); }}
-                            className="w-full bg-emerald-500 hover:bg-emerald-600 active:bg-emerald-700 text-white font-semibold py-3.5 px-4 rounded-full shadow-lg shadow-emerald-200 dark:shadow-none flex items-center justify-center gap-2 transition-all relative z-10"
+                            className="w-full bg-emerald-500 hover:bg-emerald-600 active:bg-emerald-700 text-white font-semibold py-3.5 px-4 rounded-full shadow-md shadow-emerald-200/50 dark:shadow-none flex items-center justify-center gap-2 transition-transform active:scale-[0.98] relative z-10"
                         >
                             <div className="bg-white/20 p-1 rounded-full">
                                 <Plus className="w-4 h-4 text-white" />
                             </div>
                             {t.prayer.addNew}
-                        </motion.button>
-
-                        <div className="absolute -top-10 -right-10 w-32 h-32 bg-orange-100/50 dark:bg-orange-900/10 rounded-full blur-2xl pointer-events-none"></div>
+                        </button>
                     </div>
-                </motion.section>
+                </section>
 
                 {/* Tabs */}
-                <div className="flex items-end gap-1 mb-6 overflow-x-auto no-scrollbar px-1">
+                <div className="flex items-end gap-1 mb-6 px-1">
                     <button
                         onClick={() => setFilter('ONGOING')}
-                        className={`px-5 py-2.5 rounded-t-xl text-sm font-semibold transition-all relative whitespace-nowrap ${filter === 'ONGOING'
-                            ? 'bg-white dark:bg-slate-800 text-emerald-700 dark:text-emerald-400 shadow-[0_-2px_4px_rgba(0,0,0,0.02)] z-10 border-t border-x border-slate-100 dark:border-slate-700'
-                            : 'bg-white/40 dark:bg-slate-900/40 text-slate-500 dark:text-slate-500 hover:bg-white/60 dark:hover:bg-slate-800/60'
+                        className={`px-5 py-2.5 rounded-t-xl text-sm font-semibold transition-colors relative whitespace-nowrap ${filter === 'ONGOING'
+                            ? 'bg-white dark:bg-slate-800 text-emerald-700 dark:text-emerald-400 border-t border-x border-slate-200 dark:border-slate-700'
+                            : 'bg-transparent text-slate-500 hover:text-slate-700'
                             }`}
                     >
                         {t.prayer.ongoing} <span className="ml-0.5 opacity-70">({prayers.filter(p => !p.is_answered).length})</span>
                         {filter === 'ONGOING' && (
-                            <motion.div layoutId="tab-active" className="absolute bottom-0 left-0 w-full h-1 bg-emerald-500 rounded-t-full"></motion.div>
+                            <div className="absolute bottom-0 left-0 w-full h-0.5 bg-emerald-500"></div>
                         )}
                     </button>
 
                     <button
                         onClick={() => setFilter('ANSWERED')}
-                        className={`px-5 py-2.5 rounded-t-xl text-sm font-semibold transition-all relative whitespace-nowrap ${filter === 'ANSWERED'
-                            ? 'bg-white dark:bg-slate-800 text-emerald-700 dark:text-emerald-400 shadow-[0_-2px_4px_rgba(0,0,0,0.02)] z-10 border-t border-x border-slate-100 dark:border-slate-700'
-                            : 'bg-white/40 dark:bg-slate-900/40 text-slate-500 dark:text-slate-500 hover:bg-white/60 dark:hover:bg-slate-800/60'
+                        className={`px-5 py-2.5 rounded-t-xl text-sm font-semibold transition-colors relative whitespace-nowrap ${filter === 'ANSWERED'
+                            ? 'bg-white dark:bg-slate-800 text-emerald-700 dark:text-emerald-400 border-t border-x border-slate-200 dark:border-slate-700'
+                            : 'bg-transparent text-slate-500 hover:text-slate-700'
                             }`}
                     >
                         {t.prayer.answered} <span className="ml-0.5 opacity-70">({prayers.filter(p => p.is_answered).length})</span>
                         {filter === 'ANSWERED' && (
-                            <motion.div layoutId="tab-active" className="absolute bottom-0 left-0 w-full h-1 bg-emerald-500 rounded-t-full"></motion.div>
+                            <div className="absolute bottom-0 left-0 w-full h-0.5 bg-emerald-500"></div>
                         )}
                     </button>
                 </div>
 
                 {/* Prayer List */}
-                <AnimatePresence mode="popLayout">
-                    <motion.div layout className="space-y-6 min-h-[300px] pb-10">
-                        {loading ? (
-                            <div className="flex flex-col items-center justify-center py-20">
-                                <motion.div
-                                    animate={{ rotate: 360 }}
-                                    transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
-                                    className="w-10 h-10 border-4 border-emerald-500 border-t-transparent rounded-full"
-                                ></motion.div>
-                                <p className="text-slate-400 text-sm mt-4 tracking-tight">기도 노트를 불러오는 중...</p>
-                            </div>
-                        ) : prayers.length > 0 ? (
-                            prayers.map((prayer, index) => (
+                <div className="space-y-4 min-h-[300px] pb-10">
+                    {loading ? (
+                        <div className="flex flex-col items-center justify-center py-20">
+                            <div className="w-8 h-8 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin"></div>
+                            <p className="text-slate-400 text-sm mt-4 tracking-tight">로딩 중...</p>
+                        </div>
+                    ) : prayers.length > 0 ? (
+                        <AnimatePresence initial={false}>
+                            {prayers.map((prayer) => (
                                 <motion.div
                                     key={prayer.id}
-                                    initial={{ opacity: 0, y: 20 }}
+                                    initial={{ opacity: 0, y: 10 }}
                                     animate={{ opacity: 1, y: 0 }}
                                     exit={{ opacity: 0, scale: 0.95 }}
-                                    transition={{ delay: index * 0.05, duration: 0.3 }}
-                                    layout
+                                    transition={{ duration: 0.2 }}
                                     className="relative group"
                                 >
-                                    <div className="absolute inset-x-1 bottom-[-4px] h-full bg-white dark:bg-slate-800/60 rounded-xl border border-stone-200 dark:border-slate-800 shadow-sm z-0"></div>
-                                    <div className="absolute inset-x-2 bottom-[-8px] h-full bg-white dark:bg-slate-800/40 rounded-xl border border-stone-200 dark:border-slate-800 shadow-sm z-[-1]"></div>
-
-                                    {/* Notebook Card Implementation */}
-                                    <div className="relative bg-[#fdfbf7] dark:bg-slate-800 p-5 rounded-xl border border-stone-100 dark:border-slate-700 shadow-sm z-10 flex flex-col gap-3 group-hover:translate-y-[-2px] transition-all overflow-hidden">
-                                        {/* Subtle internal notebook lines */}
+                                    {/* Notebook Card */}
+                                    <div className="relative bg-[#fdfbf7] dark:bg-slate-800 p-5 rounded-xl border border-stone-200 dark:border-slate-700 shadow-sm z-10 flex flex-col gap-3">
+                                        {/* Notebook lines */}
                                         <div className="absolute inset-0 pointer-events-none opacity-20 notebook-lines bg-[size:100%_28px] mt-12 px-5"></div>
 
                                         <div className="flex justify-between items-start relative z-10">
-                                            <div className="flex items-center gap-3">
-                                                <div className={`p-2 rounded-full ${getCategoryColor(prayer.category)} dark:bg-slate-700`}>
+                                            <div className="flex items-center gap-2">
+                                                <div className={`p-1.5 rounded-lg ${getCategoryColor(prayer.category)}`}>
                                                     {getCategoryIcon(prayer.category)}
                                                 </div>
-                                                <span className="text-[10px] font-bold tracking-widest text-slate-400 dark:text-slate-500 uppercase">
+                                                <span className="text-[11px] font-bold tracking-wider text-slate-400 dark:text-slate-500 uppercase">
                                                     {prayer.category === 'Family' ? t.prayer.family :
                                                         prayer.category === 'Guidance' ? t.prayer.guidance :
                                                             prayer.category === 'Community' ? t.prayer.community : prayer.category}
@@ -378,47 +368,53 @@ const PrayerWallScreen: React.FC<PrayerWallScreenProps> = ({ navigate, t }) => {
                                             </div>
 
                                             <div className="flex items-center gap-1 relative">
-                                                <motion.button
-                                                    whileTap={{ scale: 0.8 }}
+                                                <button
                                                     onClick={() => toggleAnswered(prayer.id, prayer.is_answered)}
-                                                    className={`p-1.5 rounded-lg transition-colors ${prayer.is_answered ? 'text-emerald-500 bg-emerald-50 dark:bg-emerald-900/20' : 'text-slate-300 hover:text-slate-500'}`}
+                                                    className={`p-2 rounded-lg transition-colors ${prayer.is_answered ? 'text-emerald-500 bg-emerald-50 dark:bg-emerald-900/20' : 'text-slate-300 hover:text-slate-500'}`}
                                                 >
-                                                    <CheckCircle2 className="w-5 h-5 flex-shrink-0" />
-                                                </motion.button>
+                                                    <CheckCircle2 className="w-5 h-5" />
+                                                </button>
 
                                                 {/* Menu Trigger */}
                                                 <div className="relative">
                                                     <button
-                                                        onClick={(e) => { e.stopPropagation(); setActiveMenuId(activeMenuId === prayer.id ? null : prayer.id); }}
-                                                        className={`p-1.5 rounded-lg transition-colors ${activeMenuId === prayer.id ? 'bg-slate-100 dark:bg-slate-700 text-slate-600' : 'text-slate-300 hover:text-slate-500'}`}
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            setActiveMenuId(activeMenuId === prayer.id ? null : prayer.id);
+                                                        }}
+                                                        className={`p-2 rounded-lg transition-colors ${activeMenuId === prayer.id ? 'bg-slate-100 dark:bg-slate-700 text-slate-600' : 'text-slate-300 hover:text-slate-500'}`}
                                                     >
                                                         <MoreHorizontal className="w-5 h-5" />
                                                     </button>
 
                                                     {/* Dropdown Menu */}
-                                                    <AnimatePresence>
-                                                        {activeMenuId === prayer.id && (
-                                                            <motion.div
-                                                                initial={{ opacity: 0, scale: 0.9, y: -10 }}
-                                                                animate={{ opacity: 1, scale: 1, y: 0 }}
-                                                                exit={{ opacity: 0, scale: 0.9, y: -10 }}
-                                                                className="absolute right-0 mt-2 w-32 bg-white dark:bg-slate-800 rounded-xl shadow-xl border border-slate-100 dark:border-slate-700 p-1.5 z-[50]"
+                                                    {activeMenuId === prayer.id && (
+                                                        <div
+                                                            ref={menuRef}
+                                                            className="absolute right-0 mt-2 w-36 bg-white dark:bg-slate-800 rounded-xl shadow-xl border border-slate-100 dark:border-slate-700 p-1.5 z-[50]"
+                                                            onClick={(e) => e.stopPropagation()}
+                                                        >
+                                                            <button
+                                                                onClick={(e) => {
+                                                                    e.stopPropagation();
+                                                                    openEditModal(prayer);
+                                                                }}
+                                                                className="w-full flex items-center gap-2.5 px-3 py-2.5 text-sm text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700/50 rounded-lg transition-colors text-left font-medium"
                                                             >
-                                                                <button
-                                                                    onClick={() => openEditModal(prayer)}
-                                                                    className="w-full flex items-center gap-2.5 px-3 py-2 text-sm text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700/50 rounded-lg transition-colors"
-                                                                >
-                                                                    <Edit2 className="w-4 h-4" /> 편집하기
-                                                                </button>
-                                                                <button
-                                                                    onClick={() => handleDeletePrayer(prayer.id)}
-                                                                    className="w-full flex items-center gap-2.5 px-3 py-2 text-sm text-red-500 hover:bg-red-50 dark:hover:bg-red-900/10 rounded-lg transition-colors"
-                                                                >
-                                                                    <Trash2 className="w-4 h-4" /> 삭제하기
-                                                                </button>
-                                                            </motion.div>
-                                                        )}
-                                                    </AnimatePresence>
+                                                                <Edit2 className="w-4 h-4" /> 편집하기
+                                                            </button>
+                                                            <button
+                                                                onClick={(e) => {
+                                                                    e.stopPropagation();
+                                                                    setActiveMenuId(null);
+                                                                    handleDeletePrayer(prayer.id);
+                                                                }}
+                                                                className="w-full flex items-center gap-2.5 px-3 py-2.5 text-sm text-red-500 hover:bg-red-50 dark:hover:bg-red-900/10 rounded-lg transition-colors text-left font-medium"
+                                                            >
+                                                                <Trash2 className="w-4 h-4" /> 삭제하기
+                                                            </button>
+                                                        </div>
+                                                    )}
                                                 </div>
                                             </div>
                                         </div>
@@ -427,7 +423,7 @@ const PrayerWallScreen: React.FC<PrayerWallScreenProps> = ({ navigate, t }) => {
                                             <h3 className="text-lg font-bold text-slate-800 dark:text-white mb-2 leading-tight">
                                                 {prayer.title}
                                             </h3>
-                                            <p className="text-slate-600 dark:text-slate-300 text-sm leading-relaxed min-h-[2.4em]">
+                                            <p className="text-slate-600 dark:text-slate-300 text-[15px] leading-[32px] min-h-[2em]">
                                                 {prayer.content}
                                             </p>
                                         </div>
@@ -438,47 +434,45 @@ const PrayerWallScreen: React.FC<PrayerWallScreenProps> = ({ navigate, t }) => {
                                                 <span>{formatDate(prayer.created_at)}</span>
                                             </div>
 
-                                            <motion.button
-                                                whileHover={{ scale: 1.05 }}
-                                                whileTap={{ scale: 0.95 }}
+                                            <button
                                                 onClick={() => incrementPrayed(prayer.id, prayer.prayer_count)}
-                                                className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-100 dark:hover:bg-emerald-900/30 transition-all font-bold text-xs"
+                                                className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-100 dark:hover:bg-emerald-900/30 transition-colors font-bold text-xs"
                                             >
                                                 <span className="material-symbols-outlined text-[16px]">spa</span>
                                                 {t.prayer.prayedCount.replace('{count}', String(prayer.prayer_count))}
-                                            </motion.button>
+                                            </button>
                                         </div>
                                     </div>
                                 </motion.div>
-                            ))
-                        ) : (
-                            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex flex-col items-center justify-center py-20 text-slate-400 bg-white/30 dark:bg-slate-800/30 rounded-3xl border border-dashed border-slate-300 dark:border-slate-700">
-                                <span className="material-symbols-outlined text-5xl mb-4 opacity-20">spa</span>
-                                <p className="text-sm font-medium">{filter === 'ONGOING' ? '진행 중인 기도가 없습니다.' : '응답 완료된 기도가 없습니다.'}</p>
-                            </motion.div>
-                        )}
-                    </motion.div>
-                </AnimatePresence>
+                            ))}
+                        </AnimatePresence>
+                    ) : (
+                        <div className="flex flex-col items-center justify-center py-20 text-slate-400 bg-white/30 dark:bg-slate-800/30 rounded-3xl border border-dashed border-slate-300 dark:border-slate-700">
+                            <span className="material-symbols-outlined text-5xl mb-4 opacity-20">spa</span>
+                            <p className="text-sm font-medium">{filter === 'ONGOING' ? '진행 중인 기도가 없습니다.' : '응답 완료된 기도가 없습니다.'}</p>
+                        </div>
+                    )}
+                </div>
             </main>
 
-            {/* Optimized Modal */}
+            {/* Performance Optimized Modal */}
             <AnimatePresence>
                 {showAddModal && (
-                    <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center p-4 overflow-hidden">
+                    <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center p-0 sm:p-4">
                         <motion.div
                             initial={{ opacity: 0 }}
                             animate={{ opacity: 1 }}
                             exit={{ opacity: 0 }}
                             onClick={resetForm}
-                            className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm"
+                            className="absolute inset-0 bg-slate-900/60"
                         ></motion.div>
 
                         <motion.div
-                            initial={{ y: "100%", opacity: 0 }}
-                            animate={{ y: 0, opacity: 1 }}
-                            exit={{ y: "100%", opacity: 0 }}
-                            transition={{ duration: 0.4, ease: [0.32, 0.72, 0, 1] }}
-                            className="w-full max-w-md bg-white dark:bg-slate-800 rounded-t-3xl sm:rounded-2xl shadow-2xl overflow-hidden relative z-10"
+                            initial={{ y: "100%" }}
+                            animate={{ y: 0 }}
+                            exit={{ y: "100%" }}
+                            transition={{ type: "spring", damping: 30, stiffness: 300, mass: 0.8 }}
+                            className="w-full max-w-md bg-white dark:bg-slate-800 rounded-t-3xl sm:rounded-2xl shadow-xl overflow-hidden relative z-10"
                         >
                             <div className="flex justify-between items-center p-5 border-b border-slate-100 dark:border-slate-700">
                                 <h2 className="text-xl font-bold text-slate-800 dark:text-white">
