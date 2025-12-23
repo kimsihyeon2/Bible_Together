@@ -1,37 +1,39 @@
 /**
- * Smart Bible Planner - Dynamic Weighted Partitioning Algorithm
+ * Smart Bible Planner - Sequential Reading Algorithm v2
  * 
- * 핵심 알고리즘:
- * 1. 가중치 계산 (Weighted Cost) - 난이도, 텍스트 길이 기반
- * 2. 자동 병합/분할 (Auto Merge/Split) - 목표 시간에 맞춤
- * 3. 버퍼 데이 생성 (Buffer Days) - 7일마다 휴식일
+ * 핵심 원칙:
+ * 1. 순차 읽기 (Sequential) - 창세기 1장부터 요한계시록까지 순서대로
+ * 2. 전체 66권 완독 - 1년 안에 성경 전체 읽기
+ * 3. 동적 분량 조절 - 목표 시간에 맞춰 장/절 단위로 분할
  */
 
-import { BibleTranslation } from './constants';
+import { BibleTranslation, BIBLE_BOOKS } from './constants';
 
 // ==========================================
 // 1. 데이터 타입 정의
 // ==========================================
 
-export interface BibleVerse {
+export interface ReadingRange {
     book: string;
-    chapter: number;
-    verse: number;
-    textLength: number;        // 공백 제외 글자 수
-    difficultyScore: number;   // 1.0: 보통, 1.5: 어려움 (레위기 등)
-    isNarrative: boolean;      // 서사 구조 여부 (끊지 않는게 좋음)
+    startChapter: number;
+    endChapter: number;
+    startVerse: number;
+    endVerse: number;
 }
 
 export interface DailyPlan {
     dayNumber: number;
-    readings: BibleVerse[];
-    book: string;
+    ranges: ReadingRange[];  // 여러 책에 걸칠 수 있음
+    displayText: string;     // "창세기 1:1 ~ 2:25"
+    shortText: string;       // "창 1-2"
+    book: string;            // 메인 책 (첫 번째)
     startChapter: number;
     endChapter: number;
-    startVerse?: number;
-    endVerse?: number;
+    startVerse: number;
+    endVerse: number;
     estimatedTimeSeconds: number;
     estimatedTimeMinutes: number;
+    wordCount: number;
     isBufferDay: boolean;
     isCompleted: boolean;
     completedAt?: Date;
@@ -46,207 +48,117 @@ export interface ReadingPlanStats {
     longestStreak: number;
     totalWordsRead: number;
     totalChaptersRead: number;
+    booksCompleted: number;
 }
 
 export type PlannerMode = 'NKRV' | 'EASY';
 
-// 책별 난이도 점수 (1.0 = 보통, 1.5 = 어려움)
-const BOOK_DIFFICULTY: Record<string, number> = {
-    // 어려운 책들 (율법서, 예언서)
-    '레위기': 1.5,
-    '민수기': 1.4,
-    '신명기': 1.3,
-    '에스겔': 1.5,
-    '다니엘': 1.4,
-    '스가랴': 1.4,
-    '요한계시록': 1.5,
-    '욥기': 1.4,
-    '전도서': 1.3,
-    '이사야': 1.3,
-    '예레미야': 1.3,
-    '히브리서': 1.3,
-    '로마서': 1.3,
-    // 보통 난이도
-    '창세기': 1.0,
-    '출애굽기': 1.1,
-    '여호수아': 1.0,
-    '사사기': 1.0,
-    '룻기': 1.0,
-    '사무엘상': 1.0,
-    '사무엘하': 1.0,
-    '열왕기상': 1.0,
-    '열왕기하': 1.0,
-    '역대상': 1.1,
-    '역대하': 1.1,
-    '에스라': 1.1,
-    '느헤미야': 1.1,
-    '에스더': 1.0,
-    '시편': 1.1,
-    '잠언': 1.2,
-    '아가': 1.2,
-    '예레미야애가': 1.2,
-    '호세아': 1.2,
-    '요엘': 1.1,
-    '아모스': 1.1,
-    '오바댜': 1.0,
-    '요나': 1.0,
-    '미가': 1.1,
-    '나훔': 1.1,
-    '하박국': 1.1,
-    '스바냐': 1.1,
-    '학개': 1.0,
-    '말라기': 1.0,
-    // 신약 (복음서는 읽기 쉬움)
-    '마태복음': 1.0,
-    '마가복음': 1.0,
-    '누가복음': 1.0,
-    '요한복음': 1.0,
-    '사도행전': 1.0,
-    '고린도전서': 1.2,
-    '고린도후서': 1.2,
-    '갈라디아서': 1.2,
-    '에베소서': 1.2,
-    '빌립보서': 1.1,
-    '골로새서': 1.2,
-    '데살로니가전서': 1.1,
-    '데살로니가후서': 1.1,
-    '디모데전서': 1.1,
-    '디모데후서': 1.1,
-    '디도서': 1.1,
-    '빌레몬서': 1.0,
-    '야고보서': 1.1,
-    '베드로전서': 1.2,
-    '베드로후서': 1.2,
-    '요한일서': 1.0,
-    '요한이서': 1.0,
-    '요한삼서': 1.0,
-    '유다서': 1.2,
+// 책 약어 맵
+const BOOK_ABBREV: Record<string, string> = {
+    '창세기': '창', '출애굽기': '출', '레위기': '레', '민수기': '민', '신명기': '신',
+    '여호수아': '수', '사사기': '삿', '룻기': '룻', '사무엘상': '삼상', '사무엘하': '삼하',
+    '열왕기상': '왕상', '열왕기하': '왕하', '역대상': '대상', '역대하': '대하',
+    '에스라': '스', '느헤미야': '느', '에스더': '에', '욥기': '욥', '시편': '시',
+    '잠언': '잠', '전도서': '전', '아가': '아', '이사야': '사', '예레미야': '렘',
+    '예레미야애가': '애', '에스겔': '겔', '다니엘': '단', '호세아': '호', '요엘': '욜',
+    '아모스': '암', '오바댜': '옵', '요나': '욘', '미가': '미', '나훔': '나',
+    '하박국': '합', '스바냐': '습', '학개': '학', '스가랴': '슥', '말라기': '말',
+    '마태복음': '마', '마가복음': '막', '누가복음': '눅', '요한복음': '요',
+    '사도행전': '행', '로마서': '롬', '고린도전서': '고전', '고린도후서': '고후',
+    '갈라디아서': '갈', '에베소서': '엡', '빌립보서': '빌', '골로새서': '골',
+    '데살로니가전서': '살전', '데살로니가후서': '살후', '디모데전서': '딤전',
+    '디모데후서': '딤후', '디도서': '딛', '빌레몬서': '몬', '히브리서': '히',
+    '야고보서': '약', '베드로전서': '벧전', '베드로후서': '벧후',
+    '요한일서': '요일', '요한이서': '요이', '요한삼서': '요삼',
+    '유다서': '유', '요한계시록': '계',
 };
 
-// 책별 서사 구조 여부 (끊지 않는 게 좋은 책들)
-const NARRATIVE_BOOKS = new Set([
-    '창세기', '출애굽기', '여호수아', '사사기', '룻기',
-    '사무엘상', '사무엘하', '열왕기상', '열왕기하',
-    '역대상', '역대하', '에스라', '느헤미야', '에스더',
-    '요나', '다니엘',
-    '마태복음', '마가복음', '누가복음', '요한복음', '사도행전',
-]);
+// 책별 난이도 점수 (1.0 = 보통, 1.5 = 어려움)
+const BOOK_DIFFICULTY: Record<string, number> = {
+    '레위기': 1.4, '민수기': 1.3, '신명기': 1.2, '에스겔': 1.4, '다니엘': 1.3,
+    '스가랴': 1.3, '요한계시록': 1.4, '욥기': 1.3, '전도서': 1.2, '이사야': 1.2,
+    '예레미야': 1.2, '히브리서': 1.2, '로마서': 1.2,
+};
 
 // ==========================================
-// 2. 핵심 알고리즘 클래스
+// 2. 핵심 알고리즘 클래스 v2
 // ==========================================
 
 export class SmartBiblePlanner {
     private mode: PlannerMode;
-    private readingSpeedCPM: number;    // 분당 읽는 글자 수
-    private targetSeconds: number;       // 하루 목표 시간 (초)
-    private hardWordPenalty: number;     // 어려운 단어 패널티
-    private overflowTolerance: number;   // 초과 허용치
-    private bufferDayInterval: number;   // 버퍼 데이 간격
+    private readingSpeedCPM: number;
+    private targetSeconds: number;
+    private overflowTolerance: number;
+    private totalDaysTarget: number;
 
     constructor(mode: PlannerMode = 'NKRV', targetMinutes: number = 10) {
         this.mode = mode;
-        this.readingSpeedCPM = 450;  // 성인 평균 읽기 속도
+        this.readingSpeedCPM = mode === 'NKRV' ? 400 : 500;  // 개역개정은 더 천천히
         this.targetSeconds = targetMinutes * 60;
-        this.bufferDayInterval = 7;
-
-        if (mode === 'NKRV') {
-            // 개역개정: 인지 부하 고려, 엄격한 시간 제한
-            this.hardWordPenalty = 1.3;
-            this.overflowTolerance = 1.1;
-        } else {
-            // 쉬운성경: 흐름 중심, 유연한 시간 허용
-            this.hardWordPenalty = 1.0;
-            this.overflowTolerance = 1.3;
-        }
+        this.overflowTolerance = mode === 'NKRV' ? 1.15 : 1.25;
+        this.totalDaysTarget = 365;  // 1년
     }
 
     /**
-     * 한 절을 읽는 데 걸리는 '인지적 시간(초)' 계산
-     */
-    private calculateVerseCost(verse: BibleVerse): number {
-        const baseTime = verse.textLength / (this.readingSpeedCPM / 60);
-
-        // 개역개정이고 난이도가 높으면 가중치 적용
-        if (this.mode === 'NKRV' && verse.difficultyScore > 1.0) {
-            return baseTime * this.hardWordPenalty;
-        }
-
-        return baseTime;
-    }
-
-    /**
-     * 성경 데이터를 기반으로 일일 읽기 계획 생성
+     * 순차적 1년 성경읽기 계획 생성
+     * 핵심: 창세기 1장부터 요한계시록까지 순서대로, 365일에 맞춤
      */
     public generatePlan(
         bibleData: Record<string, Record<string, Record<string, string>>>,
-        books: string[]
+        books: string[] = BIBLE_BOOKS
     ): DailyPlan[] {
+        // 1. 전체 성경 단어 수 계산
+        const allChapters = this.extractAllChapters(bibleData, books);
+        const totalWords = allChapters.reduce((sum, ch) => sum + ch.wordCount, 0);
+
+        // 2. 일일 목표 단어 수 계산 (버퍼 데이 고려)
+        const readingDays = Math.floor(this.totalDaysTarget * 6 / 7);  // 일요일 제외
+        const wordsPerDay = Math.ceil(totalWords / readingDays);
+
+        // 3. 순차적으로 일일 계획 생성
         const plans: DailyPlan[] = [];
-        const allVerses = this.extractAllVerses(bibleData, books);
+        let dayNumber = 1;
+        let currentDayWords = 0;
+        let currentDayChapters: typeof allChapters = [];
 
-        let currentDayReadings: BibleVerse[] = [];
-        let currentTimeAcc = 0;
-        let dayCount = 1;
+        for (let i = 0; i < allChapters.length; i++) {
+            const chapter = allChapters[i];
 
-        for (let i = 0; i < allVerses.length; i++) {
-            const verse = allVerses[i];
-
-            // 1. 현재 절의 비용 계산
-            const verseCost = this.calculateVerseCost(verse);
-
-            // 2. 버퍼 데이 로직: 7일마다 쉼
-            if (dayCount % this.bufferDayInterval === 0 && currentDayReadings.length === 0) {
-                plans.push({
-                    dayNumber: dayCount,
-                    readings: [],
-                    book: '',
-                    startChapter: 0,
-                    endChapter: 0,
-                    estimatedTimeSeconds: 0,
-                    estimatedTimeMinutes: 0,
-                    isBufferDay: true,
-                    isCompleted: false,
-                    note: '🛌 버퍼 데이 (복습 및 휴식)',
-                });
-                dayCount++;
+            // 버퍼 데이 (일요일) 체크
+            if (dayNumber % 7 === 0 && currentDayChapters.length === 0) {
+                plans.push(this.createBufferDay(dayNumber));
+                dayNumber++;
             }
 
-            // 3. 누적 시간 확인 및 끊기 결정
-            if (currentTimeAcc + verseCost > this.targetSeconds * this.overflowTolerance) {
-                // 현재까지 묶음을 저장
-                if (currentDayReadings.length > 0) {
-                    plans.push(this.createDailyPlan(dayCount, currentDayReadings, currentTimeAcc));
-                    dayCount++;
-                }
+            // 현재 장 추가
+            currentDayChapters.push(chapter);
+            currentDayWords += chapter.wordCount;
 
-                // 초기화
-                currentDayReadings = [];
-                currentTimeAcc = 0;
+            // 목표 단어 수 도달하면 하루 마감
+            const isLastChapter = i === allChapters.length - 1;
+            const shouldClose = currentDayWords >= wordsPerDay * this.overflowTolerance || isLastChapter;
+
+            if (shouldClose && currentDayChapters.length > 0) {
+                plans.push(this.createDailyPlan(dayNumber, currentDayChapters, currentDayWords));
+                dayNumber++;
+                currentDayChapters = [];
+                currentDayWords = 0;
             }
-
-            // 4. 현재 버킷에 담기
-            currentDayReadings.push(verse);
-            currentTimeAcc += verseCost;
-        }
-
-        // 마지막 남은 자투리 처리
-        if (currentDayReadings.length > 0) {
-            plans.push(this.createDailyPlan(dayCount, currentDayReadings, currentTimeAcc));
         }
 
         return plans;
     }
 
     /**
-     * 성경 JSON 데이터에서 모든 절 추출
+     * 성경 데이터에서 모든 장 추출 (순서 유지!)
      */
-    private extractAllVerses(
+    private extractAllChapters(
         bibleData: Record<string, Record<string, Record<string, string>>>,
         books: string[]
-    ): BibleVerse[] {
-        const verses: BibleVerse[] = [];
+    ): Array<{ book: string; chapter: number; wordCount: number; verseCount: number; firstVerse: number; lastVerse: number }> {
+        const chapters: Array<{ book: string; chapter: number; wordCount: number; verseCount: number; firstVerse: number; lastVerse: number }> = [];
 
+        // BIBLE_BOOKS 순서대로 처리 (창세기 → 요한계시록)
         for (const book of books) {
             // JSON 키 매핑
             let key = book;
@@ -255,56 +167,100 @@ export class SmartBiblePlanner {
             if (book === '요한삼서') key = '요한3서';
 
             const bookData = bibleData[key];
-            if (!bookData) continue;
+            if (!bookData) {
+                console.warn(`Book not found in Bible data: ${book} (key: ${key})`);
+                continue;
+            }
 
-            const chapters = Object.keys(bookData).map(Number).sort((a, b) => a - b);
+            // 장을 숫자 순서대로 정렬
+            const chapterNums = Object.keys(bookData).map(Number).sort((a, b) => a - b);
 
-            for (const chapter of chapters) {
-                const chapterData = bookData[chapter.toString()];
+            for (const chapterNum of chapterNums) {
+                const chapterData = bookData[chapterNum.toString()];
                 if (!chapterData) continue;
 
-                const verseNumbers = Object.keys(chapterData).map(Number).sort((a, b) => a - b);
+                const verseNums = Object.keys(chapterData).map(Number).sort((a, b) => a - b);
+                let wordCount = 0;
 
-                for (const verseNum of verseNumbers) {
+                for (const verseNum of verseNums) {
                     const text = chapterData[verseNum.toString()] || '';
-                    const cleanText = text.replace(/\s/g, '');
-
-                    verses.push({
-                        book,
-                        chapter,
-                        verse: verseNum,
-                        textLength: cleanText.length,
-                        difficultyScore: BOOK_DIFFICULTY[book] || 1.0,
-                        isNarrative: NARRATIVE_BOOKS.has(book),
-                    });
+                    wordCount += text.replace(/\s/g, '').length;
                 }
+
+                // 난이도 보정
+                const difficulty = BOOK_DIFFICULTY[book] || 1.0;
+                wordCount = Math.round(wordCount * difficulty);
+
+                chapters.push({
+                    book,
+                    chapter: chapterNum,
+                    wordCount,
+                    verseCount: verseNums.length,
+                    firstVerse: verseNums[0] || 1,
+                    lastVerse: verseNums[verseNums.length - 1] || 1,
+                });
             }
         }
 
-        return verses;
+        return chapters;
     }
 
     /**
-     * DailyPlan 객체 생성 헬퍼
+     * 일일 계획 생성
      */
     private createDailyPlan(
         dayNumber: number,
-        readings: BibleVerse[],
-        totalSeconds: number
+        chapters: Array<{ book: string; chapter: number; wordCount: number; verseCount: number; firstVerse: number; lastVerse: number }>,
+        totalWords: number
     ): DailyPlan {
-        const firstVerse = readings[0];
-        const lastVerse = readings[readings.length - 1];
+        if (chapters.length === 0) {
+            return this.createBufferDay(dayNumber);
+        }
+
+        const first = chapters[0];
+        const last = chapters[chapters.length - 1];
+
+        // 읽기 범위 생성
+        const ranges: ReadingRange[] = [];
+        let currentRange: ReadingRange | null = null;
+
+        for (const ch of chapters) {
+            if (!currentRange || currentRange.book !== ch.book) {
+                if (currentRange) ranges.push(currentRange);
+                currentRange = {
+                    book: ch.book,
+                    startChapter: ch.chapter,
+                    endChapter: ch.chapter,
+                    startVerse: ch.firstVerse,
+                    endVerse: ch.lastVerse,
+                };
+            } else {
+                currentRange.endChapter = ch.chapter;
+                currentRange.endVerse = ch.lastVerse;
+            }
+        }
+        if (currentRange) ranges.push(currentRange);
+
+        // 표시 텍스트 생성
+        const displayText = this.createDisplayText(ranges);
+        const shortText = this.createShortText(ranges);
+
+        // 예상 읽기 시간
+        const estimatedSeconds = Math.round((totalWords / this.readingSpeedCPM) * 60);
 
         return {
             dayNumber,
-            readings,
-            book: firstVerse.book,
-            startChapter: firstVerse.chapter,
-            endChapter: lastVerse.chapter,
-            startVerse: firstVerse.verse,
-            endVerse: lastVerse.verse,
-            estimatedTimeSeconds: Math.round(totalSeconds),
-            estimatedTimeMinutes: Math.round(totalSeconds / 60),
+            ranges,
+            displayText,
+            shortText,
+            book: first.book,
+            startChapter: first.chapter,
+            endChapter: last.chapter,
+            startVerse: first.firstVerse,
+            endVerse: last.lastVerse,
+            estimatedTimeSeconds: estimatedSeconds,
+            estimatedTimeMinutes: Math.round(estimatedSeconds / 60),
+            wordCount: totalWords,
             isBufferDay: false,
             isCompleted: false,
             note: '',
@@ -312,13 +268,67 @@ export class SmartBiblePlanner {
     }
 
     /**
+     * 버퍼 데이 생성
+     */
+    private createBufferDay(dayNumber: number): DailyPlan {
+        return {
+            dayNumber,
+            ranges: [],
+            displayText: '휴식일',
+            shortText: '☕',
+            book: '',
+            startChapter: 0,
+            endChapter: 0,
+            startVerse: 0,
+            endVerse: 0,
+            estimatedTimeSeconds: 0,
+            estimatedTimeMinutes: 0,
+            wordCount: 0,
+            isBufferDay: true,
+            isCompleted: false,
+            note: '🛌 복습 및 휴식',
+        };
+    }
+
+    /**
+     * 표시 텍스트 생성 (예: "창세기 1:1 ~ 2:25")
+     */
+    private createDisplayText(ranges: ReadingRange[]): string {
+        if (ranges.length === 0) return '';
+
+        const parts: string[] = [];
+        for (const r of ranges) {
+            if (r.startChapter === r.endChapter) {
+                parts.push(`${r.book} ${r.startChapter}:${r.startVerse}-${r.endVerse}`);
+            } else {
+                parts.push(`${r.book} ${r.startChapter}:${r.startVerse} ~ ${r.endChapter}:${r.endVerse}`);
+            }
+        }
+        return parts.join(', ');
+    }
+
+    /**
+     * 짧은 텍스트 생성 (예: "창 1-2")
+     */
+    private createShortText(ranges: ReadingRange[]): string {
+        if (ranges.length === 0) return '';
+
+        const parts: string[] = [];
+        for (const r of ranges) {
+            const abbrev = BOOK_ABBREV[r.book] || r.book.substring(0, 2);
+            if (r.startChapter === r.endChapter) {
+                parts.push(`${abbrev} ${r.startChapter}`);
+            } else {
+                parts.push(`${abbrev} ${r.startChapter}-${r.endChapter}`);
+            }
+        }
+        return parts.join(', ');
+    }
+
+    /**
      * 오늘의 과제 가져오기
      */
-    public static getTodayAssignment(
-        plans: DailyPlan[],
-        completedDays: number[]
-    ): DailyPlan | null {
-        // 완료되지 않은 첫 번째 날 찾기
+    public static getTodayAssignment(plans: DailyPlan[], completedDays: number[]): DailyPlan | null {
         for (const plan of plans) {
             if (!completedDays.includes(plan.dayNumber) && !plan.isBufferDay) {
                 return plan;
@@ -333,9 +343,7 @@ export class SmartBiblePlanner {
     public static calculateStreak(completedDates: Date[]): number {
         if (completedDates.length === 0) return 0;
 
-        // 날짜 정렬 (최신순)
         const sorted = [...completedDates].sort((a, b) => b.getTime() - a.getTime());
-
         const today = new Date();
         today.setHours(0, 0, 0, 0);
 
@@ -346,7 +354,6 @@ export class SmartBiblePlanner {
             const compareDate = new Date(date);
             compareDate.setHours(0, 0, 0, 0);
 
-            // 오늘 또는 어제인지 확인
             const diffDays = Math.floor((currentDate.getTime() - compareDate.getTime()) / (1000 * 60 * 60 * 24));
 
             if (diffDays === 0 || diffDays === 1) {
@@ -354,7 +361,7 @@ export class SmartBiblePlanner {
                 currentDate = compareDate;
                 currentDate.setDate(currentDate.getDate() - 1);
             } else if (diffDays > 1) {
-                break; // 연속 끊김
+                break;
             }
         }
 
@@ -363,62 +370,44 @@ export class SmartBiblePlanner {
 }
 
 // ==========================================
-// 3. 읽기 계획 관리 훅용 유틸리티
+// 3. 읽기 계획 관리 유틸리티
 // ==========================================
 
 export interface UserReadingProgress {
     planId: string;
     userId: string;
     completedDays: number[];
-    completedDates: string[];  // ISO date strings
+    completedDates: string[];
     currentDay: number;
     startDate: string;
     lastReadDate: string;
 }
 
-/**
- * localStorage 키 생성
- */
-export const getReadingPlanKey = (userId: string) => `readingPlan_${userId}`;
-export const getProgressKey = (userId: string) => `readingProgress_${userId}`;
+export const getReadingPlanKey = (userId: string) => `readingPlan_v2_${userId}`;
+export const getProgressKey = (userId: string) => `readingProgress_v2_${userId}`;
 
-/**
- * 읽기 계획 저장
- */
 export const saveReadingPlan = (userId: string, plans: DailyPlan[]): void => {
     if (typeof window === 'undefined') return;
     localStorage.setItem(getReadingPlanKey(userId), JSON.stringify(plans));
 };
 
-/**
- * 읽기 계획 불러오기
- */
 export const loadReadingPlan = (userId: string): DailyPlan[] | null => {
     if (typeof window === 'undefined') return null;
     const data = localStorage.getItem(getReadingPlanKey(userId));
     return data ? JSON.parse(data) : null;
 };
 
-/**
- * 진행 상황 저장
- */
 export const saveProgress = (userId: string, progress: UserReadingProgress): void => {
     if (typeof window === 'undefined') return;
     localStorage.setItem(getProgressKey(userId), JSON.stringify(progress));
 };
 
-/**
- * 진행 상황 불러오기
- */
 export const loadProgress = (userId: string): UserReadingProgress | null => {
     if (typeof window === 'undefined') return null;
     const data = localStorage.getItem(getProgressKey(userId));
     return data ? JSON.parse(data) : null;
 };
 
-/**
- * 오늘 읽기 완료 마킹
- */
 export const markDayComplete = (userId: string, dayNumber: number): void => {
     const progress = loadProgress(userId);
     if (!progress) return;
@@ -432,13 +421,7 @@ export const markDayComplete = (userId: string, dayNumber: number): void => {
     }
 };
 
-/**
- * 읽기 통계 계산
- */
-export const calculateStats = (
-    plans: DailyPlan[],
-    progress: UserReadingProgress
-): ReadingPlanStats => {
+export const calculateStats = (plans: DailyPlan[], progress: UserReadingProgress): ReadingPlanStats => {
     const completedDays = progress.completedDays.length;
     const totalDays = plans.filter(p => !p.isBufferDay).length;
 
@@ -448,12 +431,12 @@ export const calculateStats = (
 
     let totalWords = 0;
     let totalChapters = 0;
+    const booksRead = new Set<string>();
 
     for (const reading of completedReadings) {
-        for (const verse of reading.readings) {
-            totalWords += verse.textLength;
-        }
+        totalWords += reading.wordCount;
         totalChapters += (reading.endChapter - reading.startChapter + 1);
+        if (reading.book) booksRead.add(reading.book);
     }
 
     const completedDates = progress.completedDates.map(d => new Date(d));
@@ -462,11 +445,12 @@ export const calculateStats = (
     return {
         currentDay: progress.currentDay,
         totalDays,
-        progressPercent: Math.round((completedDays / totalDays) * 100),
+        progressPercent: totalDays > 0 ? Math.round((completedDays / totalDays) * 100) : 0,
         currentStreak: streak,
-        longestStreak: streak, // TODO: Track longest separately
+        longestStreak: streak,
         totalWordsRead: totalWords,
         totalChaptersRead: totalChapters,
+        booksCompleted: booksRead.size,
     };
 };
 

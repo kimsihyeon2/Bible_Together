@@ -203,8 +203,8 @@ export const useReadingPlan = (): UseReadingPlanReturn => {
     const resetPlan = useCallback(() => {
         if (!user?.id) return;
 
-        localStorage.removeItem(`readingPlan_${user.id}`);
-        localStorage.removeItem(`readingProgress_${user.id}`);
+        localStorage.removeItem(`readingPlan_v2_${user.id}`);
+        localStorage.removeItem(`readingProgress_v2_${user.id}`);
 
         setPlans([]);
         setProgress(null);
