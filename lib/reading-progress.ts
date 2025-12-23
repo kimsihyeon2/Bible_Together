@@ -46,14 +46,29 @@ export async function saveReadingProgress(
         }
 
         // 2. Upsert daily_readings (aggregate)
-        const today = new Date().toISOString().split('T')[0];
+        const today = new Date();
+        const todayStr = today.getFullYear() + '-' + String(today.getMonth() + 1).padStart(2, '0') + '-' + String(today.getDate()).padStart(2, '0');
+
+        // 2a. Fetch existing to increment (Robust approach)
+        const { data: existingDaily } = await supabase
+            .from('daily_readings')
+            .select('chapters_read, minutes_read')
+            .eq('user_id', userId)
+            .eq('reading_date', todayStr)
+            .maybeSingle();
+
+        const newChapters = (existingDaily?.chapters_read || 0) + 1;
+        // Estimate 5 mins if calculating, or 0 if we rely on activities. 
+        // But since we want daily_readings to be valid, let's add 5 mins.
+        const newMinutes = (existingDaily?.minutes_read || 0) + 5;
+
         await supabase.from('daily_readings').upsert({
             user_id: userId,
-            reading_date: today,
-            chapters_read: 1,
+            reading_date: todayStr,
+            chapters_read: newChapters,
+            minutes_read: newMinutes
         }, {
             onConflict: 'user_id,reading_date',
-            ignoreDuplicates: false,
         });
 
         // 3. Add to cell_activities for community feed (if user has a cell)
