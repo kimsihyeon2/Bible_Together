@@ -25,6 +25,7 @@ interface Cell {
   id: string;
   name: string;
   invite_code: string;
+  parish_id: string; // Add parish_id to interface
 }
 
 const SettingsScreen: React.FC<SettingsScreenProps> = ({ navigate, language, toggleLanguage, t }) => {
@@ -201,22 +202,36 @@ const SettingsScreen: React.FC<SettingsScreenProps> = ({ navigate, language, tog
       }
 
       // 2. 새 셀 가입
+      // 선택된 셀의 parish_id 찾기
+      const targetCell = cells.find(c => c.id === selectedCellId);
+      if (!targetCell) {
+        alert('선택된 셀 정보를 찾을 수 없습니다.');
+        setJoiningCell(false);
+        return;
+      }
+
       const { error } = await supabase.from('cell_members').insert({
         cell_id: selectedCellId,
         user_id: user.id,
+        parish_id: targetCell.parish_id, // parish_id 추가하여 NOT NULL 제약 조건 해결
       });
 
       if (error) {
         console.error('Cell join error:', error);
-        alert(`셀 가입에 실패했습니다: ${error.message}`);
+        // 더 사용자 친화적인 에러 메시지
+        if (error.code === '23505') { // Unique violation
+          alert('이미 해당 셀의 멤버이거나 가입 요청이 처리되었습니다.');
+        } else {
+          alert(`셀 가입에 실패했습니다: ${error.message}`);
+        }
       } else {
-        alert('셀 가입이 완료되었습니다!');
+        alert(`'${targetCell.name}' 셀 가입이 완료되었습니다! 환영합니다.`); // 셀 이름 포함하여 환영 메시지 개선
         setShowCellJoinModal(false);
         fetchUserStats();
       }
     } catch (error) {
       console.error('Error joining cell:', error);
-      alert('셀 가입 중 오류가 발생했습니다. 다시 시도해주세요.');
+      alert('셀 가입 중 알 수 없는 오류가 발생했습니다. 다시 시도해주세요.');
     } finally {
       setJoiningCell(false);
     }

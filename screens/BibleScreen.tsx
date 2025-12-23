@@ -58,10 +58,20 @@ const BibleScreen: React.FC<BibleScreenProps> = ({ navigate }) => {
         const savedLineHeight = localStorage.getItem('bibleLineHeight');
         if (savedLineHeight) setLineHeight(parseFloat(savedLineHeight));
 
-        // Sync Global Translation Preference
-        const savedTrans = localStorage.getItem('preferredTranslation');
-        if (savedTrans && (savedTrans === 'KRV' || savedTrans === 'KLB' || savedTrans === 'EASY')) {
-            setTranslation(savedTrans as BibleTranslation);
+        // Sync Translation Preference (Plan-specific > Global Preference)
+        // 1. Check for temporary/plan-specific translation (bibleTranslation)
+        const planTrans = localStorage.getItem('bibleTranslation');
+        // 2. Check for global user preference (preferredTranslation)
+        const globalTrans = localStorage.getItem('preferredTranslation');
+
+        const targetTrans = planTrans || globalTrans;
+
+        if (targetTrans && (targetTrans === 'KRV' || targetTrans === 'KLB' || targetTrans === 'EASY')) {
+            setTranslation(targetTrans as BibleTranslation);
+
+            // If we're using a plan-specific translation, we might want to let the user know,
+            // or just ensure we don't accidentally save this as their global preference loop.
+            // For now, simple priority logic is sufficient.
         }
     }, []);
 
