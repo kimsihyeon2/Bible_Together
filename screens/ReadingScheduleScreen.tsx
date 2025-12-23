@@ -128,6 +128,12 @@ const ReadingScheduleScreen: React.FC<ReadingScheduleScreenProps> = ({ navigate,
     };
 
     const handleStartSetup = async () => {
+        // 역본을 localStorage에 저장 (plan과 함께 유지)
+        const translationMap: Record<string, string> = {
+            'NKRV': 'KRV',
+            'EASY': 'EASY',
+        };
+        localStorage.setItem('planTranslation', translationMap[selectedMode] || 'KRV');
         await generatePlan(selectedMode, targetMinutes);
         setShowSetupModal(false);
     };
@@ -138,6 +144,9 @@ const ReadingScheduleScreen: React.FC<ReadingScheduleScreenProps> = ({ navigate,
             if (typeof window !== 'undefined') {
                 localStorage.setItem('selectedBook', plan.book);
                 localStorage.setItem('selectedChapter', plan.startChapter.toString());
+                // 저장된 계획 역본을 BibleScreen에 적용
+                const planTranslation = localStorage.getItem('planTranslation') || 'KRV';
+                localStorage.setItem('bibleTranslation', planTranslation);
             }
             onStartReading(plan.book, plan.startChapter);
             navigate(Screen.BIBLE);

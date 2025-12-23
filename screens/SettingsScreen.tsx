@@ -187,17 +187,36 @@ const SettingsScreen: React.FC<SettingsScreenProps> = ({ navigate, language, tog
     setJoiningCell(true);
 
     try {
+      // 1. 기존 셀 멤버십 확인
+      const { data: existingMembership } = await supabase
+        .from('cell_members')
+        .select('id')
+        .eq('user_id', user.id)
+        .maybeSingle();
+
+      if (existingMembership) {
+        alert('이미 셀에 가입되어 있습니다. 기존 셀에서 탈퇴 후 다시 시도해주세요.');
+        setJoiningCell(false);
+        return;
+      }
+
+      // 2. 새 셀 가입
       const { error } = await supabase.from('cell_members').insert({
         cell_id: selectedCellId,
         user_id: user.id,
       });
 
-      if (!error) {
+      if (error) {
+        console.error('Cell join error:', error);
+        alert(`셀 가입에 실패했습니다: ${error.message}`);
+      } else {
+        alert('셀 가입이 완료되었습니다!');
         setShowCellJoinModal(false);
         fetchUserStats();
       }
     } catch (error) {
       console.error('Error joining cell:', error);
+      alert('셀 가입 중 오류가 발생했습니다. 다시 시도해주세요.');
     } finally {
       setJoiningCell(false);
     }
