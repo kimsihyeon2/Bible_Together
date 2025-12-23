@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
     Heart,
     Briefcase,
@@ -54,7 +54,7 @@ const PrayerWallScreen: React.FC<PrayerWallScreenProps> = ({ navigate, t }) => {
     const [filter, setFilter] = useState<'ONGOING' | 'ANSWERED'>('ONGOING');
     const [activeMenuId, setActiveMenuId] = useState<string | null>(null);
 
-    // Modal state - completely separate
+    // Modal state
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [isModalVisible, setIsModalVisible] = useState(false);
     const [editingPrayer, setEditingPrayer] = useState<Prayer | null>(null);
@@ -64,8 +64,9 @@ const PrayerWallScreen: React.FC<PrayerWallScreenProps> = ({ navigate, t }) => {
     const [content, setContent] = useState('');
     const [category, setCategory] = useState('Family');
 
-    // Dynamic Verse State
+    // Dynamic Verse State with smooth transitions
     const [verseIndex, setVerseIndex] = useState(0);
+    const [verseFading, setVerseFading] = useState(false);
 
     useEffect(() => {
         if (user) {
@@ -73,17 +74,21 @@ const PrayerWallScreen: React.FC<PrayerWallScreenProps> = ({ navigate, t }) => {
         }
     }, [user, filter]);
 
+    // Smooth verse cycling with fade effect
     useEffect(() => {
         const interval = setInterval(() => {
-            setVerseIndex((prev) => (prev + 1) % PRAYER_VERSES.length);
+            setVerseFading(true);
+            setTimeout(() => {
+                setVerseIndex((prev) => (prev + 1) % PRAYER_VERSES.length);
+                setVerseFading(false);
+            }, 300); // Fade out duration
         }, 5000);
         return () => clearInterval(interval);
     }, []);
 
-    // Modal animation handling with CSS
+    // Modal animation handling
     useEffect(() => {
         if (isModalOpen) {
-            // Modal is opening - trigger animation after a frame
             requestAnimationFrame(() => {
                 setIsModalVisible(true);
             });
@@ -109,25 +114,31 @@ const PrayerWallScreen: React.FC<PrayerWallScreenProps> = ({ navigate, t }) => {
         }
     };
 
-    const openModal = useCallback((prayer?: Prayer) => {
-        if (prayer) {
-            setEditingPrayer(prayer);
-            setTitle(prayer.title);
-            setContent(prayer.content);
-            setCategory(prayer.category);
-        } else {
-            setEditingPrayer(null);
-            setTitle('');
-            setContent('');
-            setCategory('Family');
-        }
+    const openAddModal = useCallback(() => {
+        setEditingPrayer(null);
+        setTitle('');
+        setContent('');
+        setCategory('Family');
         setActiveMenuId(null);
+        setIsModalOpen(true);
+    }, []);
+
+    const openEditModalDirect = useCallback((prayer: Prayer) => {
+        // Close menu first
+        setActiveMenuId(null);
+
+        // Set form data
+        setEditingPrayer(prayer);
+        setTitle(prayer.title);
+        setContent(prayer.content);
+        setCategory(prayer.category);
+
+        // Open modal
         setIsModalOpen(true);
     }, []);
 
     const closeModal = useCallback(() => {
         setIsModalVisible(false);
-        // Wait for CSS animation to complete before removing from DOM
         setTimeout(() => {
             setIsModalOpen(false);
             setEditingPrayer(null);
@@ -183,12 +194,6 @@ const PrayerWallScreen: React.FC<PrayerWallScreenProps> = ({ navigate, t }) => {
         }
     };
 
-    const handleEditClick = useCallback((e: React.MouseEvent, prayer: Prayer) => {
-        e.preventDefault();
-        e.stopPropagation();
-        openModal(prayer);
-    }, [openModal]);
-
     const incrementPrayed = async (id: string, currentCount: number) => {
         try {
             const { error } = await supabase
@@ -242,7 +247,7 @@ const PrayerWallScreen: React.FC<PrayerWallScreenProps> = ({ navigate, t }) => {
 
     return (
         <div className="min-h-screen bg-stone-50 dark:bg-slate-950 pb-24 font-sans text-slate-800 dark:text-slate-100 overflow-x-hidden">
-            {/* CSS for animations - inline for simplicity */}
+            {/* CSS Animations */}
             <style jsx global>{`
                 @keyframes slideUp {
                     from { transform: translateY(100%); opacity: 0.5; }
@@ -264,6 +269,9 @@ const PrayerWallScreen: React.FC<PrayerWallScreenProps> = ({ navigate, t }) => {
                 .modal-overlay-exit { animation: fadeOut 0.15s ease-in forwards; }
                 .modal-content-enter { animation: slideUp 0.2s cubic-bezier(0.32, 0.72, 0, 1) forwards; }
                 .modal-content-exit { animation: slideDown 0.15s ease-in forwards; }
+                
+                .verse-fade-out { opacity: 0; transition: opacity 0.3s ease-out; }
+                .verse-fade-in { opacity: 1; transition: opacity 0.3s ease-in; }
             `}</style>
 
             {/* Top Header */}
@@ -299,18 +307,17 @@ const PrayerWallScreen: React.FC<PrayerWallScreenProps> = ({ navigate, t }) => {
                             {t.prayer.myPrayers}
                         </h2>
 
-                        {/* Fixed height verse container - prevents layout shift */}
+                        {/* Fixed height verse container with smooth fade */}
                         <div className="h-[100px] mb-6 relative z-10 flex items-start overflow-hidden">
                             <p
-                                key={verseIndex}
-                                className="text-slate-700 dark:text-slate-200 italic font-serif text-[15px] leading-[32px] bg-[#fefcf8]/90 dark:bg-slate-800/90 rounded p-2 shadow-sm transition-opacity duration-300 line-clamp-3"
+                                className={`text-slate-700 dark:text-slate-200 italic font-serif text-[15px] leading-[32px] bg-[#fefcf8]/90 dark:bg-slate-800/90 rounded p-2 shadow-sm line-clamp-3 ${verseFading ? 'verse-fade-out' : 'verse-fade-in'}`}
                             >
                                 "{PRAYER_VERSES[verseIndex]}"
                             </p>
                         </div>
 
                         <button
-                            onClick={() => openModal()}
+                            onClick={openAddModal}
                             className="w-full bg-emerald-500 hover:bg-emerald-600 active:bg-emerald-700 text-white font-semibold py-3.5 px-4 rounded-full shadow-md flex items-center justify-center gap-2 transition-all active:scale-[0.98] relative z-10"
                         >
                             <div className="bg-white/20 p-1 rounded-full">
@@ -390,29 +397,22 @@ const PrayerWallScreen: React.FC<PrayerWallScreenProps> = ({ navigate, t }) => {
                                                         <MoreHorizontal className="w-5 h-5" />
                                                     </button>
 
-                                                    {/* Dropdown Menu - Pure CSS */}
+                                                    {/* Dropdown Menu - Fixed z-index issue */}
                                                     {activeMenuId === prayer.id && (
-                                                        <>
-                                                            {/* Invisible overlay to close menu on outside click */}
-                                                            <div
-                                                                className="fixed inset-0 z-40"
-                                                                onClick={() => setActiveMenuId(null)}
-                                                            />
-                                                            <div className="absolute right-0 mt-2 w-36 bg-white dark:bg-slate-800 rounded-xl shadow-xl border border-slate-100 dark:border-slate-700 p-1.5 z-50">
-                                                                <button
-                                                                    onClick={(e) => handleEditClick(e, prayer)}
-                                                                    className="w-full flex items-center gap-2.5 px-3 py-2.5 text-sm text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700/50 rounded-lg transition-colors text-left font-medium"
-                                                                >
-                                                                    <Edit2 className="w-4 h-4" /> 편집하기
-                                                                </button>
-                                                                <button
-                                                                    onClick={() => handleDeletePrayer(prayer.id)}
-                                                                    className="w-full flex items-center gap-2.5 px-3 py-2.5 text-sm text-red-500 hover:bg-red-50 dark:hover:bg-red-900/10 rounded-lg transition-colors text-left font-medium"
-                                                                >
-                                                                    <Trash2 className="w-4 h-4" /> 삭제하기
-                                                                </button>
-                                                            </div>
-                                                        </>
+                                                        <div className="absolute right-0 mt-2 w-36 bg-white dark:bg-slate-800 rounded-xl shadow-xl border border-slate-100 dark:border-slate-700 p-1.5 z-[60]">
+                                                            <button
+                                                                onClick={() => openEditModalDirect(prayer)}
+                                                                className="w-full flex items-center gap-2.5 px-3 py-2.5 text-sm text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700/50 rounded-lg transition-colors text-left font-medium"
+                                                            >
+                                                                <Edit2 className="w-4 h-4" /> 편집하기
+                                                            </button>
+                                                            <button
+                                                                onClick={() => handleDeletePrayer(prayer.id)}
+                                                                className="w-full flex items-center gap-2.5 px-3 py-2.5 text-sm text-red-500 hover:bg-red-50 dark:hover:bg-red-900/10 rounded-lg transition-colors text-left font-medium"
+                                                            >
+                                                                <Trash2 className="w-4 h-4" /> 삭제하기
+                                                            </button>
+                                                        </div>
                                                     )}
                                                 </div>
                                             </div>
@@ -454,7 +454,15 @@ const PrayerWallScreen: React.FC<PrayerWallScreenProps> = ({ navigate, t }) => {
                 </div>
             </main>
 
-            {/* SOTA Modal - Pure CSS Animations for Maximum Performance */}
+            {/* Invisible Overlay for closing menus - placed OUTSIDE the prayer list */}
+            {activeMenuId && (
+                <div
+                    className="fixed inset-0 z-[55]"
+                    onClick={() => setActiveMenuId(null)}
+                />
+            )}
+
+            {/* Modal */}
             {isModalOpen && (
                 <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center p-0 sm:p-4">
                     <div
