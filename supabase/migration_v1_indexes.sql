@@ -26,9 +26,7 @@ ON cell_activities(cell_id, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_daily_readings_user_date 
 ON daily_readings(user_id, reading_date);
 
--- profiles: 셀 멤버 조회 최적화
-CREATE INDEX IF NOT EXISTS idx_profiles_cell_id 
-ON profiles(cell_id);
+-- (profiles.cell_id 컬럼이 없어서 제거됨)
 
 -- cell_members: 사용자-셀 관계 조회 최적화
 CREATE INDEX IF NOT EXISTS idx_cell_members_user_id 
