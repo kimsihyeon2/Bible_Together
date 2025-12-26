@@ -14,6 +14,7 @@ interface AuthContextType {
     signInWithGoogle: () => Promise<{ error: AuthError | null }>;
     signOut: () => Promise<void>;
     updateProfile: (updates: Partial<Profile>) => Promise<{ error: Error | null }>;
+    refreshProfile: () => Promise<void>;
     isAdmin: boolean;
 }
 
@@ -53,6 +54,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         } catch (error) {
             console.error('Error fetching profile:', error);
             // Continue without profile rather than blocking
+        }
+    };
+
+    const refreshProfile = async () => {
+        if (user) {
+            await fetchProfile(user.id);
         }
     };
 
@@ -170,6 +177,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         signInWithGoogle,
         signOut,
         updateProfile,
+        refreshProfile,
         isAdmin,
     };
 

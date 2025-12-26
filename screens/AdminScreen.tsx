@@ -116,24 +116,32 @@ const AdminScreen: React.FC<AdminScreenProps> = ({ navigate, t }) => {
             // 2. Content Data (Members, Prayers) - Run in parallel
             const contentPromise = (async () => {
                 // Fetch Members based on Role
-                let membersQuery = supabase.from('profiles').select('*').order('name');
+                // Optimize: Fetch parish/cell names via FKs
+                const memberSelect = '*, parishes(name), cells(name)';
+                let membersQuery = supabase.from('profiles').select(memberSelect).order('name');
 
                 if (isSubAdmin && profile.parish_id) {
-                    // SUB_ADMIN: Get cells in parish -> Get members in those cells
-                    const { data: parishCells } = await supabase.from('cells').select('id').eq('parish_id', profile.parish_id);
-                    if (parishCells?.length) {
-                        const cellIds = parishCells.map((c: any) => c.id);
-                        const { data: cellMembers } = await supabase.from('cell_members').select('user_id, profiles(*)').in('cell_id', cellIds);
-                        if (cellMembers) setMembers(cellMembers.map((cm: any) => cm.profiles).filter(Boolean));
-                    } else {
-                        setMembers([]);
-                    }
+                    // SUB_ADMIN: Get members in own parish
+                    const { data } = await supabase
+                        .from('profiles')
+                        .select(memberSelect)
+                        .eq('parish_id', profile.parish_id)
+                        .order('name');
+
+                    if (data) setMembers(data);
+
                 } else if (isLeader && profile.cell_id) {
                     // LEADER: Get members in own cell
-                    const { data: cellMembers } = await supabase.from('cell_members').select('user_id, profiles(*)').eq('cell_id', profile.cell_id);
-                    if (cellMembers) setMembers(cellMembers.map((cm: any) => cm.profiles).filter(Boolean));
+                    const { data } = await supabase
+                        .from('profiles')
+                        .select(memberSelect)
+                        .eq('cell_id', profile.cell_id)
+                        .order('name');
+
+                    if (data) setMembers(data);
+
                 } else if (isPastor) {
-                    // PASTOR: Get all members
+                    // PASTOR: Get all members with context
                     const { data } = await membersQuery;
                     if (data) setMembers(data);
                 }
@@ -866,7 +874,15 @@ const AdminScreen: React.FC<AdminScreenProps> = ({ navigate, t }) => {
                                             {member.name.slice(0, 1)}
                                         </div>
                                         <div>
-                                            <div className="font-bold text-slate-900 dark:text-white">{member.name}</div>
+                                            <div className="font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                                                {member.name}
+                                                {/* Show Parish/Cell info if available */}
+                                                {(member.parishes || member.cells) && (
+                                                    <span className="text-[10px] font-normal px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-700 text-slate-500">
+                                                        {(member.parishes as any)?.name} {(member.parishes && member.cells) && '·'} {(member.cells as any)?.name}
+                                                    </span>
+                                                )}
+                                            </div>
                                             <div className="text-xs text-slate-400 truncate max-w-[150px]">{member.email}</div>
                                         </div>
                                     </div>
