@@ -4,6 +4,14 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/lib/auth-context';
 
+// Helper to format date as YYYY-MM-DD without timezone issues
+const formatLocalDate = (date: Date): string => {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+};
+
 interface CreateEventModalProps {
     isOpen: boolean;
     onClose: () => void;
@@ -96,7 +104,7 @@ const CreateEventModal: React.FC<CreateEventModalProps> = ({
     useEffect(() => {
         if (isOpen) {
             const date = selectedDate || new Date();
-            const dateStr = date.toISOString().split('T')[0];
+            const dateStr = formatLocalDate(date);
             setStartDate(dateStr);
             setEndDate(''); // Default empty, will default to start_date
 
