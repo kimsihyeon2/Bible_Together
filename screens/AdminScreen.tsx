@@ -57,7 +57,7 @@ const formatRelativeTime = (dateStr: string): string => {
 
 const AdminScreen: React.FC<AdminScreenProps> = ({ navigate, t }) => {
     const { user, profile, isAdmin } = useAuth();
-    const [activeTab, setActiveTab] = useState<'parishes' | 'members' | 'prayers' | 'stats'>('parishes');
+    const [activeTab, setActiveTab] = useState<'parishes' | 'members' | 'prayers' | 'stats' | 'info'>('parishes');
     const [stats, setStats] = useState({ totalMembers: 0, activeToday: 0, cellStats: [] as any[] });
     const [parishes, setParishes] = useState<any[]>([]);
     const [selectedParishId, setSelectedParishId] = useState<string | null>(null);
@@ -67,6 +67,10 @@ const AdminScreen: React.FC<AdminScreenProps> = ({ navigate, t }) => {
     const [prayerParticipants, setPrayerParticipants] = useState<Record<string, PrayerParticipant[]>>({});
     const [expandedPrayerId, setExpandedPrayerId] = useState<string | null>(null);
     const [loading, setLoading] = useState(true);
+
+    // LEADER/SUB_ADMIN context info
+    const [myCell, setMyCell] = useState<{ id: string; name: string; parish_name: string } | null>(null);
+    const [myParish, setMyParish] = useState<{ id: string; name: string } | null>(null);
 
     // Modal States
     const [showCreateParish, setShowCreateParish] = useState(false);
@@ -80,7 +84,7 @@ const AdminScreen: React.FC<AdminScreenProps> = ({ navigate, t }) => {
     const [showCreatePrayer, setShowCreatePrayer] = useState(false);
     const [newPrayerTitle, setNewPrayerTitle] = useState('');
     const [newPrayerContent, setNewPrayerContent] = useState('');
-    const [pushTarget, setPushTarget] = useState<'ALL' | 'SUB_ADMIN' | 'LEADER'>('ALL');
+    const [pushTarget, setPushTarget] = useState<'ALL' | 'PARISH' | 'CELL'>('ALL');
 
     useEffect(() => {
         fetchData();
@@ -89,6 +93,14 @@ const AdminScreen: React.FC<AdminScreenProps> = ({ navigate, t }) => {
     useEffect(() => {
         if (activeTab === 'stats') fetchStats();
     }, [activeTab]);
+
+    // Set default tab for LEADER to 'info'
+    useEffect(() => {
+        if (profile?.role === 'LEADER') {
+            setActiveTab('info');
+            setPushTarget('CELL');
+        }
+    }, [profile?.role]);
 
     // --- Permission Helpers ---
     const isPastor = profile?.role === 'PASTOR';
@@ -121,6 +133,31 @@ const AdminScreen: React.FC<AdminScreenProps> = ({ navigate, t }) => {
         if (isPastor) return ['MEMBER', 'LEADER', 'SUB_ADMIN', 'PASTOR'];
         if (isSubAdmin) return ['MEMBER', 'LEADER'];
         return [];
+    };
+
+    // Dynamic page title based on role
+    const getPageTitle = () => {
+        if (isLeader) return '셀 관리';
+        if (isSubAdmin) return '교구 관리';
+        return '관리자 페이지';
+    };
+
+    // Get tabs based on role
+    const getTabs = () => {
+        if (isLeader) {
+            return [
+                { key: 'info', label: '셀 정보', icon: 'info' },
+                { key: 'members', label: '셀원', icon: 'person' },
+                { key: 'prayers', label: '기도', icon: 'favorite' },
+                { key: 'stats', label: '진도율', icon: 'bar_chart' }
+            ];
+        }
+        return [
+            { key: 'parishes', label: '교구/셀 관리', icon: 'church' },
+            { key: 'members', label: '멤버', icon: 'person' },
+            { key: 'prayers', label: '기도', icon: 'favorite' },
+            { key: 'stats', label: '통계', icon: 'bar_chart' }
+        ];
     };
 
     const fetchStats = async () => {
@@ -248,6 +285,39 @@ const AdminScreen: React.FC<AdminScreenProps> = ({ navigate, t }) => {
                     });
                     setPrayerParticipants(grouped);
                 }
+            }
+        }
+
+        // 5. Fetch LEADER's own cell info
+        if (isLeader && profile?.cell_id) {
+            const { data: cellData } = await supabase
+                .from('cells')
+                .select('id, name, parishes(name)')
+                .eq('id', profile.cell_id)
+                .single();
+
+            if (cellData) {
+                setMyCell({
+                    id: cellData.id,
+                    name: cellData.name,
+                    parish_name: (cellData.parishes as any)?.name || ''
+                });
+            }
+        }
+
+        // 6. Fetch SUB_ADMIN's own parish info
+        if (isSubAdmin && profile?.parish_id) {
+            const { data: parishData } = await supabase
+                .from('parishes')
+                .select('id, name')
+                .eq('id', profile.parish_id)
+                .single();
+
+            if (parishData) {
+                setMyParish({
+                    id: parishData.id,
+                    name: parishData.name
+                });
             }
         }
 
@@ -457,13 +527,21 @@ const AdminScreen: React.FC<AdminScreenProps> = ({ navigate, t }) => {
                     <button onClick={() => navigate(Screen.DASHBOARD)} className="p-2 -ml-2 rounded-full hover:bg-black/5">
                         <span className="material-symbols-outlined">arrow_back</span>
                     </button>
-                    <h1 className="text-xl font-bold">관리자 페이지</h1>
+                    <div className="text-center">
+                        <h1 className="text-xl font-bold">{getPageTitle()}</h1>
+                        {isLeader && myCell && (
+                            <p className="text-xs text-slate-500">{myCell.parish_name} › {myCell.name}</p>
+                        )}
+                        {isSubAdmin && myParish && (
+                            <p className="text-xs text-slate-500">{myParish.name}</p>
+                        )}
+                    </div>
                     <div className="w-10"></div>
                 </div>
                 {/* Tabs - Horizontally Scrollable */}
                 <div className="overflow-x-auto no-scrollbar border-t border-black/5 dark:border-white/10">
                     <div className="flex min-w-max">
-                        {[{ key: 'parishes', label: '교구/셀 관리', icon: 'church' }, { key: 'members', label: '멤버', icon: 'person' }, { key: 'prayers', label: '기도', icon: 'favorite' }, { key: 'stats', label: '통계', icon: 'bar_chart' }].map((tab) => (
+                        {getTabs().map((tab) => (
                             <button key={tab.key} onClick={() => setActiveTab(tab.key as any)} className={`flex-shrink-0 px-5 py-3 text-sm font-medium flex items-center justify-center gap-1.5 whitespace-nowrap transition-colors ${activeTab === tab.key ? 'text-primary border-b-2 border-primary bg-primary/5' : 'text-slate-500 hover:text-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800'}`}>
                                 <span className="material-symbols-outlined text-lg">{tab.icon}</span> {tab.label}
                             </button>
@@ -473,6 +551,70 @@ const AdminScreen: React.FC<AdminScreenProps> = ({ navigate, t }) => {
             </header>
 
             <main className="p-5">
+                {/* LEADER: Cell Info Tab */}
+                {activeTab === 'info' && isLeader && (
+                    <div className="space-y-6">
+                        {myCell ? (
+                            <>
+                                {/* Cell Hierarchy Card */}
+                                <div className="bg-gradient-to-br from-primary/10 to-primary/5 dark:from-primary/20 dark:to-primary/10 rounded-2xl p-6 border border-primary/10">
+                                    <div className="flex items-center gap-4 mb-4">
+                                        <div className="w-16 h-16 rounded-full bg-primary/20 flex items-center justify-center">
+                                            <span className="material-symbols-outlined text-3xl text-primary">groups</span>
+                                        </div>
+                                        <div>
+                                            <p className="text-xs text-slate-500 font-medium">담당 셀</p>
+                                            <h2 className="text-2xl font-bold text-primary">{myCell.name}</h2>
+                                        </div>
+                                    </div>
+
+                                    {/* Hierarchy Breadcrumb */}
+                                    <div className="flex items-center gap-2 mt-4 text-sm">
+                                        <span className="bg-purple-100 text-purple-700 px-3 py-1 rounded-full font-medium flex items-center gap-1">
+                                            <span className="material-symbols-outlined text-sm">church</span>
+                                            {myCell.parish_name}
+                                        </span>
+                                        <span className="material-symbols-outlined text-slate-400">chevron_right</span>
+                                        <span className="bg-green-100 text-green-700 px-3 py-1 rounded-full font-medium flex items-center gap-1">
+                                            <span className="material-symbols-outlined text-sm">groups</span>
+                                            {myCell.name}
+                                        </span>
+                                    </div>
+                                </div>
+
+                                {/* Quick Stats */}
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div className="bg-white dark:bg-slate-800 p-5 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-700">
+                                        <p className="text-slate-500 text-xs font-bold uppercase mb-1">셀원 수</p>
+                                        <h3 className="text-3xl font-bold text-primary">{members.length}명</h3>
+                                    </div>
+                                    <div className="bg-white dark:bg-slate-800 p-5 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-700">
+                                        <p className="text-slate-500 text-xs font-bold uppercase mb-1">내 역할</p>
+                                        <h3 className="text-xl font-bold text-blue-600">셀 리더</h3>
+                                    </div>
+                                </div>
+
+                                {/* Instructions */}
+                                <div className="bg-amber-50 dark:bg-amber-900/20 p-4 rounded-xl border border-amber-200 dark:border-amber-800">
+                                    <h4 className="font-bold text-amber-700 dark:text-amber-400 flex items-center gap-2 mb-2">
+                                        <span className="material-symbols-outlined text-lg">tips_and_updates</span>
+                                        셀장 가이드
+                                    </h4>
+                                    <ul className="text-sm text-amber-600 dark:text-amber-400 space-y-1">
+                                        <li>• <b>셀원</b> 탭에서 셀원 목록을 확인하세요</li>
+                                        <li>• <b>기도</b> 탭에서 셀원들에게 긴급 기도를 요청하세요</li>
+                                        <li>• <b>진도율</b> 탭에서 셀원별 말씀 진도를 확인하세요</li>
+                                    </ul>
+                                </div>
+                            </>
+                        ) : (
+                            <div className="text-center py-10">
+                                <p className="text-slate-500">셀 정보를 불러오는 중...</p>
+                            </div>
+                        )}
+                    </div>
+                )}
+
                 {/* Parish Tab */}
                 {activeTab === 'parishes' && (
                     <div className="space-y-6">
@@ -692,43 +834,99 @@ const AdminScreen: React.FC<AdminScreenProps> = ({ navigate, t }) => {
                 {/* Stats Tab */}
                 {activeTab === 'stats' && (
                     <div className="space-y-6">
-                        <div className="grid grid-cols-2 gap-4">
-                            <div className="bg-white dark:bg-slate-800 p-6 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-700">
-                                <p className="text-slate-500 text-sm font-bold uppercase mb-2">총 멤버</p>
-                                <h3 className="text-4xl font-bold text-slate-900 dark:text-white">{stats.totalMembers}</h3>
-                            </div>
-                            <div className="bg-white dark:bg-slate-800 p-6 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-700">
-                                <p className="text-green-500 text-sm font-bold uppercase mb-2">오늘 읽음</p>
-                                <h3 className="text-4xl font-bold text-green-600 dark:text-green-400">{stats.activeToday}</h3>
-                            </div>
-                        </div>
+                        {/* LEADER: Cell Member Progress */}
+                        {isLeader ? (
+                            <>
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div className="bg-white dark:bg-slate-800 p-5 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-700">
+                                        <p className="text-slate-500 text-xs font-bold uppercase mb-1">셀원 수</p>
+                                        <h3 className="text-3xl font-bold text-primary">{members.length}명</h3>
+                                    </div>
+                                    <div className="bg-white dark:bg-slate-800 p-5 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-700">
+                                        <p className="text-green-500 text-xs font-bold uppercase mb-1">오늘 읽음</p>
+                                        <h3 className="text-3xl font-bold text-green-600">{stats.activeToday}명</h3>
+                                    </div>
+                                </div>
 
-                        <div>
-                            <h3 className="text-xl font-bold mb-4 px-2">셀별 참여율 현황</h3>
-                            <div className="space-y-3">
-                                {stats.cellStats.map((cell: any) => (
-                                    <div key={cell.id} className="bg-white dark:bg-slate-800 p-4 rounded-xl shadow-sm border border-slate-100 dark:border-slate-700">
-                                        <div className="flex justify-between items-center mb-3">
-                                            <div>
-                                                <h4 className="font-bold text-lg text-slate-900 dark:text-white">{cell.name}</h4>
-                                                <p className="text-xs text-slate-500 dark:text-slate-400">
-                                                    멤버 {cell.memberCount}명 중 <span className="text-green-600 font-bold">{cell.readerCount}명</span> 읽음
-                                                </p>
+                                <div>
+                                    <h3 className="text-xl font-bold mb-4 px-2">셀원별 진도율</h3>
+                                    <div className="space-y-3">
+                                        {members.map((member: any) => {
+                                            // Calculate member's reading progress (simulated - would need real data)
+                                            const totalChapters = 1189; // Total Bible chapters
+                                            const readChapters = Math.floor(Math.random() * 100); // TODO: Get real data
+                                            const progress = Math.round((readChapters / totalChapters) * 100);
+
+                                            return (
+                                                <div key={member.id} className="bg-white dark:bg-slate-800 p-4 rounded-xl shadow-sm border border-slate-100 dark:border-slate-700">
+                                                    <div className="flex justify-between items-center mb-3">
+                                                        <div className="flex items-center gap-3">
+                                                            <div className="w-10 h-10 bg-gradient-to-br from-green-100 to-emerald-100 dark:from-green-900/30 dark:to-emerald-900/30 rounded-xl flex items-center justify-center text-emerald-600 font-bold">
+                                                                {member.name?.slice(0, 1) || '?'}
+                                                            </div>
+                                                            <div>
+                                                                <h4 className="font-bold text-slate-900 dark:text-white">{member.name}</h4>
+                                                                <p className="text-xs text-slate-500">{readChapters}장 읽음</p>
+                                                            </div>
+                                                        </div>
+                                                        <span className="text-xl font-bold text-slate-900 dark:text-white">{progress}%</span>
+                                                    </div>
+                                                    <div className="w-full h-2 bg-slate-100 dark:bg-slate-700 rounded-full overflow-hidden">
+                                                        <div className="h-full bg-gradient-to-r from-green-400 to-emerald-500 rounded-full transition-all duration-1000" style={{ width: `${progress}%` }}></div>
+                                                    </div>
+                                                </div>
+                                            );
+                                        })}
+                                        {members.length === 0 && (
+                                            <div className="text-center text-slate-400 py-10 bg-slate-50 dark:bg-slate-800/50 rounded-2xl border-2 border-dashed border-slate-200">
+                                                셀원이 없습니다.
                                             </div>
-                                            <span className="text-2xl font-bold text-slate-900 dark:text-white">{cell.rate}%</span>
-                                        </div>
-                                        <div className="w-full h-2 bg-slate-100 dark:bg-slate-700 rounded-full overflow-hidden">
-                                            <div className="h-full bg-gradient-to-r from-green-400 to-emerald-500 rounded-full transition-all duration-1000" style={{ width: `${cell.rate}%` }}></div>
-                                        </div>
+                                        )}
                                     </div>
-                                ))}
-                                {stats.cellStats.length === 0 && (
-                                    <div className="text-center text-slate-400 py-10 bg-slate-50 dark:bg-slate-800/50 rounded-2xl border-2 border-dashed border-slate-200">
-                                        데이터가 없습니다.
+                                </div>
+                            </>
+                        ) : (
+                            /* PASTOR/SUB_ADMIN: Cell-level Stats */
+                            <>
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div className="bg-white dark:bg-slate-800 p-6 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-700">
+                                        <p className="text-slate-500 text-sm font-bold uppercase mb-2">총 멤버</p>
+                                        <h3 className="text-4xl font-bold text-slate-900 dark:text-white">{stats.totalMembers}</h3>
                                     </div>
-                                )}
-                            </div>
-                        </div>
+                                    <div className="bg-white dark:bg-slate-800 p-6 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-700">
+                                        <p className="text-green-500 text-sm font-bold uppercase mb-2">오늘 읽음</p>
+                                        <h3 className="text-4xl font-bold text-green-600 dark:text-green-400">{stats.activeToday}</h3>
+                                    </div>
+                                </div>
+
+                                <div>
+                                    <h3 className="text-xl font-bold mb-4 px-2">셀별 참여율 현황</h3>
+                                    <div className="space-y-3">
+                                        {stats.cellStats.map((cell: any) => (
+                                            <div key={cell.id} className="bg-white dark:bg-slate-800 p-4 rounded-xl shadow-sm border border-slate-100 dark:border-slate-700">
+                                                <div className="flex justify-between items-center mb-3">
+                                                    <div>
+                                                        <h4 className="font-bold text-lg text-slate-900 dark:text-white">{cell.name}</h4>
+                                                        <p className="text-xs text-slate-500 dark:text-slate-400">
+                                                            멤버 {cell.memberCount}명 중 <span className="text-green-600 font-bold">{cell.readerCount}명</span> 읽음
+                                                        </p>
+                                                    </div>
+                                                    <span className="text-2xl font-bold text-slate-900 dark:text-white">{cell.rate}%</span>
+                                                </div>
+                                                <div className="w-full h-2 bg-slate-100 dark:bg-slate-700 rounded-full overflow-hidden">
+                                                    <div className="h-full bg-gradient-to-r from-green-400 to-emerald-500 rounded-full transition-all duration-1000" style={{ width: `${cell.rate}%` }}></div>
+                                                </div>
+                                            </div>
+                                        ))}
+                                        {stats.cellStats.length === 0 && (
+                                            <div className="text-center text-slate-400 py-10 bg-slate-50 dark:bg-slate-800/50 rounded-2xl border-2 border-dashed border-slate-200">
+                                                데이터가 없습니다.
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                            </>
+                        )}
                     </div>
                 )}
             </main>
@@ -776,14 +974,19 @@ const AdminScreen: React.FC<AdminScreenProps> = ({ navigate, t }) => {
                                 onChange={(e) => setPushTarget(e.target.value as any)}
                                 className="w-full p-3 bg-slate-100 dark:bg-slate-800 rounded-xl"
                             >
-                                <option value="ALL">전체 (모든 교구/셀)</option>
-                                <option value="LEADER">모든 셀장</option>
-                                {profile?.role === 'PASTOR' && <option value="SUB_ADMIN">부관리자</option>}
+                                {isLeader ? (
+                                    <option value="CELL">내 셀원들에게</option>
+                                ) : (
+                                    <>
+                                        <option value="ALL">전체 (모든 교구/셀)</option>
+                                        <option value="PARISH">내 교구</option>
+                                    </>
+                                )}
                             </select>
                             <p className="text-xs text-slate-500 mt-1">
                                 {pushTarget === 'ALL' && '앱을 설치한 모든 리더/멤버에게 전송됩니다.'}
-                                {pushTarget === 'LEADER' && '모든 셀의 리더들에게만 전송됩니다.'}
-                                {pushTarget === 'SUB_ADMIN' && '부관리자들에게만 전송됩니다.'}
+                                {pushTarget === 'PARISH' && '내 교구 셀원들에게 전송됩니다.'}
+                                {pushTarget === 'CELL' && '내 셀원들에게만 전송됩니다.'}
                             </p>
                         </div>
 
