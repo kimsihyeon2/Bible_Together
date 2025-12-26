@@ -158,10 +158,10 @@ const CreateEventModal: React.FC<CreateEventModalProps> = ({
     };
 
     return (
-        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/50">
-            <div className="bg-white dark:bg-surface-dark rounded-t-2xl sm:rounded-2xl shadow-xl w-full sm:max-w-md max-h-[85vh] flex flex-col">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+            <div className="bg-white dark:bg-surface-dark rounded-2xl shadow-xl w-full max-w-md overflow-hidden">
                 {/* Header */}
-                <div className="bg-primary p-4 flex items-center justify-between flex-shrink-0 rounded-t-2xl">
+                <div className="bg-primary p-4 flex items-center justify-between">
                     <h2 className="text-lg font-bold text-white flex items-center gap-2">
                         <span className="material-symbols-outlined">event</span>
                         새 이벤트 추가
@@ -174,9 +174,9 @@ const CreateEventModal: React.FC<CreateEventModalProps> = ({
                     </button>
                 </div>
 
-                <form onSubmit={handleSubmit} className="flex flex-col flex-1 overflow-hidden">
+                <form onSubmit={handleSubmit}>
                     {/* Scrollable Content */}
-                    <div className="flex-1 overflow-y-auto p-4 space-y-4">
+                    <div className="max-h-[60vh] overflow-y-auto p-4 space-y-4">
                         {error && (
                             <div className="bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 p-3 rounded-lg text-sm">
                                 {error}
@@ -316,8 +316,8 @@ const CreateEventModal: React.FC<CreateEventModalProps> = ({
                         </div>
                     </div>
 
-                    {/* Fixed Button Area */}
-                    <div className="flex-shrink-0 p-4 border-t border-divider dark:border-gray-700 bg-white dark:bg-surface-dark pb-safe">
+                    {/* FIXED Button Area - Always Visible */}
+                    <div className="p-4 border-t border-divider dark:border-gray-700 bg-white dark:bg-surface-dark">
                         <div className="flex gap-3">
                             <button
                                 type="button"
