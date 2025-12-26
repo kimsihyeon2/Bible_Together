@@ -10,7 +10,7 @@ interface CalendarEvent {
     description: string | null;
     start_date?: string;
     end_date?: string;
-    event_date: string; // Keep for backward compatibility
+    event_date: string;
     event_time: string | null;
     end_time: string | null;
     location: string | null;
@@ -27,6 +27,14 @@ interface CalendarTabProps {
     onAddEvent: () => void;
     onEditEvent: (event: CalendarEvent) => void;
 }
+
+// Helper to format date as YYYY-MM-DD without timezone issues
+const formatLocalDate = (date: Date): string => {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+};
 
 const CalendarTab: React.FC<CalendarTabProps> = ({ cellId, parishId, onAddEvent, onEditEvent }) => {
     const { user, profile } = useAuth();
@@ -50,11 +58,10 @@ const CalendarTab: React.FC<CalendarTabProps> = ({ cellId, parishId, onAddEvent,
 
     const fetchEvents = async () => {
         setLoading(true);
-        const startDate = new Date(year, month, 1).toISOString().split('T')[0];
-        const endDate = new Date(year, month + 1, 0).toISOString().split('T')[0];
+        // Use local date format to avoid timezone issues
+        const startDate = formatLocalDate(new Date(year, month, 1));
+        const endDate = formatLocalDate(new Date(year, month + 1, 0));
 
-        // Fetch events that overlap with this month
-        // Either start_date is in this month, or event_date (legacy) is in this month
         const { data, error } = await supabase
             .from('calendar_events')
             .select('*')
@@ -69,14 +76,33 @@ const CalendarTab: React.FC<CalendarTabProps> = ({ cellId, parishId, onAddEvent,
         setLoading(false);
     };
 
-    // Check if a date falls within an event's date range
+    // Check if a date falls within an event's date range (using local date format)
     const getEventsForDate = (date: Date) => {
-        const dateStr = date.toISOString().split('T')[0];
+        const dateStr = formatLocalDate(date);
         return events.filter(e => {
             const eventStart = e.start_date || e.event_date;
             const eventEnd = e.end_date || e.start_date || e.event_date;
             return dateStr >= eventStart && dateStr <= eventEnd;
         });
+    };
+
+    // Check if event is multi-day
+    const isMultiDayEvent = (event: CalendarEvent) => {
+        const start = event.start_date || event.event_date;
+        const end = event.end_date || event.start_date || event.event_date;
+        return start !== end;
+    };
+
+    // Get position in multi-day event: 'start', 'middle', 'end', or 'single'
+    const getEventPosition = (event: CalendarEvent, date: Date): 'start' | 'middle' | 'end' | 'single' => {
+        const dateStr = formatLocalDate(date);
+        const start = event.start_date || event.event_date;
+        const end = event.end_date || event.start_date || event.event_date;
+
+        if (start === end) return 'single';
+        if (dateStr === start) return 'start';
+        if (dateStr === end) return 'end';
+        return 'middle';
     };
 
     // Check if user can edit this event
@@ -99,7 +125,7 @@ const CalendarTab: React.FC<CalendarTabProps> = ({ cellId, parishId, onAddEvent,
         const start = event.start_date || event.event_date;
         const end = event.end_date || event.start_date || event.event_date;
 
-        if (start === end) return null; // Same day, don't show range
+        if (start === end) return null;
 
         const startParts = start.split('-');
         const endParts = end.split('-');
@@ -121,6 +147,16 @@ const CalendarTab: React.FC<CalendarTabProps> = ({ cellId, parishId, onAddEvent,
             case 'PARISH': return 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400';
             case 'CELL': return 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400';
             default: return 'bg-gray-100 text-gray-700';
+        }
+    };
+
+    // Pastel highlighter colors for multi-day events
+    const getHighlighterColor = (scope: string) => {
+        switch (scope) {
+            case 'GLOBAL': return 'bg-purple-200/60 dark:bg-purple-500/30';
+            case 'PARISH': return 'bg-blue-200/60 dark:bg-blue-500/30';
+            case 'CELL': return 'bg-green-200/60 dark:bg-green-500/30';
+            default: return 'bg-primary/20';
         }
     };
 
@@ -168,65 +204,78 @@ const CalendarTab: React.FC<CalendarTabProps> = ({ cellId, parishId, onAddEvent,
         <div className="space-y-4">
             {/* Month Navigation */}
             <div className="flex items-center justify-between bg-surface-light dark:bg-surface-dark rounded-2xl p-4">
-                <button
-                    onClick={goToPrevMonth}
-                    className="p-2 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-full transition-colors"
-                >
+                <button onClick={goToPrevMonth} className="p-2 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-full">
                     <span className="material-symbols-outlined">chevron_left</span>
                 </button>
-                <h3 className="text-lg font-bold">
-                    {year}년 {month + 1}월
-                </h3>
-                <button
-                    onClick={goToNextMonth}
-                    className="p-2 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-full transition-colors"
-                >
+                <h3 className="text-lg font-bold">{year}년 {month + 1}월</h3>
+                <button onClick={goToNextMonth} className="p-2 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-full">
                     <span className="material-symbols-outlined">chevron_right</span>
                 </button>
             </div>
 
             {/* Calendar Grid */}
             <div className="bg-surface-light dark:bg-surface-dark rounded-2xl p-4">
+                {/* Day headers */}
                 <div className="grid grid-cols-7 gap-1 mb-2">
                     {['일', '월', '화', '수', '목', '금', '토'].map((day, idx) => (
-                        <div
-                            key={day}
-                            className={`text-center text-xs font-semibold py-2 ${idx === 0 ? 'text-red-500' : idx === 6 ? 'text-blue-500' : 'text-slate-500'}`}
-                        >
+                        <div key={day} className={`text-center text-xs font-semibold py-2 ${idx === 0 ? 'text-red-500' : idx === 6 ? 'text-blue-500' : 'text-slate-500'}`}>
                             {day}
                         </div>
                     ))}
                 </div>
 
+                {/* Calendar days */}
                 <div className="grid grid-cols-7 gap-1">
                     {calendarDays.map((day, idx) => {
                         if (day === null) {
                             return <div key={`empty-${idx}`} className="aspect-square" />;
                         }
 
-                        const dateEvents = getEventsForDate(new Date(year, month, day));
-                        const hasEvents = dateEvents.length > 0;
+                        const currentDateObj = new Date(year, month, day);
+                        const dateEvents = getEventsForDate(currentDateObj);
+                        const singleDayEvents = dateEvents.filter(e => !isMultiDayEvent(e));
+                        const multiDayEvents = dateEvents.filter(e => isMultiDayEvent(e));
                         const dayOfWeek = (startDayOfWeek + day - 1) % 7;
 
                         return (
                             <button
                                 key={day}
                                 onClick={() => handleDateClick(day)}
-                                className={`aspect-square rounded-xl flex flex-col items-center justify-center transition-all relative
+                                className={`aspect-square rounded-xl flex flex-col items-center justify-center transition-all relative overflow-hidden
                                     ${isSelected(day)
-                                        ? 'bg-primary text-white font-bold'
+                                        ? 'bg-primary text-white font-bold z-10 ring-2 ring-primary ring-offset-2'
                                         : isToday(day)
                                             ? 'bg-primary/10 text-primary font-bold'
                                             : 'hover:bg-slate-100 dark:hover:bg-slate-700'
                                     }
-                                    ${dayOfWeek === 0 ? 'text-red-500' : dayOfWeek === 6 ? 'text-blue-500' : ''}
-                                    ${isSelected(day) ? 'text-white' : ''}
+                                    ${dayOfWeek === 0 && !isSelected(day) ? 'text-red-500' : ''}
+                                    ${dayOfWeek === 6 && !isSelected(day) ? 'text-blue-500' : ''}
                                 `}
                             >
-                                <span className="text-sm">{day}</span>
-                                {hasEvents && (
-                                    <div className="flex gap-0.5 mt-0.5">
-                                        {dateEvents.slice(0, 3).map((e, i) => (
+                                {/* Multi-day event highlighter underlines */}
+                                <div className="absolute inset-x-0 bottom-1 flex flex-col gap-0.5 px-0.5">
+                                    {multiDayEvents.slice(0, 2).map((event, i) => {
+                                        const pos = getEventPosition(event, currentDateObj);
+                                        return (
+                                            <div
+                                                key={event.id}
+                                                className={`h-1 ${getHighlighterColor(event.scope)}
+                                                    ${pos === 'start' ? 'rounded-l-full ml-0 -mr-1' : ''}
+                                                    ${pos === 'end' ? 'rounded-r-full -ml-1 mr-0' : ''}
+                                                    ${pos === 'middle' ? '-mx-1' : ''}
+                                                    ${pos === 'single' ? 'rounded-full mx-0.5' : ''}
+                                                `}
+                                            />
+                                        );
+                                    })}
+                                </div>
+
+                                <span className="text-sm relative z-10">{day}</span>
+
+                                {/* Single-day event dots */}
+                                {singleDayEvents.length > 0 && (
+                                    <div className="flex gap-0.5 mt-0.5 relative z-10">
+                                        {singleDayEvents.slice(0, 3).map((e, i) => (
                                             <span
                                                 key={i}
                                                 className={`w-1.5 h-1.5 rounded-full ${isSelected(day) ? 'bg-white' :
@@ -273,14 +322,10 @@ const CalendarTab: React.FC<CalendarTabProps> = ({ cellId, parishId, onAddEvent,
                                             )}
                                         </div>
 
-                                        {/* Edit Button */}
                                         {canEditEvent(event) && (
                                             <button
-                                                onClick={(e) => {
-                                                    e.stopPropagation();
-                                                    onEditEvent(event);
-                                                }}
-                                                className="p-2 -mr-1 -mt-1 text-slate-400 hover:text-amber-500 hover:bg-amber-50 dark:hover:bg-amber-900/20 rounded-lg transition-colors opacity-0 group-hover:opacity-100 sm:opacity-100"
+                                                onClick={(e) => { e.stopPropagation(); onEditEvent(event); }}
+                                                className="p-2 -mr-1 -mt-1 text-slate-400 hover:text-amber-500 hover:bg-amber-50 dark:hover:bg-amber-900/20 rounded-lg transition-colors"
                                                 title="이벤트 수정"
                                             >
                                                 <span className="material-symbols-outlined text-lg">edit</span>
@@ -289,15 +334,12 @@ const CalendarTab: React.FC<CalendarTabProps> = ({ cellId, parishId, onAddEvent,
                                     </div>
 
                                     <div className="flex items-center flex-wrap gap-3 mt-2 text-xs text-slate-500">
-                                        {/* Date Range */}
                                         {formatDateRange(event) && (
                                             <span className="flex items-center gap-1 bg-slate-100 dark:bg-slate-700 px-2 py-1 rounded-full">
                                                 <span className="material-symbols-outlined text-xs">date_range</span>
                                                 {formatDateRange(event)}
                                             </span>
                                         )}
-
-                                        {/* Time */}
                                         {event.event_time && (
                                             <span className="flex items-center gap-1">
                                                 <span className="material-symbols-outlined text-sm">schedule</span>
@@ -305,8 +347,6 @@ const CalendarTab: React.FC<CalendarTabProps> = ({ cellId, parishId, onAddEvent,
                                                 {event.end_time && ` ~ ${formatTime(event.end_time)}`}
                                             </span>
                                         )}
-
-                                        {/* Location */}
                                         {event.location && (
                                             <span className="flex items-center gap-1">
                                                 <span className="material-symbols-outlined text-sm">location_on</span>
@@ -323,10 +363,7 @@ const CalendarTab: React.FC<CalendarTabProps> = ({ cellId, parishId, onAddEvent,
 
             {/* Add Event Button */}
             {canCreateEvent && (
-                <button
-                    onClick={onAddEvent}
-                    className="w-full py-3 bg-primary text-white rounded-2xl font-bold flex items-center justify-center gap-2 shadow-lg hover:bg-primary-dark transition-colors"
-                >
+                <button onClick={onAddEvent} className="w-full py-3 bg-primary text-white rounded-2xl font-bold flex items-center justify-center gap-2 shadow-lg hover:bg-primary-dark transition-colors">
                     <span className="material-symbols-outlined">add</span>
                     이벤트 추가
                 </button>
