@@ -97,9 +97,16 @@ export async function POST(request: NextRequest) {
                 // Only try Firebase if we have tokens
                 const { sendPushNotification } = await import('@/lib/firebase-admin');
 
-                const tokens = subscriptions
-                    .map((s: { fcm_token: string }) => s.fcm_token)
-                    .filter(Boolean);
+                // Deduplicate: Keep only 1 token per user to prevent multiple notifications
+                // Group by user_id and take the first token for each user
+                const tokensByUser = new Map<string, string>();
+                subscriptions.forEach((s: { user_id: string; fcm_token: string }) => {
+                    if (s.fcm_token && !tokensByUser.has(s.user_id)) {
+                        tokensByUser.set(s.user_id, s.fcm_token);
+                    }
+                });
+
+                const tokens = Array.from(tokensByUser.values());
 
                 if (tokens.length > 0) {
                     const result = await sendPushNotification(
