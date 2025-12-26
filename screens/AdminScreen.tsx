@@ -122,21 +122,52 @@ const AdminScreen: React.FC<AdminScreenProps> = ({ navigate, t }) => {
 
                 if (isSubAdmin && profile.parish_id) {
                     // SUB_ADMIN: Get members in own parish
-                    const { data } = await supabase
+                    let { data } = await supabase
                         .from('profiles')
                         .select(memberSelect)
                         .eq('parish_id', profile.parish_id)
                         .order('name');
 
+                    // Fallback: If optimized query returns 0, try legacy join (for members not yet migrated)
+                    if (!data || data.length === 0) {
+                        console.log('Optimized fetch returned empty, falling back to legacy join...');
+                        const { data: parishCells } = await supabase.from('cells').select('id').eq('parish_id', profile.parish_id);
+
+                        if (parishCells?.length) {
+                            const cellIds = parishCells.map((c: any) => c.id);
+                            const { data: cellMembers } = await supabase
+                                .from('cell_members')
+                                .select('user_id, profiles(*, parishes(name), cells(name))')
+                                .in('cell_id', cellIds);
+
+                            if (cellMembers) {
+                                data = cellMembers.map((cm: any) => cm.profiles).filter(Boolean);
+                            }
+                        }
+                    }
+
                     if (data) setMembers(data);
 
                 } else if (isLeader && profile.cell_id) {
                     // LEADER: Get members in own cell
-                    const { data } = await supabase
+                    let { data } = await supabase
                         .from('profiles')
                         .select(memberSelect)
                         .eq('cell_id', profile.cell_id)
                         .order('name');
+
+                    // Fallback for LEADER
+                    if (!data || data.length === 0) {
+                        console.log('Leader optimized fetch empty, using fallback...');
+                        const { data: cellMembers } = await supabase
+                            .from('cell_members')
+                            .select('user_id, profiles(*, parishes(name), cells(name))')
+                            .eq('cell_id', profile.cell_id);
+
+                        if (cellMembers) {
+                            data = cellMembers.map((cm: any) => cm.profiles).filter(Boolean);
+                        }
+                    }
 
                     if (data) setMembers(data);
 
