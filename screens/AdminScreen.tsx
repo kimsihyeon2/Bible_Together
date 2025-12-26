@@ -86,24 +86,104 @@ const AdminScreen: React.FC<AdminScreenProps> = ({ navigate, t }) => {
     const [newPrayerContent, setNewPrayerContent] = useState('');
     const [pushTarget, setPushTarget] = useState<'ALL' | 'PARISH' | 'CELL'>('ALL');
 
+    // Optimized Data Fetching
     useEffect(() => {
+        if (!loading && !profile) return; // Wait for auth
         fetchData();
-    }, []);
+    }, [profile?.id, profile?.role]); // Re-fetch only when profile changes
 
-    useEffect(() => {
-        if (activeTab === 'stats') fetchStats();
-    }, [activeTab]);
+    const fetchData = async () => {
+        if (!profile) return;
+        setLoading(true);
 
-    // Set default tab for LEADER to 'info'
-    useEffect(() => {
-        if (profile?.role === 'LEADER') {
-            setActiveTab('info');
-            setPushTarget('CELL');
-        } else if (profile?.role === 'SUB_ADMIN') {
-            setActiveTab('info');
-            setPushTarget('PARISH');
+        try {
+            // 1. Context Data (Admin/Leader Info) - Run in parallel
+            const contextPromise = (async () => {
+                if (isLeader && profile.cell_id) {
+                    const { data } = await supabase.from('cells').select('id, name, parishes(name)').eq('id', profile.cell_id).single();
+                    if (data) setMyCell({ id: data.id, name: data.name, parish_name: (data.parishes as any)?.name || '' });
+                }
+                if (isSubAdmin && profile.parish_id) {
+                    const { data } = await supabase.from('parishes').select('id, name').eq('id', profile.parish_id).single();
+                    if (data) setMyParish({ id: data.id, name: data.name });
+                }
+                if (canManageParishCell) {
+                    const { data } = await supabase.from('parishes').select('*').order('name');
+                    if (data) setParishes(data);
+                }
+            })();
+
+            // 2. Content Data (Members, Prayers) - Run in parallel
+            const contentPromise = (async () => {
+                // Fetch Members based on Role
+                let membersQuery = supabase.from('profiles').select('*').order('name');
+
+                if (isSubAdmin && profile.parish_id) {
+                    // SUB_ADMIN: Get cells in parish -> Get members in those cells
+                    const { data: parishCells } = await supabase.from('cells').select('id').eq('parish_id', profile.parish_id);
+                    if (parishCells?.length) {
+                        const cellIds = parishCells.map((c: any) => c.id);
+                        const { data: cellMembers } = await supabase.from('cell_members').select('user_id, profiles(*)').in('cell_id', cellIds);
+                        if (cellMembers) setMembers(cellMembers.map((cm: any) => cm.profiles).filter(Boolean));
+                    } else {
+                        setMembers([]);
+                    }
+                } else if (isLeader && profile.cell_id) {
+                    // LEADER: Get members in own cell
+                    const { data: cellMembers } = await supabase.from('cell_members').select('user_id, profiles(*)').eq('cell_id', profile.cell_id);
+                    if (cellMembers) setMembers(cellMembers.map((cm: any) => cm.profiles).filter(Boolean));
+                } else if (isPastor) {
+                    // PASTOR: Get all members
+                    const { data } = await membersQuery;
+                    if (data) setMembers(data);
+                }
+
+                // Fetch Prayers
+                const { data: prayersData } = await supabase
+                    .from('urgent_prayers')
+                    .select('*, profiles:created_by(role)')
+                    .order('created_at', { ascending: false });
+
+                if (prayersData) {
+                    const enrichedPrayers = prayersData.map((p: any) => ({
+                        ...p,
+                        creator_role: (p.profiles as any)?.role || 'MEMBER'
+                    }));
+                    setPrayers(enrichedPrayers);
+
+                    // Fetch Participants
+                    const prayerIds = prayersData.map((p: any) => p.id);
+                    if (prayerIds.length > 0) {
+                        const { data: participants } = await supabase
+                            .from('prayer_participants')
+                            .select('prayer_id, user_id, prayed_at, profiles(name)')
+                            .in('prayer_id', prayerIds);
+
+                        if (participants) {
+                            const grouped = participants.reduce((acc: any, p: any) => {
+                                if (!acc[p.prayer_id]) acc[p.prayer_id] = [];
+                                acc[p.prayer_id].push({
+                                    user_id: p.user_id,
+                                    user_name: p.profiles?.name || '알 수 없음',
+                                    prayed_at: p.prayed_at
+                                });
+                                return acc;
+                            }, {});
+                            setPrayerParticipants(grouped);
+                        }
+                    }
+                }
+            })();
+
+            // Wait for all critical data
+            await Promise.all([contextPromise, contentPromise]);
+
+        } catch (e) {
+            console.error('Data fetch error:', e);
+        } finally {
+            setLoading(false);
         }
-    }, [profile?.role]);
+    };
 
     // --- Permission Helpers ---
     const isPastor = profile?.role === 'PASTOR';
@@ -212,7 +292,7 @@ const AdminScreen: React.FC<AdminScreenProps> = ({ navigate, t }) => {
         }
     };
 
-    const fetchData = async () => {
+    const fetchData_Legacy = async () => {
         setLoading(true);
 
         // 1. Fetch Parishes (only PASTOR/SUB_ADMIN need to see these)
