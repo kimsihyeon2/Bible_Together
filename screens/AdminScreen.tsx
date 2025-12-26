@@ -99,6 +99,9 @@ const AdminScreen: React.FC<AdminScreenProps> = ({ navigate, t }) => {
         if (profile?.role === 'LEADER') {
             setActiveTab('info');
             setPushTarget('CELL');
+        } else if (profile?.role === 'SUB_ADMIN') {
+            setActiveTab('info');
+            setPushTarget('PARISH');
         }
     }, [profile?.role]);
 
@@ -152,6 +155,16 @@ const AdminScreen: React.FC<AdminScreenProps> = ({ navigate, t }) => {
                 { key: 'stats', label: '진도율', icon: 'bar_chart' }
             ];
         }
+        if (isSubAdmin) {
+            return [
+                { key: 'info', label: '교구 정보', icon: 'info' },
+                { key: 'parishes', label: '셀 관리', icon: 'groups' },
+                { key: 'members', label: '교구원', icon: 'person' },
+                { key: 'prayers', label: '기도', icon: 'favorite' },
+                { key: 'stats', label: '통계', icon: 'bar_chart' }
+            ];
+        }
+        // PASTOR: full access
         return [
             { key: 'parishes', label: '교구/셀 관리', icon: 'church' },
             { key: 'members', label: '멤버', icon: 'person' },
@@ -610,6 +623,66 @@ const AdminScreen: React.FC<AdminScreenProps> = ({ navigate, t }) => {
                         ) : (
                             <div className="text-center py-10">
                                 <p className="text-slate-500">셀 정보를 불러오는 중...</p>
+                            </div>
+                        )}
+                    </div>
+                )}
+
+                {/* SUB_ADMIN: Parish Info Tab */}
+                {activeTab === 'info' && isSubAdmin && (
+                    <div className="space-y-6">
+                        {myParish ? (
+                            <>
+                                {/* Parish Card */}
+                                <div className="bg-gradient-to-br from-indigo-500/10 to-purple-500/5 dark:from-indigo-500/20 dark:to-purple-500/10 rounded-2xl p-6 border border-indigo-500/10">
+                                    <div className="flex items-center gap-4 mb-4">
+                                        <div className="w-16 h-16 rounded-full bg-indigo-500/20 flex items-center justify-center">
+                                            <span className="material-symbols-outlined text-3xl text-indigo-600">church</span>
+                                        </div>
+                                        <div>
+                                            <p className="text-xs text-slate-500 font-medium">담당 교구</p>
+                                            <h2 className="text-2xl font-bold text-indigo-600">{myParish.name}</h2>
+                                        </div>
+                                    </div>
+
+                                    {/* Role badge */}
+                                    <div className="flex items-center gap-2 mt-4">
+                                        <span className="bg-indigo-100 text-indigo-700 px-3 py-1 rounded-full font-medium flex items-center gap-1 text-sm">
+                                            <span className="material-symbols-outlined text-sm">admin_panel_settings</span>
+                                            교구장 (부관리자)
+                                        </span>
+                                    </div>
+                                </div>
+
+                                {/* Quick Stats */}
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div className="bg-white dark:bg-slate-800 p-5 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-700">
+                                        <p className="text-slate-500 text-xs font-bold uppercase mb-1">셀 수</p>
+                                        <h3 className="text-3xl font-bold text-indigo-600">{cells.length}개</h3>
+                                    </div>
+                                    <div className="bg-white dark:bg-slate-800 p-5 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-700">
+                                        <p className="text-slate-500 text-xs font-bold uppercase mb-1">교구원 수</p>
+                                        <h3 className="text-3xl font-bold text-primary">{members.length}명</h3>
+                                    </div>
+                                </div>
+
+                                {/* Guide */}
+                                <div className="bg-indigo-50 dark:bg-indigo-900/20 p-4 rounded-xl border border-indigo-200 dark:border-indigo-800">
+                                    <h4 className="font-bold text-indigo-700 dark:text-indigo-400 flex items-center gap-2 mb-2">
+                                        <span className="material-symbols-outlined text-lg">tips_and_updates</span>
+                                        교구장 가이드
+                                    </h4>
+                                    <ul className="text-sm text-indigo-600 dark:text-indigo-400 space-y-1">
+                                        <li>• <b>셀 관리</b> 탭에서 교구 내 셀들을 관리하세요</li>
+                                        <li>• <b>교구원</b> 탭에서 교구원 목록을 확인하세요</li>
+                                        <li>• <b>기도</b> 탭에서 교구원들에게 긴급 기도를 요청하세요</li>
+                                        <li>• <b>통계</b> 탭에서 셀별 참여율을 확인하세요</li>
+                                    </ul>
+                                </div>
+                            </>
+                        ) : (
+                            <div className="text-center py-10">
+                                <p className="text-slate-500">교구 정보를 불러오는 중...</p>
                             </div>
                         )}
                     </div>
