@@ -376,8 +376,8 @@ const CommunityScreen: React.FC<CommunityScreenProps> = ({ navigate, t }) => {
                     // Refresh calendar tab if needed
                     setActiveTab('calendar');
                 }}
-                cellId={cellInfo?.id || null}
-                parishId={parishId}
+                userCellId={cellInfo?.id || null}
+                userParishId={parishId}
             />
         </div>
     );

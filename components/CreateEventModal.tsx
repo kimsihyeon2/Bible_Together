@@ -8,27 +8,28 @@ interface CreateEventModalProps {
     isOpen: boolean;
     onClose: () => void;
     onSuccess: () => void;
-    cellId: string | null;
-    parishId: string | null;
+    userCellId: string | null;  // User's own cell
+    userParishId: string | null; // User's own parish
     selectedDate?: Date | null;
 }
 
-interface CellInfo {
+interface Parish {
     id: string;
     name: string;
 }
 
-interface ParishInfo {
+interface Cell {
     id: string;
     name: string;
+    parish_id: string;
 }
 
 const CreateEventModal: React.FC<CreateEventModalProps> = ({
     isOpen,
     onClose,
     onSuccess,
-    cellId,
-    parishId,
+    userCellId,
+    userParishId,
     selectedDate
 }) => {
     const { user, profile } = useAuth();
@@ -42,52 +43,104 @@ const CreateEventModal: React.FC<CreateEventModalProps> = ({
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
 
-    // Parish and Cell info for display
-    const [cellInfo, setCellInfo] = useState<CellInfo | null>(null);
-    const [parishInfo, setParishInfo] = useState<ParishInfo | null>(null);
+    // Available options based on role
+    const [allParishes, setAllParishes] = useState<Parish[]>([]);
+    const [allCells, setAllCells] = useState<Cell[]>([]);
+    const [filteredCells, setFilteredCells] = useState<Cell[]>([]);
+
+    // Selected values
+    const [selectedParishId, setSelectedParishId] = useState<string>('');
+    const [selectedCellId, setSelectedCellId] = useState<string>('');
 
     const isAdmin = profile?.role === 'PASTOR' || profile?.role === 'SUB_ADMIN';
+    const isPastor = profile?.role === 'PASTOR';
     const isLeader = profile?.role === 'LEADER';
 
-    // Fetch cell and parish names
+    // Fetch parishes and cells based on role
     useEffect(() => {
-        const fetchInfo = async () => {
-            if (cellId) {
-                const { data } = await supabase
-                    .from('cells')
-                    .select('id, name')
-                    .eq('id', cellId)
-                    .single();
-                if (data) setCellInfo(data);
+        const fetchData = async () => {
+            if (!isOpen) return;
+
+            // Admin (PASTOR) can see all parishes and cells
+            if (isPastor) {
+                const [parishRes, cellRes] = await Promise.all([
+                    supabase.from('parishes').select('id, name').order('name'),
+                    supabase.from('cells').select('id, name, parish_id').order('name')
+                ]);
+                if (parishRes.data) setAllParishes(parishRes.data);
+                if (cellRes.data) setAllCells(cellRes.data);
             }
-            if (parishId) {
-                const { data } = await supabase
-                    .from('parishes')
-                    .select('id, name')
-                    .eq('id', parishId)
-                    .single();
-                if (data) setParishInfo(data);
+            // SUB_ADMIN can see their parish and its cells
+            else if (profile?.role === 'SUB_ADMIN' && userParishId) {
+                const [parishRes, cellRes] = await Promise.all([
+                    supabase.from('parishes').select('id, name').eq('id', userParishId),
+                    supabase.from('cells').select('id, name, parish_id').eq('parish_id', userParishId).order('name')
+                ]);
+                if (parishRes.data) setAllParishes(parishRes.data);
+                if (cellRes.data) setAllCells(cellRes.data);
+            }
+            // LEADER can only see their cell
+            else if (isLeader && userCellId) {
+                const { data: cellData } = await supabase
+                    .from('cells')
+                    .select('id, name, parish_id')
+                    .eq('id', userCellId);
+                if (cellData) setAllCells(cellData);
             }
         };
-        if (isOpen) {
-            fetchInfo();
-        }
-    }, [isOpen, cellId, parishId]);
 
+        fetchData();
+    }, [isOpen, isPastor, isLeader, profile?.role, userParishId, userCellId]);
+
+    // Filter cells when parish changes
+    useEffect(() => {
+        if (scope === 'CELL') {
+            if (selectedParishId) {
+                setFilteredCells(allCells.filter(c => c.parish_id === selectedParishId));
+            } else {
+                setFilteredCells(allCells);
+            }
+        }
+    }, [selectedParishId, allCells, scope]);
+
+    // Set defaults when modal opens
     useEffect(() => {
         if (isOpen) {
-            // Set default date to selected date or today
             const date = selectedDate || new Date();
             setEventDate(date.toISOString().split('T')[0]);
 
             // Set default scope based on role
-            if (isAdmin) {
+            if (isPastor) {
                 setScope('GLOBAL');
+            } else if (profile?.role === 'SUB_ADMIN') {
+                setScope('PARISH');
+                if (userParishId) setSelectedParishId(userParishId);
             } else if (isLeader) {
                 setScope('CELL');
+                if (userCellId) setSelectedCellId(userCellId);
             }
         }
-    }, [isOpen, selectedDate, isAdmin, isLeader]);
+    }, [isOpen, selectedDate, isPastor, isLeader, profile?.role, userParishId, userCellId]);
+
+    // Reset selections when scope changes
+    useEffect(() => {
+        if (scope === 'GLOBAL') {
+            setSelectedParishId('');
+            setSelectedCellId('');
+        } else if (scope === 'PARISH') {
+            setSelectedCellId('');
+            // For SUB_ADMIN, auto-select their parish
+            if (profile?.role === 'SUB_ADMIN' && userParishId) {
+                setSelectedParishId(userParishId);
+            }
+        } else if (scope === 'CELL') {
+            // For LEADER, auto-select their cell
+            if (isLeader && userCellId) {
+                setSelectedCellId(userCellId);
+                setSelectedParishId('');
+            }
+        }
+    }, [scope, profile?.role, userParishId, userCellId, isLeader]);
 
     if (!isOpen) return null;
 
@@ -96,6 +149,16 @@ const CreateEventModal: React.FC<CreateEventModalProps> = ({
 
         if (!title.trim() || !eventDate) {
             setError('제목과 날짜는 필수입니다.');
+            return;
+        }
+
+        // Validate scope-specific selections
+        if (scope === 'PARISH' && !selectedParishId) {
+            setError('교구를 선택해주세요.');
+            return;
+        }
+        if (scope === 'CELL' && !selectedCellId) {
+            setError('셀을 선택해주세요.');
             return;
         }
 
@@ -115,10 +178,10 @@ const CreateEventModal: React.FC<CreateEventModalProps> = ({
             };
 
             // Set scope-specific IDs
-            if (scope === 'CELL' && cellId) {
-                eventData.cell_id = cellId;
-            } else if (scope === 'PARISH' && parishId) {
-                eventData.parish_id = parishId;
+            if (scope === 'PARISH' && selectedParishId) {
+                eventData.parish_id = selectedParishId;
+            } else if (scope === 'CELL' && selectedCellId) {
+                eventData.cell_id = selectedCellId;
             }
 
             const { error: insertError } = await supabase
@@ -144,14 +207,28 @@ const CreateEventModal: React.FC<CreateEventModalProps> = ({
         }
     };
 
+    const getSelectedParishName = () => {
+        const parish = allParishes.find(p => p.id === selectedParishId);
+        return parish?.name || '';
+    };
+
+    const getSelectedCellName = () => {
+        const cell = allCells.find(c => c.id === selectedCellId);
+        return cell?.name || '';
+    };
+
     const getScopeDescription = () => {
         switch (scope) {
             case 'GLOBAL':
-                return '모든 성도에게 표시됩니다';
+                return '✨ 전체 성도에게 표시됩니다';
             case 'PARISH':
-                return parishInfo ? `${parishInfo.name} 교구 인원에게 표시됩니다` : '해당 교구 인원에게 표시됩니다';
+                return selectedParishId
+                    ? `📍 ${getSelectedParishName()} 교구 인원에게 표시됩니다`
+                    : '⚠️ 교구를 선택해주세요';
             case 'CELL':
-                return cellInfo ? `${cellInfo.name} 셀 인원에게 표시됩니다` : '해당 셀 인원에게 표시됩니다';
+                return selectedCellId
+                    ? `👥 ${getSelectedCellName()} 셀 인원에게 표시됩니다`
+                    : '⚠️ 셀을 선택해주세요';
             default:
                 return '';
         }
@@ -176,7 +253,7 @@ const CreateEventModal: React.FC<CreateEventModalProps> = ({
 
                 <form onSubmit={handleSubmit}>
                     {/* Scrollable Content */}
-                    <div className="max-h-[60vh] overflow-y-auto p-4 space-y-4">
+                    <div className="max-h-[55vh] overflow-y-auto p-4 space-y-4">
                         {error && (
                             <div className="bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 p-3 rounded-lg text-sm">
                                 {error}
@@ -265,12 +342,15 @@ const CreateEventModal: React.FC<CreateEventModalProps> = ({
                         </div>
 
                         {/* Scope Selection */}
-                        <div>
-                            <label className="block text-sm font-medium text-text-main dark:text-white mb-2">
+                        <div className="space-y-3">
+                            <label className="block text-sm font-medium text-text-main dark:text-white">
                                 공개 범위
                             </label>
+
+                            {/* Scope Type Buttons */}
                             <div className="flex gap-2">
-                                {isAdmin && (
+                                {/* GLOBAL - Only PASTOR */}
+                                {isPastor && (
                                     <button
                                         type="button"
                                         onClick={() => setScope('GLOBAL')}
@@ -282,7 +362,9 @@ const CreateEventModal: React.FC<CreateEventModalProps> = ({
                                         🌐 전체
                                     </button>
                                 )}
-                                {(isAdmin || isLeader) && parishId && (
+
+                                {/* PARISH - PASTOR and SUB_ADMIN */}
+                                {isAdmin && (
                                     <button
                                         type="button"
                                         onClick={() => setScope('PARISH')}
@@ -294,29 +376,102 @@ const CreateEventModal: React.FC<CreateEventModalProps> = ({
                                         🏛️ 교구
                                     </button>
                                 )}
-                                {cellId && (
-                                    <button
-                                        type="button"
-                                        onClick={() => setScope('CELL')}
-                                        className={`flex-1 py-2.5 px-3 rounded-xl text-sm font-medium transition-all ${scope === 'CELL'
-                                            ? 'bg-green-500 text-white shadow-md'
-                                            : 'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300'
-                                            }`}
-                                    >
-                                        👥 셀
-                                    </button>
-                                )}
+
+                                {/* CELL - Everyone with permission */}
+                                <button
+                                    type="button"
+                                    onClick={() => setScope('CELL')}
+                                    className={`flex-1 py-2.5 px-3 rounded-xl text-sm font-medium transition-all ${scope === 'CELL'
+                                        ? 'bg-green-500 text-white shadow-md'
+                                        : 'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300'
+                                        }`}
+                                >
+                                    👥 셀
+                                </button>
                             </div>
-                            {/* Show selected scope details */}
-                            <div className="mt-2 p-2 bg-slate-50 dark:bg-slate-800 rounded-lg">
-                                <p className="text-xs text-primary font-medium">
-                                    {getScopeDescription()}
-                                </p>
+
+                            {/* Parish Selector - For PARISH scope (PASTOR can select any) */}
+                            {scope === 'PARISH' && (
+                                <div className="animate-fadeIn">
+                                    <label className="block text-xs font-medium text-slate-500 mb-1">
+                                        교구 선택
+                                    </label>
+                                    <select
+                                        value={selectedParishId}
+                                        onChange={(e) => setSelectedParishId(e.target.value)}
+                                        className="w-full px-4 py-3 rounded-xl border border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-900/20 text-text-main dark:text-white focus:ring-2 focus:ring-blue-500"
+                                        disabled={profile?.role === 'SUB_ADMIN'} // SUB_ADMIN can't change their parish
+                                    >
+                                        <option value="">교구를 선택하세요</option>
+                                        {allParishes.map(parish => (
+                                            <option key={parish.id} value={parish.id}>
+                                                {parish.name}
+                                            </option>
+                                        ))}
+                                    </select>
+                                </div>
+                            )}
+
+                            {/* Cell Selector - For CELL scope */}
+                            {scope === 'CELL' && (
+                                <div className="space-y-2 animate-fadeIn">
+                                    {/* Parish filter for PASTOR */}
+                                    {isPastor && (
+                                        <div>
+                                            <label className="block text-xs font-medium text-slate-500 mb-1">
+                                                교구 필터 (선택)
+                                            </label>
+                                            <select
+                                                value={selectedParishId}
+                                                onChange={(e) => {
+                                                    setSelectedParishId(e.target.value);
+                                                    setSelectedCellId(''); // Reset cell when parish changes
+                                                }}
+                                                className="w-full px-4 py-3 rounded-xl border border-divider dark:border-gray-600 bg-white dark:bg-background-dark text-text-main dark:text-white"
+                                            >
+                                                <option value="">모든 교구</option>
+                                                {allParishes.map(parish => (
+                                                    <option key={parish.id} value={parish.id}>
+                                                        {parish.name}
+                                                    </option>
+                                                ))}
+                                            </select>
+                                        </div>
+                                    )}
+
+                                    {/* Cell selector */}
+                                    <div>
+                                        <label className="block text-xs font-medium text-slate-500 mb-1">
+                                            셀 선택
+                                        </label>
+                                        <select
+                                            value={selectedCellId}
+                                            onChange={(e) => setSelectedCellId(e.target.value)}
+                                            className="w-full px-4 py-3 rounded-xl border border-green-200 dark:border-green-800 bg-green-50 dark:bg-green-900/20 text-text-main dark:text-white focus:ring-2 focus:ring-green-500"
+                                            disabled={isLeader} // LEADER can't change their cell
+                                        >
+                                            <option value="">셀을 선택하세요</option>
+                                            {(isPastor ? filteredCells : allCells).map(cell => (
+                                                <option key={cell.id} value={cell.id}>
+                                                    {cell.name}
+                                                </option>
+                                            ))}
+                                        </select>
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Scope Description */}
+                            <div className={`p-3 rounded-lg text-sm font-medium ${scope === 'GLOBAL' ? 'bg-purple-50 dark:bg-purple-900/20 text-purple-700 dark:text-purple-300' :
+                                    scope === 'PARISH' ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300' :
+                                        'bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-300'
+                                }`}>
+                                {getScopeDescription()}
                             </div>
                         </div>
                     </div>
 
-                    {/* FIXED Button Area - Always Visible */}
+                    {/* Fixed Button Area */}
                     <div className="p-4 border-t border-divider dark:border-gray-700 bg-white dark:bg-surface-dark">
                         <div className="flex gap-3">
                             <button
@@ -328,8 +483,8 @@ const CreateEventModal: React.FC<CreateEventModalProps> = ({
                             </button>
                             <button
                                 type="submit"
-                                disabled={loading}
-                                className="flex-1 py-3.5 rounded-xl bg-primary text-white font-bold hover:bg-primary-dark transition-colors disabled:opacity-50"
+                                disabled={loading || (scope === 'PARISH' && !selectedParishId) || (scope === 'CELL' && !selectedCellId)}
+                                className="flex-1 py-3.5 rounded-xl bg-primary text-white font-bold hover:bg-primary-dark transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                             >
                                 {loading ? '등록 중...' : '이벤트 등록'}
                             </button>
