@@ -5,6 +5,8 @@ import { Screen } from '../types';
 import { Translations } from '../i18n';
 import { useAuth } from '@/lib/auth-context';
 import { supabase } from '@/lib/supabase';
+import CalendarTab from '@/components/CalendarTab';
+import CreateEventModal from '@/components/CreateEventModal';
 
 interface CommunityScreenProps {
     navigate: (screen: Screen) => void;
@@ -42,7 +44,9 @@ const CommunityScreen: React.FC<CommunityScreenProps> = ({ navigate, t }) => {
     const [members, setMembers] = useState<CellMember[]>([]);
     const [activities, setActivities] = useState<Activity[]>([]);
     const [loading, setLoading] = useState(true);
-    const [activeTab, setActiveTab] = useState<'members' | 'activity'>('members');
+    const [activeTab, setActiveTab] = useState<'members' | 'activity' | 'calendar'>('members');
+    const [parishId, setParishId] = useState<string | null>(null);
+    const [showCreateEvent, setShowCreateEvent] = useState(false);
 
     useEffect(() => {
         const fetchCellData = async () => {
@@ -65,6 +69,10 @@ const CommunityScreen: React.FC<CommunityScreenProps> = ({ navigate, t }) => {
 
                 if (cell) {
                     setCellInfo(cell);
+                    // Store parish_id for calendar
+                    if (cell.parish_id) {
+                        setParishId(cell.parish_id);
+                    }
 
                     // Get cell members with profiles
                     const { data: membersData } = await supabase
@@ -272,6 +280,15 @@ const CommunityScreen: React.FC<CommunityScreenProps> = ({ navigate, t }) => {
                     >
                         활동
                     </button>
+                    <button
+                        onClick={() => setActiveTab('calendar')}
+                        className={`flex-1 py-3 text-sm font-medium transition-colors ${activeTab === 'calendar'
+                            ? 'text-primary border-b-2 border-primary'
+                            : 'text-slate-500 dark:text-slate-400'
+                            }`}
+                    >
+                        캘린더
+                    </button>
                 </div>
             </header>
 
@@ -303,7 +320,7 @@ const CommunityScreen: React.FC<CommunityScreenProps> = ({ navigate, t }) => {
                             </div>
                         ))}
                     </div>
-                ) : (
+                ) : activeTab === 'activity' ? (
                     <div className="space-y-3">
                         {activities.length === 0 ? (
                             <div className="flex flex-col items-center justify-center py-16 text-center">
@@ -320,10 +337,10 @@ const CommunityScreen: React.FC<CommunityScreenProps> = ({ navigate, t }) => {
                                     className="flex items-start gap-4 p-4 bg-surface-light dark:bg-surface-dark rounded-2xl shadow-sm"
                                 >
                                     <div className={`w-10 h-10 rounded-full flex items-center justify-center ${activity.type === 'PRAYER'
-                                            ? 'bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400'
-                                            : activity.type === 'HIGHLIGHT'
-                                                ? 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-600 dark:text-yellow-400'
-                                                : 'bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400'
+                                        ? 'bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400'
+                                        : activity.type === 'HIGHLIGHT'
+                                            ? 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-600 dark:text-yellow-400'
+                                            : 'bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400'
                                         }`}>
                                         <span className="material-symbols-outlined">
                                             {activity.type === 'PRAYER' ? 'volunteer_activism'
@@ -342,8 +359,26 @@ const CommunityScreen: React.FC<CommunityScreenProps> = ({ navigate, t }) => {
                             ))
                         )}
                     </div>
-                )}
+                ) : activeTab === 'calendar' ? (
+                    <CalendarTab
+                        cellId={cellInfo?.id || null}
+                        parishId={parishId}
+                        onAddEvent={() => setShowCreateEvent(true)}
+                    />
+                ) : null}
             </main>
+
+            {/* Create Event Modal */}
+            <CreateEventModal
+                isOpen={showCreateEvent}
+                onClose={() => setShowCreateEvent(false)}
+                onSuccess={() => {
+                    // Refresh calendar tab if needed
+                    setActiveTab('calendar');
+                }}
+                cellId={cellInfo?.id || null}
+                parishId={parishId}
+            />
         </div>
     );
 };
