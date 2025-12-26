@@ -78,14 +78,20 @@ const CalendarTab: React.FC<CalendarTabProps> = ({ cellId, parishId, onAddEvent,
 
     const fetchEvents = async () => {
         setLoading(true);
-        const startDate = formatLocalDate(new Date(year, month, 1));
-        const endDate = formatLocalDate(new Date(year, month + 1, 0));
+        const monthStart = formatLocalDate(new Date(year, month, 1));
+        const monthEnd = formatLocalDate(new Date(year, month + 1, 0));
 
+        // For an event to overlap with this month:
+        // - Event's start_date <= monthEnd AND event's end_date >= monthStart
+        // OR for legacy events:
+        // - event_date is within the month
         const { data, error } = await supabase
             .from('calendar_events')
             .select('*')
-            .or(`start_date.gte.${startDate},event_date.gte.${startDate}`)
-            .or(`start_date.lte.${endDate},event_date.lte.${endDate}`)
+            .or(
+                `and(start_date.lte.${monthEnd},end_date.gte.${monthStart}),` +
+                `and(start_date.is.null,event_date.gte.${monthStart},event_date.lte.${monthEnd})`
+            )
             .order('event_date', { ascending: true })
             .order('event_time', { ascending: true });
 
