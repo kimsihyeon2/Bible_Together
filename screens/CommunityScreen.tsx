@@ -7,6 +7,7 @@ import { useAuth } from '@/lib/auth-context';
 import { supabase } from '@/lib/supabase';
 import CalendarTab from '@/components/CalendarTab';
 import CreateEventModal from '@/components/CreateEventModal';
+import EditEventModal from '@/components/EditEventModal';
 
 interface CommunityScreenProps {
     navigate: (screen: Screen) => void;
@@ -47,6 +48,8 @@ const CommunityScreen: React.FC<CommunityScreenProps> = ({ navigate, t }) => {
     const [activeTab, setActiveTab] = useState<'members' | 'activity' | 'calendar'>('members');
     const [parishId, setParishId] = useState<string | null>(null);
     const [showCreateEvent, setShowCreateEvent] = useState(false);
+    const [editingEvent, setEditingEvent] = useState<any>(null);
+    const [calendarKey, setCalendarKey] = useState(0); // For refreshing calendar
 
     useEffect(() => {
         const fetchCellData = async () => {
@@ -361,9 +364,11 @@ const CommunityScreen: React.FC<CommunityScreenProps> = ({ navigate, t }) => {
                     </div>
                 ) : activeTab === 'calendar' ? (
                     <CalendarTab
+                        key={calendarKey}
                         cellId={cellInfo?.id || null}
                         parishId={parishId}
                         onAddEvent={() => setShowCreateEvent(true)}
+                        onEditEvent={(event) => setEditingEvent(event)}
                     />
                 ) : null}
             </main>
@@ -373,11 +378,23 @@ const CommunityScreen: React.FC<CommunityScreenProps> = ({ navigate, t }) => {
                 isOpen={showCreateEvent}
                 onClose={() => setShowCreateEvent(false)}
                 onSuccess={() => {
-                    // Refresh calendar tab if needed
-                    setActiveTab('calendar');
+                    setCalendarKey(k => k + 1); // Refresh calendar
                 }}
                 userCellId={cellInfo?.id || null}
                 userParishId={parishId}
+            />
+
+            {/* Edit Event Modal */}
+            <EditEventModal
+                isOpen={!!editingEvent}
+                onClose={() => setEditingEvent(null)}
+                onSuccess={() => {
+                    setEditingEvent(null);
+                    setCalendarKey(k => k + 1); // Refresh calendar
+                }}
+                event={editingEvent}
+                userRole={profile?.role || 'MEMBER'}
+                userId={user?.id || ''}
             />
         </div>
     );

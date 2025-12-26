@@ -8,7 +8,9 @@ interface CalendarEvent {
     id: string;
     title: string;
     description: string | null;
-    event_date: string;
+    start_date?: string;
+    end_date?: string;
+    event_date: string; // Keep for backward compatibility
     event_time: string | null;
     end_time: string | null;
     location: string | null;
@@ -23,10 +25,11 @@ interface CalendarTabProps {
     cellId: string | null;
     parishId: string | null;
     onAddEvent: () => void;
+    onEditEvent: (event: CalendarEvent) => void;
 }
 
-const CalendarTab: React.FC<CalendarTabProps> = ({ cellId, parishId, onAddEvent }) => {
-    const { profile } = useAuth();
+const CalendarTab: React.FC<CalendarTabProps> = ({ cellId, parishId, onAddEvent, onEditEvent }) => {
+    const { user, profile } = useAuth();
     const [currentDate, setCurrentDate] = useState(new Date());
     const [selectedDate, setSelectedDate] = useState<Date | null>(null);
     const [events, setEvents] = useState<CalendarEvent[]>([]);
@@ -34,7 +37,6 @@ const CalendarTab: React.FC<CalendarTabProps> = ({ cellId, parishId, onAddEvent 
 
     const canCreateEvent = profile?.role === 'PASTOR' || profile?.role === 'SUB_ADMIN' || profile?.role === 'LEADER';
 
-    // Get calendar grid data
     const year = currentDate.getFullYear();
     const month = currentDate.getMonth();
     const firstDay = new Date(year, month, 1);
@@ -42,7 +44,6 @@ const CalendarTab: React.FC<CalendarTabProps> = ({ cellId, parishId, onAddEvent 
     const startDayOfWeek = firstDay.getDay();
     const daysInMonth = lastDay.getDate();
 
-    // Fetch events for current month
     useEffect(() => {
         fetchEvents();
     }, [currentDate, cellId]);
@@ -52,11 +53,13 @@ const CalendarTab: React.FC<CalendarTabProps> = ({ cellId, parishId, onAddEvent 
         const startDate = new Date(year, month, 1).toISOString().split('T')[0];
         const endDate = new Date(year, month + 1, 0).toISOString().split('T')[0];
 
+        // Fetch events that overlap with this month
+        // Either start_date is in this month, or event_date (legacy) is in this month
         const { data, error } = await supabase
             .from('calendar_events')
             .select('*')
-            .gte('event_date', startDate)
-            .lte('event_date', endDate)
+            .or(`start_date.gte.${startDate},event_date.gte.${startDate}`)
+            .or(`start_date.lte.${endDate},event_date.lte.${endDate}`)
             .order('event_date', { ascending: true })
             .order('event_time', { ascending: true });
 
@@ -66,16 +69,41 @@ const CalendarTab: React.FC<CalendarTabProps> = ({ cellId, parishId, onAddEvent 
         setLoading(false);
     };
 
+    // Check if a date falls within an event's date range
     const getEventsForDate = (date: Date) => {
         const dateStr = date.toISOString().split('T')[0];
-        return events.filter(e => e.event_date === dateStr);
+        return events.filter(e => {
+            const eventStart = e.start_date || e.event_date;
+            const eventEnd = e.end_date || e.start_date || e.event_date;
+            return dateStr >= eventStart && dateStr <= eventEnd;
+        });
+    };
+
+    // Check if user can edit this event
+    const canEditEvent = (event: CalendarEvent) => {
+        if (!user || !profile) return false;
+        if (event.created_by === user.id) return true;
+        if (profile.role === 'PASTOR') return true;
+        if (profile.role === 'SUB_ADMIN' && event.scope !== 'GLOBAL') return true;
+        return false;
     };
 
     const formatTime = (time: string | null) => {
         if (!time) return '';
         const [hours, minutes] = time.split(':');
         const h = parseInt(hours);
-        return `${h > 12 ? '오후' : '오전'} ${h > 12 ? h - 12 : h}:${minutes}`;
+        return `${h >= 12 ? '오후' : '오전'} ${h > 12 ? h - 12 : h === 0 ? 12 : h}:${minutes}`;
+    };
+
+    const formatDateRange = (event: CalendarEvent) => {
+        const start = event.start_date || event.event_date;
+        const end = event.end_date || event.start_date || event.event_date;
+
+        if (start === end) return null; // Same day, don't show range
+
+        const startParts = start.split('-');
+        const endParts = end.split('-');
+        return `${parseInt(startParts[1])}/${parseInt(startParts[2])} ~ ${parseInt(endParts[1])}/${parseInt(endParts[2])}`;
     };
 
     const getScopeLabel = (scope: string) => {
@@ -96,6 +124,15 @@ const CalendarTab: React.FC<CalendarTabProps> = ({ cellId, parishId, onAddEvent 
         }
     };
 
+    const getBorderColor = (scope: string) => {
+        switch (scope) {
+            case 'GLOBAL': return 'border-purple-500';
+            case 'PARISH': return 'border-blue-500';
+            case 'CELL': return 'border-green-500';
+            default: return 'border-primary';
+        }
+    };
+
     const goToPrevMonth = () => {
         setCurrentDate(new Date(year, month - 1, 1));
         setSelectedDate(null);
@@ -112,7 +149,6 @@ const CalendarTab: React.FC<CalendarTabProps> = ({ cellId, parishId, onAddEvent 
 
     const selectedEvents = selectedDate ? getEventsForDate(selectedDate) : [];
 
-    // Build calendar grid
     const calendarDays: (number | null)[] = [];
     for (let i = 0; i < startDayOfWeek; i++) {
         calendarDays.push(null);
@@ -151,7 +187,6 @@ const CalendarTab: React.FC<CalendarTabProps> = ({ cellId, parishId, onAddEvent 
 
             {/* Calendar Grid */}
             <div className="bg-surface-light dark:bg-surface-dark rounded-2xl p-4">
-                {/* Day headers */}
                 <div className="grid grid-cols-7 gap-1 mb-2">
                     {['일', '월', '화', '수', '목', '금', '토'].map((day, idx) => (
                         <div
@@ -163,7 +198,6 @@ const CalendarTab: React.FC<CalendarTabProps> = ({ cellId, parishId, onAddEvent 
                     ))}
                 </div>
 
-                {/* Calendar days */}
                 <div className="grid grid-cols-7 gap-1">
                     {calendarDays.map((day, idx) => {
                         if (day === null) {
@@ -196,8 +230,8 @@ const CalendarTab: React.FC<CalendarTabProps> = ({ cellId, parishId, onAddEvent 
                                             <span
                                                 key={i}
                                                 className={`w-1.5 h-1.5 rounded-full ${isSelected(day) ? 'bg-white' :
-                                                        e.scope === 'GLOBAL' ? 'bg-purple-500' :
-                                                            e.scope === 'PARISH' ? 'bg-blue-500' : 'bg-green-500'
+                                                    e.scope === 'GLOBAL' ? 'bg-purple-500' :
+                                                        e.scope === 'PARISH' ? 'bg-blue-500' : 'bg-green-500'
                                                     }`}
                                             />
                                         ))}
@@ -224,18 +258,46 @@ const CalendarTab: React.FC<CalendarTabProps> = ({ cellId, parishId, onAddEvent 
                             {selectedEvents.map(event => (
                                 <div
                                     key={event.id}
-                                    className="p-4 bg-background-light dark:bg-background-dark rounded-xl border-l-4 border-primary"
+                                    className={`p-4 bg-background-light dark:bg-background-dark rounded-xl border-l-4 ${getBorderColor(event.scope)} relative group`}
                                 >
                                     <div className="flex items-start justify-between gap-2">
-                                        <h5 className="font-semibold">{event.title}</h5>
-                                        <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${getScopeColor(event.scope)}`}>
-                                            {getScopeLabel(event.scope)}
-                                        </span>
+                                        <div className="flex-1 min-w-0">
+                                            <div className="flex items-center gap-2 flex-wrap">
+                                                <h5 className="font-semibold">{event.title}</h5>
+                                                <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${getScopeColor(event.scope)}`}>
+                                                    {getScopeLabel(event.scope)}
+                                                </span>
+                                            </div>
+                                            {event.description && (
+                                                <p className="text-sm text-slate-600 dark:text-slate-400 mt-1 line-clamp-2">{event.description}</p>
+                                            )}
+                                        </div>
+
+                                        {/* Edit Button */}
+                                        {canEditEvent(event) && (
+                                            <button
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    onEditEvent(event);
+                                                }}
+                                                className="p-2 -mr-1 -mt-1 text-slate-400 hover:text-amber-500 hover:bg-amber-50 dark:hover:bg-amber-900/20 rounded-lg transition-colors opacity-0 group-hover:opacity-100 sm:opacity-100"
+                                                title="이벤트 수정"
+                                            >
+                                                <span className="material-symbols-outlined text-lg">edit</span>
+                                            </button>
+                                        )}
                                     </div>
-                                    {event.description && (
-                                        <p className="text-sm text-slate-600 dark:text-slate-400 mt-1">{event.description}</p>
-                                    )}
-                                    <div className="flex items-center gap-4 mt-2 text-xs text-slate-500">
+
+                                    <div className="flex items-center flex-wrap gap-3 mt-2 text-xs text-slate-500">
+                                        {/* Date Range */}
+                                        {formatDateRange(event) && (
+                                            <span className="flex items-center gap-1 bg-slate-100 dark:bg-slate-700 px-2 py-1 rounded-full">
+                                                <span className="material-symbols-outlined text-xs">date_range</span>
+                                                {formatDateRange(event)}
+                                            </span>
+                                        )}
+
+                                        {/* Time */}
                                         {event.event_time && (
                                             <span className="flex items-center gap-1">
                                                 <span className="material-symbols-outlined text-sm">schedule</span>
@@ -243,6 +305,8 @@ const CalendarTab: React.FC<CalendarTabProps> = ({ cellId, parishId, onAddEvent 
                                                 {event.end_time && ` ~ ${formatTime(event.end_time)}`}
                                             </span>
                                         )}
+
+                                        {/* Location */}
                                         {event.location && (
                                             <span className="flex items-center gap-1">
                                                 <span className="material-symbols-outlined text-sm">location_on</span>
@@ -257,7 +321,7 @@ const CalendarTab: React.FC<CalendarTabProps> = ({ cellId, parishId, onAddEvent 
                 </div>
             )}
 
-            {/* Add Event Button (Leaders only) */}
+            {/* Add Event Button */}
             {canCreateEvent && (
                 <button
                     onClick={onAddEvent}
