@@ -48,6 +48,7 @@ const CommunityScreen: React.FC<CommunityScreenProps> = ({ navigate, t }) => {
     const [activeTab, setActiveTab] = useState<'members' | 'activity' | 'calendar'>('members');
     const [parishId, setParishId] = useState<string | null>(null);
     const [showCreateEvent, setShowCreateEvent] = useState(false);
+    const [selectedDateForEvent, setSelectedDateForEvent] = useState<Date | null>(null);
     const [editingEvent, setEditingEvent] = useState<any>(null);
     const [calendarKey, setCalendarKey] = useState(0); // For refreshing calendar
 
@@ -367,7 +368,10 @@ const CommunityScreen: React.FC<CommunityScreenProps> = ({ navigate, t }) => {
                         key={calendarKey}
                         cellId={cellInfo?.id || null}
                         parishId={parishId}
-                        onAddEvent={() => setShowCreateEvent(true)}
+                        onAddEvent={(date) => {
+                            setSelectedDateForEvent(date);
+                            setShowCreateEvent(true);
+                        }}
                         onEditEvent={(event) => setEditingEvent(event)}
                     />
                 ) : null}
@@ -376,12 +380,17 @@ const CommunityScreen: React.FC<CommunityScreenProps> = ({ navigate, t }) => {
             {/* Create Event Modal */}
             <CreateEventModal
                 isOpen={showCreateEvent}
-                onClose={() => setShowCreateEvent(false)}
+                onClose={() => {
+                    setShowCreateEvent(false);
+                    setSelectedDateForEvent(null);
+                }}
                 onSuccess={() => {
-                    setCalendarKey(k => k + 1); // Refresh calendar
+                    setCalendarKey(k => k + 1);
+                    setSelectedDateForEvent(null);
                 }}
                 userCellId={cellInfo?.id || null}
                 userParishId={parishId}
+                selectedDate={selectedDateForEvent}
             />
 
             {/* Edit Event Modal */}

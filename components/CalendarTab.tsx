@@ -24,7 +24,7 @@ interface CalendarEvent {
 interface CalendarTabProps {
     cellId: string | null;
     parishId: string | null;
-    onAddEvent: () => void;
+    onAddEvent: (selectedDate: Date | null) => void;
     onEditEvent: (event: CalendarEvent) => void;
 }
 
@@ -410,7 +410,7 @@ const CalendarTab: React.FC<CalendarTabProps> = ({ cellId, parishId, onAddEvent,
 
             {/* Add Event Button */}
             {canCreateEvent && (
-                <button onClick={onAddEvent} className="w-full py-3 bg-primary text-white rounded-2xl font-bold flex items-center justify-center gap-2 shadow-lg hover:bg-primary-dark transition-colors">
+                <button onClick={() => onAddEvent(selectedDate)} className="w-full py-3 bg-primary text-white rounded-2xl font-bold flex items-center justify-center gap-2 shadow-lg hover:bg-primary-dark transition-colors">
                     <span className="material-symbols-outlined">add</span>
                     이벤트 추가
                 </button>
