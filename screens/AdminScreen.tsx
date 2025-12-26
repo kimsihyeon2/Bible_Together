@@ -33,6 +33,28 @@ interface UrgentPrayer {
     created_at: string;
 }
 
+interface PrayerParticipant {
+    user_id: string;
+    name: string;
+    prayed_at: string;
+}
+
+// Helper function to format relative time
+const formatRelativeTime = (dateStr: string): string => {
+    const date = new Date(dateStr);
+    const now = new Date();
+    const diff = now.getTime() - date.getTime();
+    const minutes = Math.floor(diff / 60000);
+    const hours = Math.floor(diff / 3600000);
+    const days = Math.floor(diff / 86400000);
+
+    if (minutes < 1) return '방금 전';
+    if (minutes < 60) return `${minutes}분 전`;
+    if (hours < 24) return `${hours}시간 전`;
+    if (days < 7) return `${days}일 전`;
+    return date.toLocaleDateString();
+};
+
 const AdminScreen: React.FC<AdminScreenProps> = ({ navigate, t }) => {
     const { user, profile, isAdmin } = useAuth();
     const [activeTab, setActiveTab] = useState<'parishes' | 'members' | 'prayers' | 'stats'>('parishes');
@@ -42,6 +64,8 @@ const AdminScreen: React.FC<AdminScreenProps> = ({ navigate, t }) => {
     const [cells, setCells] = useState<any[]>([]); // Cells within selected Parish
     const [members, setMembers] = useState<any[]>([]);
     const [prayers, setPrayers] = useState<UrgentPrayer[]>([]);
+    const [prayerParticipants, setPrayerParticipants] = useState<Record<string, PrayerParticipant[]>>({});
+    const [expandedPrayerId, setExpandedPrayerId] = useState<string | null>(null);
     const [loading, setLoading] = useState(true);
 
     // Modal States
@@ -120,7 +144,31 @@ const AdminScreen: React.FC<AdminScreenProps> = ({ navigate, t }) => {
 
         // 3. Fetch Prayers
         const { data: prayersData } = await supabase.from('urgent_prayers').select('*').order('created_at', { ascending: false });
-        if (prayersData) setPrayers(prayersData);
+        if (prayersData) {
+            setPrayers(prayersData);
+            // 4. Fetch Prayer Participants
+            const prayerIds = prayersData.map((p: UrgentPrayer) => p.id);
+            if (prayerIds.length > 0) {
+                const { data: participantsData } = await supabase
+                    .from('prayer_participants')
+                    .select('prayer_id, user_id, prayed_at, profiles(name)')
+                    .in('prayer_id', prayerIds)
+                    .order('prayed_at', { ascending: false });
+
+                if (participantsData) {
+                    const grouped: Record<string, PrayerParticipant[]> = {};
+                    participantsData.forEach((p: any) => {
+                        if (!grouped[p.prayer_id]) grouped[p.prayer_id] = [];
+                        grouped[p.prayer_id].push({
+                            user_id: p.user_id,
+                            name: p.profiles?.name || '익명',
+                            prayed_at: p.prayed_at
+                        });
+                    });
+                    setPrayerParticipants(grouped);
+                }
+            }
+        }
 
         setLoading(false);
     };
@@ -487,23 +535,64 @@ const AdminScreen: React.FC<AdminScreenProps> = ({ navigate, t }) => {
                         <button onClick={() => setShowCreatePrayer(true)} className="w-full py-3 bg-red-500 text-white rounded-2xl font-bold flex items-center justify-center gap-2">
                             <span className="material-symbols-outlined">campaign</span> 긴급 기도 발송
                         </button>
-                        {prayers.map(p => (
-                            <div key={p.id} className={`p-4 rounded-xl border ${p.is_active ? 'border-red-500 bg-red-50 dark:bg-red-900/10' : 'border-slate-200 opacity-60'}`}>
-                                <h4 className="font-bold">{p.title}</h4>
-                                <p className="text-sm mt-1">{p.content}</p>
-                                <div className="flex justify-between items-center mt-3">
-                                    <span className="text-xs text-slate-400">{new Date(p.created_at).toLocaleDateString()}</span>
-                                    <div className="flex gap-2">
-                                        <button onClick={() => handleDeletePrayer(p.id)} className="text-xs px-3 py-1 bg-white dark:bg-slate-700 text-red-500 rounded-full shadow-sm hover:bg-red-50">
-                                            삭제
-                                        </button>
-                                        <button onClick={() => handleTogglePrayer(p.id, p.is_active)} className="text-xs px-3 py-1 bg-white dark:bg-slate-700 rounded-full shadow-sm">
-                                            {p.is_active ? '종료하기' : '다시 활성화'}
-                                        </button>
+                        {prayers.map(p => {
+                            const participants = prayerParticipants[p.id] || [];
+                            const isExpanded = expandedPrayerId === p.id;
+                            return (
+                                <div key={p.id} className={`p-4 rounded-xl border ${p.is_active ? 'border-red-500 bg-red-50 dark:bg-red-900/10' : 'border-slate-200 opacity-60'}`}>
+                                    <h4 className="font-bold">{p.title}</h4>
+                                    <p className="text-sm mt-1 text-slate-600 dark:text-slate-300">{p.content}</p>
+
+                                    {/* Participant Count & Toggle */}
+                                    <button
+                                        onClick={() => setExpandedPrayerId(isExpanded ? null : p.id)}
+                                        className="mt-3 flex items-center gap-2 text-sm text-primary hover:underline"
+                                    >
+                                        <span>🙏</span>
+                                        <span className="font-semibold">{participants.length}명 함께 기도함</span>
+                                        <span className="material-symbols-outlined text-base">
+                                            {isExpanded ? 'expand_less' : 'expand_more'}
+                                        </span>
+                                    </button>
+
+                                    {/* Expandable Participant List */}
+                                    {isExpanded && participants.length > 0 && (
+                                        <div className="mt-2 p-3 bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 max-h-48 overflow-y-auto">
+                                            <h5 className="text-xs font-bold text-slate-500 mb-2">참여자 목록</h5>
+                                            <div className="space-y-2">
+                                                {participants.map((participant, idx) => (
+                                                    <div key={idx} className="flex items-center justify-between text-sm">
+                                                        <span className="font-medium text-slate-700 dark:text-slate-200">
+                                                            {participant.name}
+                                                        </span>
+                                                        <span className="text-xs text-slate-400">
+                                                            {formatRelativeTime(participant.prayed_at)}
+                                                        </span>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    )}
+                                    {isExpanded && participants.length === 0 && (
+                                        <div className="mt-2 p-3 bg-slate-50 dark:bg-slate-800 rounded-lg text-sm text-slate-400 text-center">
+                                            아직 참여자가 없습니다
+                                        </div>
+                                    )}
+
+                                    <div className="flex justify-between items-center mt-3 pt-3 border-t border-slate-200 dark:border-slate-700">
+                                        <span className="text-xs text-slate-400">{new Date(p.created_at).toLocaleDateString()}</span>
+                                        <div className="flex gap-2">
+                                            <button onClick={() => handleDeletePrayer(p.id)} className="text-xs px-3 py-1 bg-white dark:bg-slate-700 text-red-500 rounded-full shadow-sm hover:bg-red-50">
+                                                삭제
+                                            </button>
+                                            <button onClick={() => handleTogglePrayer(p.id, p.is_active)} className="text-xs px-3 py-1 bg-white dark:bg-slate-700 rounded-full shadow-sm">
+                                                {p.is_active ? '종료하기' : '다시 활성화'}
+                                            </button>
+                                        </div>
                                     </div>
                                 </div>
-                            </div>
-                        ))}
+                            );
+                        })}
                     </div>
                 )}
 
