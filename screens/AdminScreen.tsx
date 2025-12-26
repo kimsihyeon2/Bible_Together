@@ -90,6 +90,39 @@ const AdminScreen: React.FC<AdminScreenProps> = ({ navigate, t }) => {
         if (activeTab === 'stats') fetchStats();
     }, [activeTab]);
 
+    // --- Permission Helpers ---
+    const isPastor = profile?.role === 'PASTOR';
+    const isSubAdmin = profile?.role === 'SUB_ADMIN';
+    const isLeader = profile?.role === 'LEADER';
+
+    // Can add/delete parishes and cells
+    const canManageParishCell = isPastor || isSubAdmin;
+
+    // Can modify prayer (delete/toggle)
+    const canModifyPrayer = (prayer: UrgentPrayer & { created_by?: string; creator_role?: string }) => {
+        // PASTOR can do anything
+        if (isPastor) return true;
+        // Creator can always modify their own
+        if (prayer.created_by === user?.id) return true;
+        // SUB_ADMIN can modify LEADER's prayers
+        if (isSubAdmin && prayer.creator_role === 'LEADER') return true;
+        return false;
+    };
+
+    // Can change member role
+    const canChangeRole = (memberRole: string) => {
+        if (isPastor) return true;
+        if (isSubAdmin && (memberRole === 'MEMBER' || memberRole === 'LEADER')) return true;
+        return false;
+    };
+
+    // Get available roles for role selector
+    const getAvailableRoles = () => {
+        if (isPastor) return ['MEMBER', 'LEADER', 'SUB_ADMIN', 'PASTOR'];
+        if (isSubAdmin) return ['MEMBER', 'LEADER'];
+        return [];
+    };
+
     const fetchStats = async () => {
         setLoading(true);
         try {
@@ -131,21 +164,69 @@ const AdminScreen: React.FC<AdminScreenProps> = ({ navigate, t }) => {
 
     const fetchData = async () => {
         setLoading(true);
-        // 1. Fetch Parishes
-        const { data: parishesData } = await supabase.from('parishes').select('*').order('name');
-        if (parishesData) {
-            // Count members (approx) - actually counting via cell_members requires join
-            setParishes(parishesData);
+
+        // 1. Fetch Parishes (only PASTOR/SUB_ADMIN need to see these)
+        if (canManageParishCell) {
+            const { data: parishesData } = await supabase.from('parishes').select('*').order('name');
+            if (parishesData) setParishes(parishesData);
         }
 
-        // 2. Fetch Members
-        const { data: membersData } = await supabase.from('profiles').select('*').order('name');
-        if (membersData) setMembers(membersData);
+        // 2. Fetch Members - Role-based filtering
+        let membersData: any[] = [];
 
-        // 3. Fetch Prayers
-        const { data: prayersData } = await supabase.from('urgent_prayers').select('*').order('created_at', { ascending: false });
+        if (isPastor) {
+            // PASTOR: see all members
+            const { data } = await supabase.from('profiles').select('*').order('name');
+            membersData = data || [];
+        } else if (isSubAdmin && profile?.parish_id) {
+            // SUB_ADMIN: see members in their parish's cells
+            const { data: parishCells } = await supabase
+                .from('cells')
+                .select('id')
+                .eq('parish_id', profile.parish_id);
+
+            if (parishCells && parishCells.length > 0) {
+                const cellIds = parishCells.map((c: { id: string }) => c.id);
+                const { data: cellMembers } = await supabase
+                    .from('cell_members')
+                    .select('user_id, profiles(*)')
+                    .in('cell_id', cellIds);
+
+                if (cellMembers) {
+                    membersData = cellMembers.map((cm: any) => cm.profiles).filter(Boolean);
+                }
+            }
+        } else if (isLeader && profile?.cell_id) {
+            // LEADER: see only their cell members
+            const { data: cellMembers } = await supabase
+                .from('cell_members')
+                .select('user_id, profiles(*)')
+                .eq('cell_id', profile.cell_id);
+
+            if (cellMembers) {
+                membersData = cellMembers.map((cm: any) => cm.profiles).filter(Boolean);
+            }
+        }
+
+        // Remove duplicates (in case same profile appears multiple times)
+        const uniqueMembers = Array.from(
+            new Map(membersData.map(m => [m.id, m])).values()
+        );
+        setMembers(uniqueMembers);
+
+        // 3. Fetch Prayers with creator info
+        const { data: prayersData } = await supabase
+            .from('urgent_prayers')
+            .select('*, profiles:created_by(role)')
+            .order('created_at', { ascending: false });
+
         if (prayersData) {
-            setPrayers(prayersData);
+            const enrichedPrayers = prayersData.map((p: any) => ({
+                ...p,
+                creator_role: (p.profiles as any)?.role || 'MEMBER'
+            }));
+            setPrayers(enrichedPrayers);
+
             // 4. Fetch Prayer Participants
             const prayerIds = prayersData.map((p: UrgentPrayer) => p.id);
             if (prayerIds.length > 0) {
@@ -400,9 +481,11 @@ const AdminScreen: React.FC<AdminScreenProps> = ({ navigate, t }) => {
                             <div className="space-y-4">
                                 <div className="flex justify-between items-center mb-2 px-1">
                                     <h2 className="text-lg font-bold">교구 목록</h2>
-                                    <button onClick={() => setShowCreateParish(true)} className="px-4 py-2 bg-primary text-white rounded-full text-sm font-bold flex items-center gap-1 shadow-md hover:scale-105 transition-transform">
-                                        <span className="material-symbols-outlined text-sm">add</span> 추가
-                                    </button>
+                                    {canManageParishCell && (
+                                        <button onClick={() => setShowCreateParish(true)} className="px-4 py-2 bg-primary text-white rounded-full text-sm font-bold flex items-center gap-1 shadow-md hover:scale-105 transition-transform">
+                                            <span className="material-symbols-outlined text-sm">add</span> 추가
+                                        </button>
+                                    )}
                                 </div>
                                 <div className="space-y-4">
                                     {parishes.map((parish) => (
@@ -421,9 +504,11 @@ const AdminScreen: React.FC<AdminScreenProps> = ({ navigate, t }) => {
                                                         <p className="text-sm text-slate-500 dark:text-slate-400">초대 코드: <span className="font-mono font-bold">{parish.invite_code}</span></p>
                                                     </div>
                                                 </div>
-                                                <button onClick={(e) => { e.stopPropagation(); handleDeleteParish(parish.id); }} className="p-2 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-full transition-colors">
-                                                    <span className="material-symbols-outlined">delete</span>
-                                                </button>
+                                                {canManageParishCell && (
+                                                    <button onClick={(e) => { e.stopPropagation(); handleDeleteParish(parish.id); }} className="p-2 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-full transition-colors">
+                                                        <span className="material-symbols-outlined">delete</span>
+                                                    </button>
+                                                )}
                                             </div>
                                         </div>
                                     ))}
@@ -442,9 +527,11 @@ const AdminScreen: React.FC<AdminScreenProps> = ({ navigate, t }) => {
                                 </button>
                                 <div className="flex justify-between items-center">
                                     <h2 className="text-xl font-bold text-primary">{parishes.find(p => p.id === selectedParishId)?.name} 셀 목록</h2>
-                                    <button onClick={() => setShowCreateCell(true)} className="px-4 py-2 bg-primary text-white rounded-full text-sm font-bold">
-                                        + 셀 추가
-                                    </button>
+                                    {canManageParishCell && (
+                                        <button onClick={() => setShowCreateCell(true)} className="px-4 py-2 bg-primary text-white rounded-full text-sm font-bold">
+                                            + 셀 추가
+                                        </button>
+                                    )}
                                 </div>
                                 {cells.length === 0 ? (
                                     <p className="text-slate-500 text-center py-10">등록된 셀이 없습니다.</p>
@@ -457,9 +544,11 @@ const AdminScreen: React.FC<AdminScreenProps> = ({ navigate, t }) => {
                                                     코드: {cell.code}
                                                 </div>
                                             </div>
-                                            <button onClick={() => handleDeleteCell(cell.id)} className="text-red-500 p-2">
-                                                <span className="material-symbols-outlined">delete</span>
-                                            </button>
+                                            {canManageParishCell && (
+                                                <button onClick={() => handleDeleteCell(cell.id)} className="text-red-500 p-2">
+                                                    <span className="material-symbols-outlined">delete</span>
+                                                </button>
+                                            )}
                                         </div>
                                     ))
                                 )}
@@ -582,12 +671,16 @@ const AdminScreen: React.FC<AdminScreenProps> = ({ navigate, t }) => {
                                     <div className="flex justify-between items-center mt-3 pt-3 border-t border-slate-200 dark:border-slate-700">
                                         <span className="text-xs text-slate-400">{new Date(p.created_at).toLocaleDateString()}</span>
                                         <div className="flex gap-2">
-                                            <button onClick={() => handleDeletePrayer(p.id)} className="text-xs px-3 py-1 bg-white dark:bg-slate-700 text-red-500 rounded-full shadow-sm hover:bg-red-50">
-                                                삭제
-                                            </button>
-                                            <button onClick={() => handleTogglePrayer(p.id, p.is_active)} className="text-xs px-3 py-1 bg-white dark:bg-slate-700 rounded-full shadow-sm">
-                                                {p.is_active ? '종료하기' : '다시 활성화'}
-                                            </button>
+                                            {canModifyPrayer(p) && (
+                                                <>
+                                                    <button onClick={() => handleDeletePrayer(p.id)} className="text-xs px-3 py-1 bg-white dark:bg-slate-700 text-red-500 rounded-full shadow-sm hover:bg-red-50">
+                                                        삭제
+                                                    </button>
+                                                    <button onClick={() => handleTogglePrayer(p.id, p.is_active)} className="text-xs px-3 py-1 bg-white dark:bg-slate-700 rounded-full shadow-sm">
+                                                        {p.is_active ? '종료하기' : '다시 활성화'}
+                                                    </button>
+                                                </>
+                                            )}
                                         </div>
                                     </div>
                                 </div>

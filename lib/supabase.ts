@@ -40,6 +40,8 @@ export interface Profile {
     phone?: string;
     role: 'MEMBER' | 'LEADER' | 'SUB_ADMIN' | 'PASTOR';
     avatar_url?: string;
+    parish_id?: string;  // For SUB_ADMIN's assigned parish
+    cell_id?: string;    // For LEADER's assigned cell
     created_at: string;
 }
 
