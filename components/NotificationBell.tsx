@@ -129,13 +129,25 @@ export const NotificationBell: React.FC<NotificationBellProps> = ({ onPrayerClic
     const deleteNotification = async (id: string, e: React.MouseEvent) => {
         e.stopPropagation(); // Prevent triggering the parent onClick
 
-        // Optimistic update
+        // Optimistic update - save previous state for rollback
+        const previousNotifications = notifications;
         setNotifications(prev => prev.filter(n => n.id !== id));
 
-        await supabase
-            .from('user_notifications')
-            .delete()
-            .eq('id', id);
+        try {
+            const { error } = await supabase
+                .from('user_notifications')
+                .delete()
+                .eq('id', id);
+
+            if (error) {
+                console.error('Failed to delete notification:', error);
+                // Rollback on error
+                setNotifications(previousNotifications);
+            }
+        } catch (err) {
+            console.error('Delete notification error:', err);
+            setNotifications(previousNotifications);
+        }
     };
 
     // Clear all (delete all read notifications)
@@ -144,16 +156,29 @@ export const NotificationBell: React.FC<NotificationBellProps> = ({ onPrayerClic
 
         setIsLoading(true);
 
-        // Delete all read notifications for this user
-        await supabase
-            .from('user_notifications')
-            .delete()
-            .eq('user_id', user.id)
-            .eq('is_read', true);
+        // Save for rollback
+        const previousNotifications = notifications;
 
-        // Keep only unread in state
-        setNotifications(prev => prev.filter(n => !n.is_read));
-        setIsLoading(false);
+        try {
+            // Delete all read notifications for this user
+            const { error } = await supabase
+                .from('user_notifications')
+                .delete()
+                .eq('user_id', user.id)
+                .eq('is_read', true);
+
+            if (error) {
+                console.error('Failed to clear read notifications:', error);
+                // Don't update state if delete failed
+            } else {
+                // Keep only unread in state
+                setNotifications(prev => prev.filter(n => !n.is_read));
+            }
+        } catch (err) {
+            console.error('Clear all read error:', err);
+        } finally {
+            setIsLoading(false);
+        }
     };
 
     const formatTime = (dateStr: string) => {
