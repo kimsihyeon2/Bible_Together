@@ -355,6 +355,94 @@ const CalendarTab: React.FC<CalendarTabProps> = ({ cellId, parishId, onAddEvent,
                 </div>
             </div>
 
+            {/* Monthly Event Summary */}
+            {events.length > 0 && (
+                <div className="bg-surface-light dark:bg-surface-dark rounded-2xl overflow-hidden">
+                    <div className="bg-gradient-to-r from-primary/10 to-primary/5 dark:from-primary/20 dark:to-primary/10 px-4 py-3 border-b border-primary/10">
+                        <div className="flex items-center justify-between">
+                            <h4 className="font-bold text-primary flex items-center gap-2">
+                                <span className="material-symbols-outlined text-lg">calendar_month</span>
+                                {month + 1}월 일정 요약
+                                <span className="text-xs font-normal bg-primary/20 px-2 py-0.5 rounded-full">{events.length}개</span>
+                            </h4>
+                        </div>
+                    </div>
+                    <div className="p-3 space-y-2 max-h-[40vh] overflow-y-auto">
+                        {[...events]
+                            .sort((a, b) => {
+                                const dateA = a.start_date || a.event_date;
+                                const dateB = b.start_date || b.event_date;
+                                return dateA.localeCompare(dateB);
+                            })
+                            .map(event => {
+                                const start = event.start_date || event.event_date;
+                                const end = event.end_date || event.start_date || event.event_date;
+                                const startParts = start.split('-');
+                                const endParts = end.split('-');
+                                const isMultiDay = start !== end;
+                                const dateDisplay = isMultiDay
+                                    ? `${parseInt(startParts[1])}/${parseInt(startParts[2])} ~ ${parseInt(endParts[1])}/${parseInt(endParts[2])}`
+                                    : `${parseInt(startParts[1])}/${parseInt(startParts[2])}`;
+
+                                return (
+                                    <div
+                                        key={event.id}
+                                        onClick={() => {
+                                            const clickDate = new Date(parseInt(startParts[0]), parseInt(startParts[1]) - 1, parseInt(startParts[2]));
+                                            setSelectedDate(clickDate);
+                                        }}
+                                        className={`flex items-center gap-3 p-3 rounded-xl cursor-pointer transition-all hover:scale-[1.01] hover:shadow-md
+                                            ${event.scope === 'GLOBAL' ? 'bg-purple-50 dark:bg-purple-900/20 border-l-4 border-purple-400' :
+                                                event.scope === 'PARISH' ? 'bg-blue-50 dark:bg-blue-900/20 border-l-4 border-blue-400' :
+                                                    'bg-green-50 dark:bg-green-900/20 border-l-4 border-green-400'}
+                                        `}
+                                    >
+                                        {/* Date Badge */}
+                                        <div className={`shrink-0 text-center min-w-[60px] px-2 py-1 rounded-lg text-xs font-bold
+                                            ${event.scope === 'GLOBAL' ? 'bg-purple-200 dark:bg-purple-700 text-purple-800 dark:text-purple-100' :
+                                                event.scope === 'PARISH' ? 'bg-blue-200 dark:bg-blue-700 text-blue-800 dark:text-blue-100' :
+                                                    'bg-green-200 dark:bg-green-700 text-green-800 dark:text-green-100'}
+                                        `}>
+                                            {dateDisplay}
+                                        </div>
+
+                                        {/* Event Info */}
+                                        <div className="flex-1 min-w-0">
+                                            <div className="flex items-center gap-2">
+                                                <span className="font-semibold text-sm truncate">{event.title}</span>
+                                                <span className={`shrink-0 px-1.5 py-0.5 rounded text-[10px] font-medium
+                                                    ${event.scope === 'GLOBAL' ? 'bg-purple-100 text-purple-600' :
+                                                        event.scope === 'PARISH' ? 'bg-blue-100 text-blue-600' :
+                                                            'bg-green-100 text-green-600'}
+                                                `}>
+                                                    {getScopeLabel(event.scope)}
+                                                </span>
+                                            </div>
+                                            <div className="flex items-center gap-2 mt-0.5 text-[11px] text-slate-500">
+                                                {event.event_time && (
+                                                    <span className="flex items-center gap-0.5">
+                                                        <span className="material-symbols-outlined text-[12px]">schedule</span>
+                                                        {formatTime(event.event_time)}
+                                                    </span>
+                                                )}
+                                                {event.location && (
+                                                    <span className="flex items-center gap-0.5 truncate">
+                                                        <span className="material-symbols-outlined text-[12px]">location_on</span>
+                                                        {event.location}
+                                                    </span>
+                                                )}
+                                            </div>
+                                        </div>
+
+                                        {/* Arrow */}
+                                        <span className="material-symbols-outlined text-slate-400 text-lg shrink-0">chevron_right</span>
+                                    </div>
+                                );
+                            })}
+                    </div>
+                </div>
+            )}
+
             {/* Selected Date Events */}
             {selectedDate && (
                 <div className="bg-surface-light dark:bg-surface-dark rounded-2xl p-4">
