@@ -108,10 +108,17 @@ export const AudioProvider = ({ children }: { children: React.ReactNode }) => {
                     overflow: hidden;
                     box-shadow: 0 8px 32px rgba(0,0,0,0.4);
                     border: 2px solid rgba(255,255,255,0.2);
+                    pointer-events: auto;
                 `;
                 if (iframe) {
-                    iframe.style.width = '280px';
-                    iframe.style.height = '158px';
+                    iframe.style.width = '100%';
+                    iframe.style.height = '100%';
+                    iframe.style.position = 'absolute';
+                    iframe.style.top = '0';
+                    iframe.style.left = '0';
+                    // Enable PIP for iframe
+                    iframe.setAttribute('allow', 'autoplay; picture-in-picture; fullscreen');
+                    iframe.setAttribute('allowfullscreen', 'true');
                 }
             }
         }
