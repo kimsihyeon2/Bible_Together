@@ -95,8 +95,8 @@ export const AudioProvider = ({ children }: { children: React.ReactNode }) => {
         // Create canvas if it doesn't exist
         if (!canvasRef.current) {
             const canvas = document.createElement('canvas');
-            canvas.width = 600;
-            canvas.height = 250; // 2.4:1 Ultra Wide Ratio (Minimizes Height)
+            canvas.width = 16;
+            canvas.height = 16; // Extreme Stealth (Dot size)
             canvasRef.current = canvas;
         }
 
@@ -136,24 +136,24 @@ export const AudioProvider = ({ children }: { children: React.ReactNode }) => {
     }, [showVideoPlayer]);
 
     // Draw to canvas whenever track info changes
-    // STEALTH MODE: Minimize distraction
+    // EXTREME STEALTH MODE: 16x16 Pixel Dot
     const updateCanvas = useCallback(() => {
         const canvas = canvasRef.current;
         if (!canvas) return;
         const ctx = canvas.getContext('2d');
         if (!ctx) return;
 
-        // Background - Solid Dark (Almost Black)
-        ctx.fillStyle = '#0f172a'; // slate-900
-        ctx.fillRect(0, 0, 600, 250);
+        // Background - Pure Black
+        ctx.fillStyle = '#000000';
+        ctx.fillRect(0, 0, 16, 16);
 
-        // Minimal Indicator (Tiny dot to show it's active)
-        ctx.fillStyle = '#334155'; // slate-700
+        // Tiny indicator dot in center (Dark Grey)
+        ctx.fillStyle = '#222222';
         ctx.beginPath();
-        ctx.arc(300, 125, 4, 0, Math.PI * 2);
+        ctx.arc(8, 8, 4, 0, Math.PI * 2);
         ctx.fill();
 
-        // No text, no icons. Pure stealth.
+        // Absolutely minimize visual footprint
     }, []);
 
     // Update canvas when info changes

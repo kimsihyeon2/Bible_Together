@@ -322,34 +322,7 @@ export const GlobalAudioPlayer = () => {
                 )}
             </AnimatePresence>
 
-            {/* PIP Mode Instruction Overlay */}
-            <AnimatePresence>
-                {showVideoPlayer && (
-                    <motion.div
-                        initial={{ opacity: 0, y: 20 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        exit={{ opacity: 0, y: 20 }}
-                        className="fixed bottom-[370px] right-4 z-[10000] bg-slate-900/95 backdrop-blur-sm text-white p-4 rounded-2xl shadow-2xl max-w-[260px]"
-                    >
-                        <div className="flex items-start gap-3">
-                            <span className="material-symbols-outlined text-blue-400 text-2xl flex-shrink-0">info</span>
-                            <div>
-                                <p className="font-bold text-sm mb-2">PIP 모드 실행 중</p>
-                                <p className="text-xs text-slate-300">
-                                    앱을 나가도 오디오가 계속 재생됩니다.<br />
-                                    (PIP 창을 닫으면 종료됩니다)
-                                </p>
-                            </div>
-                        </div>
-                        <button
-                            onClick={toggleVideoPlayer}
-                            className="mt-3 w-full py-2 bg-slate-700 hover:bg-slate-600 rounded-lg text-xs font-medium transition-colors"
-                        >
-                            닫기
-                        </button>
-                    </motion.div>
-                )}
-            </AnimatePresence>
+
         </>
     );
 };
