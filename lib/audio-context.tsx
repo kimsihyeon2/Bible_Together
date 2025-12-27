@@ -83,21 +83,68 @@ export const AudioProvider = ({ children }: { children: React.ReactNode }) => {
     const [showVideoPlayer, setShowVideoPlayer] = useState(false);
 
     // Toggle video player visibility for PIP mode
-    const toggleVideoPlayer = useCallback(() => {
+    const toggleVideoPlayer = useCallback(async () => {
         const container = document.getElementById('yt-audio-container');
-        // Note: YouTube IFrame API replaces #yt-audio-player div with iframe
         const iframe = document.querySelector('#yt-audio-container iframe') as HTMLIFrameElement;
 
+        // Check if Document PIP API is available (Chrome 116+)
+        if ('documentPictureInPicture' in window && !showVideoPlayer) {
+            try {
+                // Request a PIP window
+                const pipWindow = await (window as any).documentPictureInPicture.requestWindow({
+                    width: 320,
+                    height: 240,
+                });
+
+                // Create audio player UI for PIP window
+                const pipContent = pipWindow.document.createElement('div');
+                pipContent.innerHTML = `
+                    <style>
+                        * { margin: 0; padding: 0; box-sizing: border-box; }
+                        body { 
+                            font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+                            background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%);
+                            color: white;
+                            height: 100vh;
+                            display: flex;
+                            flex-direction: column;
+                            align-items: center;
+                            justify-content: center;
+                            padding: 16px;
+                        }
+                        .title { font-size: 18px; font-weight: bold; margin-bottom: 8px; }
+                        .subtitle { font-size: 14px; opacity: 0.8; margin-bottom: 16px; }
+                        .icon { font-size: 48px; margin-bottom: 12px; }
+                        .info { font-size: 12px; opacity: 0.7; text-align: center; }
+                    </style>
+                    <div class="icon">🎧</div>
+                    <div class="title">${currentBook} ${currentChapter}장</div>
+                    <div class="subtitle">오디오 성경</div>
+                    <div class="info">이 창을 열어두면<br/>앱을 나가도 소리가 계속 납니다</div>
+                `;
+                pipWindow.document.body.appendChild(pipContent);
+
+                // Listen for PIP window close
+                pipWindow.addEventListener('pagehide', () => {
+                    setShowVideoPlayer(false);
+                });
+
+                setShowVideoPlayer(true);
+                return;
+            } catch (err) {
+                console.log('Document PIP not available, falling back to video display:', err);
+            }
+        }
+
+        // Fallback: Show/hide video container for manual PIP
         if (container) {
             if (showVideoPlayer) {
-                // Hide - minimize player
                 container.style.cssText = 'position:fixed;top:-9999px;left:-9999px;width:1px;height:1px;pointer-events:none;z-index:9999;';
                 if (iframe) {
                     iframe.style.width = '1px';
                     iframe.style.height = '1px';
                 }
             } else {
-                // Show in corner with proper size for PIP access
                 container.style.cssText = `
                     position: fixed;
                     bottom: 200px;
@@ -117,14 +164,13 @@ export const AudioProvider = ({ children }: { children: React.ReactNode }) => {
                     iframe.style.position = 'absolute';
                     iframe.style.top = '0';
                     iframe.style.left = '0';
-                    // Enable PIP for iframe
                     iframe.setAttribute('allow', 'autoplay; picture-in-picture; fullscreen');
                     iframe.setAttribute('allowfullscreen', 'true');
                 }
             }
         }
         setShowVideoPlayer(!showVideoPlayer);
-    }, [showVideoPlayer]);
+    }, [showVideoPlayer, currentBook, currentChapter]);
     useEffect(() => {
         if (typeof window !== 'undefined') {
             const savedSpeed = localStorage.getItem('audioSpeed');
