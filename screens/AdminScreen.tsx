@@ -35,7 +35,7 @@ interface UrgentPrayer {
 
 interface PrayerParticipant {
     user_id: string;
-    name: string;
+    user_name: string;
     prayed_at: string;
 }
 
@@ -88,13 +88,26 @@ const AdminScreen: React.FC<AdminScreenProps> = ({ navigate, t }) => {
 
     // Optimized Data Fetching
     useEffect(() => {
-        if (!loading && !profile) return; // Wait for auth
+        if (!profile) return; // Wait for auth - profile must exist
         fetchData();
     }, [profile?.id, profile?.role]); // Re-fetch only when profile changes
+
+    // Fetch Stats when stats tab is active
+    useEffect(() => {
+        if (activeTab === 'stats' && profile) {
+            fetchStats();
+        }
+    }, [activeTab, profile?.id]);
 
     const fetchData = async () => {
         if (!profile) return;
         setLoading(true);
+
+        // LOCAL role checks - defined here to avoid hoisting issues
+        const isPastor = profile.role === 'PASTOR';
+        const isSubAdmin = profile.role === 'SUB_ADMIN';
+        const isLeader = profile.role === 'LEADER';
+        const canManageParishCell = isPastor || isSubAdmin;
 
         try {
             // 1. Context Data (Admin/Leader Info) - Run in parallel
@@ -104,8 +117,13 @@ const AdminScreen: React.FC<AdminScreenProps> = ({ navigate, t }) => {
                     if (data) setMyCell({ id: data.id, name: data.name, parish_name: (data.parishes as any)?.name || '' });
                 }
                 if (isSubAdmin && profile.parish_id) {
-                    const { data } = await supabase.from('parishes').select('id, name').eq('id', profile.parish_id).single();
-                    if (data) setMyParish({ id: data.id, name: data.name });
+                    // Fetch parish info
+                    const { data: parishData } = await supabase.from('parishes').select('id, name').eq('id', profile.parish_id).single();
+                    if (parishData) setMyParish({ id: parishData.id, name: parishData.name });
+
+                    // CRITICAL: Also fetch cells in this parish for SUB_ADMIN
+                    const { data: cellsData } = await supabase.from('cells').select('*').eq('parish_id', profile.parish_id).order('name');
+                    if (cellsData) setCells(cellsData);
                 }
                 if (canManageParishCell) {
                     const { data } = await supabase.from('parishes').select('*').order('name');
@@ -116,64 +134,60 @@ const AdminScreen: React.FC<AdminScreenProps> = ({ navigate, t }) => {
             // 2. Content Data (Members, Prayers) - Run in parallel
             const contentPromise = (async () => {
                 // Fetch Members based on Role
-                // Optimize: Fetch parish/cell names via FKs
+                // Use cell_members as the source of truth for role-based membership
                 const memberSelect = '*, parishes(name), cells(name)';
-                let membersQuery = supabase.from('profiles').select(memberSelect).order('name');
 
                 if (isSubAdmin && profile.parish_id) {
-                    // SUB_ADMIN: Get members in own parish
-                    let { data } = await supabase
-                        .from('profiles')
-                        .select(memberSelect)
-                        .eq('parish_id', profile.parish_id)
-                        .order('name');
+                    // SUB_ADMIN: Get all members in parish via cell_members join
+                    // Step 1: Get all cells in this parish
+                    const { data: parishCells } = await supabase
+                        .from('cells')
+                        .select('id')
+                        .eq('parish_id', profile.parish_id);
 
-                    // Fallback: If optimized query returns 0, try legacy join (for members not yet migrated)
-                    if (!data || data.length === 0) {
-                        console.log('Optimized fetch returned empty, falling back to legacy join...');
-                        const { data: parishCells } = await supabase.from('cells').select('id').eq('parish_id', profile.parish_id);
+                    if (parishCells && parishCells.length > 0) {
+                        const cellIds = parishCells.map((c: any) => c.id);
 
-                        if (parishCells?.length) {
-                            const cellIds = parishCells.map((c: any) => c.id);
-                            const { data: cellMembers } = await supabase
-                                .from('cell_members')
-                                .select('user_id, profiles(*, parishes(name), cells(name))')
-                                .in('cell_id', cellIds);
-
-                            if (cellMembers) {
-                                data = cellMembers.map((cm: any) => cm.profiles).filter(Boolean);
-                            }
-                        }
-                    }
-
-                    if (data) setMembers(data);
-
-                } else if (isLeader && profile.cell_id) {
-                    // LEADER: Get members in own cell
-                    let { data } = await supabase
-                        .from('profiles')
-                        .select(memberSelect)
-                        .eq('cell_id', profile.cell_id)
-                        .order('name');
-
-                    // Fallback for LEADER
-                    if (!data || data.length === 0) {
-                        console.log('Leader optimized fetch empty, using fallback...');
+                        // Step 2: Get all members in those cells
                         const { data: cellMembers } = await supabase
                             .from('cell_members')
                             .select('user_id, profiles(*, parishes(name), cells(name))')
-                            .eq('cell_id', profile.cell_id);
+                            .in('cell_id', cellIds);
 
                         if (cellMembers) {
-                            data = cellMembers.map((cm: any) => cm.profiles).filter(Boolean);
+                            // Extract unique profiles
+                            const profilesMap = new Map();
+                            cellMembers.forEach((cm: any) => {
+                                if (cm.profiles && !profilesMap.has(cm.profiles.id)) {
+                                    profilesMap.set(cm.profiles.id, cm.profiles);
+                                }
+                            });
+                            setMembers(Array.from(profilesMap.values()).sort((a, b) => a.name.localeCompare(b.name)));
                         }
+                    } else {
+                        setMembers([]);
                     }
 
-                    if (data) setMembers(data);
+                } else if (isLeader && profile.cell_id) {
+                    // LEADER: Get all members in own cell via cell_members
+                    const { data: cellMembers } = await supabase
+                        .from('cell_members')
+                        .select('user_id, profiles(*, parishes(name), cells(name))')
+                        .eq('cell_id', profile.cell_id);
+
+                    if (cellMembers) {
+                        const profiles = cellMembers
+                            .map((cm: any) => cm.profiles)
+                            .filter(Boolean)
+                            .sort((a: any, b: any) => a.name.localeCompare(b.name));
+                        setMembers(profiles);
+                    } else {
+                        setMembers([]);
+                    }
 
                 } else if (isPastor) {
-                    // PASTOR: Get all members with context
-                    const { data } = await membersQuery;
+                    // PASTOR: Get all members with context from profiles directly
+                    const { data } = await supabase.from('profiles').select(memberSelect).order('name');
                     if (data) setMembers(data);
                 }
 
@@ -411,7 +425,7 @@ const AdminScreen: React.FC<AdminScreenProps> = ({ navigate, t }) => {
                         if (!grouped[p.prayer_id]) grouped[p.prayer_id] = [];
                         grouped[p.prayer_id].push({
                             user_id: p.user_id,
-                            name: p.profiles?.name || '익명',
+                            user_name: p.profiles?.name || '익명',
                             prayed_at: p.prayed_at
                         });
                     });
@@ -994,7 +1008,7 @@ const AdminScreen: React.FC<AdminScreenProps> = ({ navigate, t }) => {
                                                 {participants.map((participant, idx) => (
                                                     <div key={idx} className="flex items-center justify-between text-sm">
                                                         <span className="font-medium text-slate-700 dark:text-slate-200">
-                                                            {participant.name}
+                                                            {participant.user_name}
                                                         </span>
                                                         <span className="text-xs text-slate-400">
                                                             {formatRelativeTime(participant.prayed_at)}
