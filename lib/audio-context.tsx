@@ -65,6 +65,9 @@ declare global {
     interface Window {
         YT: any;
         onYouTubeIframeAPIReady: () => void;
+        documentPictureInPicture?: {
+            requestWindow: (options?: { width?: number; height?: number }) => Promise<Window>;
+        };
     }
 }
 
@@ -81,193 +84,8 @@ export const AudioProvider = ({ children }: { children: React.ReactNode }) => {
     const [autoPlayNext, setAutoPlayNext] = useState(true);
     const [showVideoPlayer, setShowVideoPlayer] = useState(false);
 
-    // Canvas and Video refs for PIP
-    const canvasRef = useRef<HTMLCanvasElement | null>(null);
-    const dummyVideoRef = useRef<HTMLVideoElement | null>(null);
-    // Web Audio API Context for Silent Track
-    const wAudioCtxRef = useRef<AudioContext | null>(null);
-    const destRef = useRef<MediaStreamAudioDestinationNode | null>(null);
-
     const playerRef = useRef<any>(null);
-
-    // Initialize hidden canvas and video for PIP
-    useEffect(() => {
-        if (typeof window === 'undefined') return;
-
-        // Create canvas if it doesn't exist
-        if (!canvasRef.current) {
-            const canvas = document.createElement('canvas');
-            canvas.width = 300; // 1:1 Aspect Ratio
-            canvas.height = 300;
-            canvasRef.current = canvas;
-        }
-
-        // Create video if it doesn't exist
-        if (!dummyVideoRef.current) {
-            const video = document.createElement('video');
-            video.crossOrigin = "anonymous";
-            video.loop = true;
-            // IMPORTANT: Muted should be FALSE if we are feeding an audio track, 
-            // but for safety with autoplay policies, sometimes muted=true performs better initially.
-            // However, to keep background alive, having an active audio track is key.
-            // We set muted=false effectively, but volume=0 on the video if needed, 
-            // OR rely on the fact that our stream audio is silent.
-            // Chrome might block autoplay if unmuted. Let's try muted=false but with silent stream.
-            video.muted = false;
-            video.volume = 0.0; // Volume 0 just to be safe, though track is silent.
-            video.playsInline = true;
-            video.style.position = 'fixed';
-            video.style.top = '-9999px';
-            video.style.left = '-9999px';
-            document.body.appendChild(video);
-            dummyVideoRef.current = video;
-
-            // Sync PIP controls to YouTube player
-            video.addEventListener('play', () => {
-                if (playerRef.current && playerRef.current.getPlayerState() !== window.YT.PlayerState.PLAYING) {
-                    playerRef.current.playVideo();
-                }
-            });
-
-            video.addEventListener('pause', () => {
-                // Only pause YT if we are NOT in the middle of closing PIP (which triggers pause sometimes)
-                if (document.pictureInPictureElement === video) {
-                    if (playerRef.current && playerRef.current.getPlayerState() === window.YT.PlayerState.PLAYING) {
-                        playerRef.current.pauseVideo();
-                    }
-                }
-            });
-
-            video.addEventListener('leavepictureinpicture', () => {
-                setShowVideoPlayer(false);
-            });
-        }
-    }, []); // Run once on mount
-
-    // Draw to canvas with "Album Art 1:1" style
-    const updateCanvas = useCallback(() => {
-        const canvas = canvasRef.current;
-        if (!canvas) return;
-        const ctx = canvas.getContext('2d');
-        if (!ctx) return;
-
-        // Background: Deep Green Gradient
-        const gradient = ctx.createLinearGradient(0, 0, 300, 300);
-        gradient.addColorStop(0, '#15803d'); // Green-700
-        gradient.addColorStop(1, '#052e16'); // Green-950
-        ctx.fillStyle = gradient;
-        ctx.fillRect(0, 0, 300, 300);
-
-        // Center content layout
-        ctx.fillStyle = 'white';
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-
-        // 1. Icon (Big Headphone or Book) - Top
-        ctx.font = '80px serif';
-        ctx.fillText('🎧', 150, 100);
-
-        // 2. Book Name - Center
-        ctx.font = 'bold 36px sans-serif';
-        ctx.fillText(`${currentBook || '성경'} ${currentChapter || ''}장`, 150, 180);
-
-        // 3. Subtitle - Bottom
-        ctx.font = '20px sans-serif';
-        ctx.fillStyle = 'rgba(255,255,255,0.7)';
-        ctx.fillText('공동체 성경 읽기', 150, 230);
-
-    }, [currentBook, currentChapter]);
-
-    // Update canvas when info changes
-    useEffect(() => {
-        if (showVideoPlayer) {
-            updateCanvas();
-        }
-    }, [updateCanvas, showVideoPlayer]);
-
-    // Init Web Audio for Silent Track
-    const getSilentAudioTrack = () => {
-        if (!wAudioCtxRef.current) {
-            // @ts-ignore - Webkit prefix support if needed
-            const AudioContextClass = window.AudioContext || window.webkitAudioContext;
-            wAudioCtxRef.current = new AudioContextClass();
-        }
-
-        const ctx = wAudioCtxRef.current;
-
-        if (ctx.state === 'suspended') {
-            ctx.resume();
-        }
-
-        if (!destRef.current) {
-            const oscillator = ctx.createOscillator();
-            const gainNode = ctx.createGain();
-            const dest = ctx.createMediaStreamDestination();
-
-            oscillator.type = 'sine';
-            oscillator.frequency.value = 440; // Any freq
-            // Gain must be minimal but technically "audible" for OS to respect it? 
-            // Actually 0 works on many, but 0.0001 is safer to ensure track is active.
-            gainNode.gain.value = 0.0001;
-
-            oscillator.connect(gainNode);
-            gainNode.connect(dest);
-            oscillator.start();
-
-            destRef.current = dest;
-        }
-
-        return destRef.current.stream.getAudioTracks()[0];
-    };
-
-    // Toggle PIP mode
-    const toggleVideoPlayer = useCallback(async () => {
-        const video = dummyVideoRef.current;
-        const canvas = canvasRef.current;
-
-        if (!video || !canvas) return;
-
-        try {
-            if (document.pictureInPictureElement) {
-                // Exit PIP
-                await document.exitPictureInPicture();
-                setShowVideoPlayer(false);
-            } else {
-                // Enter PIP
-                updateCanvas();
-
-                // 1. Get Video Track from Canvas
-                const canvasStream = (canvas as any).captureStream(30);
-                const videoTrack = canvasStream.getVideoTracks()[0];
-
-                // 2. Get Silent Audio Track
-                const audioTrack = getSilentAudioTrack();
-
-                // 3. Combine them into a new MediaStream
-                const combinedStream = new MediaStream([videoTrack, audioTrack]);
-
-                if (video.srcObject !== combinedStream) {
-                    video.srcObject = combinedStream;
-                }
-
-                // Play and request PIP
-                // We need to handle autoplay rejection
-                try {
-                    await video.play();
-                    await video.requestPictureInPicture();
-                    setShowVideoPlayer(true);
-                } catch (e) {
-                    console.error('Play/PIP Error:', e);
-                    // Ensure audio context is resuming if stuck
-                    if (wAudioCtxRef.current?.state === 'suspended') {
-                        wAudioCtxRef.current.resume();
-                    }
-                }
-            }
-        } catch (err) {
-            console.error('Failed to toggle PIP:', err);
-        }
-    }, [updateCanvas]);
+    const pipWindowRef = useRef<Window | null>(null);
 
     useEffect(() => {
         if (typeof window !== 'undefined') {
@@ -292,7 +110,7 @@ export const AudioProvider = ({ children }: { children: React.ReactNode }) => {
         if ('wakeLock' in navigator) {
             try {
                 wakeLockRef.current = await navigator.wakeLock.request('screen');
-                console.log('Wake Lock activated - screen will stay on');
+                console.log('Wake Lock activated');
             } catch (err) {
                 console.log('Wake Lock not available:', err);
             }
@@ -304,45 +122,35 @@ export const AudioProvider = ({ children }: { children: React.ReactNode }) => {
             try {
                 await wakeLockRef.current.release();
                 wakeLockRef.current = null;
-                console.log('Wake Lock released');
             } catch (err) {
                 console.log('Wake Lock release error:', err);
             }
         }
     };
 
-    // Re-acquire wake lock when page becomes visible again (user returns to app)
     useEffect(() => {
         const handleVisibilityChange = async () => {
             if (document.visibilityState === 'visible' && isPlaying) {
                 await requestWakeLock();
             }
         };
-
         document.addEventListener('visibilitychange', handleVisibilityChange);
-        return () => {
-            document.removeEventListener('visibilitychange', handleVisibilityChange);
-        };
+        return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
     }, [isPlaying]);
 
-    // Keep refs in sync
     useEffect(() => {
         currentBookRef.current = currentBook;
         currentChapterRef.current = currentChapter;
     }, [currentBook, currentChapter]);
 
-    // Get next chapter info
     const getNextChapter = useCallback(() => {
         if (!currentBookRef.current || !currentChapterRef.current) return null;
-
         const book = currentBookRef.current;
         const chapter = currentChapterRef.current;
         const maxChapters = CHAPTER_COUNTS[book] || 1;
-
         if (chapter < maxChapters) {
             return { book, chapter: chapter + 1 };
         } else {
-            // Move to next book
             const bookIndex = BIBLE_BOOKS.indexOf(book);
             if (bookIndex < BIBLE_BOOKS.length - 1) {
                 return { book: BIBLE_BOOKS[bookIndex + 1], chapter: 1 };
@@ -351,17 +159,13 @@ export const AudioProvider = ({ children }: { children: React.ReactNode }) => {
         return null;
     }, []);
 
-    // Get previous chapter info
     const getPreviousChapter = useCallback(() => {
         if (!currentBookRef.current || !currentChapterRef.current) return null;
-
         const book = currentBookRef.current;
         const chapter = currentChapterRef.current;
-
         if (chapter > 1) {
             return { book, chapter: chapter - 1 };
         } else {
-            // Move to previous book
             const bookIndex = BIBLE_BOOKS.indexOf(book);
             if (bookIndex > 0) {
                 const prevBook = BIBLE_BOOKS[bookIndex - 1];
@@ -383,12 +187,13 @@ export const AudioProvider = ({ children }: { children: React.ReactNode }) => {
         if (!document.getElementById('yt-audio-container')) {
             const container = document.createElement('div');
             container.id = 'yt-audio-container';
-            // Always hidden for new PIP approach
-            container.style.cssText = 'position:fixed;top:-9999px;left:-9999px;width:1px;height:1px;pointer-events:none;z-index:9999;';
+            // Initially hidden but accessible
+            container.style.cssText = 'position:fixed;bottom:0;left:0;width:300px;height:200px;z-index:9999;opacity:0;pointer-events:none;';
             document.body.appendChild(container);
 
             const playerDiv = document.createElement('div');
             playerDiv.id = 'yt-audio-player';
+            playerDiv.style.cssText = 'width:100%;height:100%;';
             container.appendChild(playerDiv);
         }
 
@@ -415,17 +220,17 @@ export const AudioProvider = ({ children }: { children: React.ReactNode }) => {
         if (!ytReady || playerRef.current) return;
 
         playerRef.current = new window.YT.Player('yt-audio-player', {
-            height: '1',
-            width: '1',
+            height: '100%',
+            width: '100%',
             playerVars: {
                 autoplay: 0,
-                controls: 0,
+                controls: 1, // Show controls in PIP
                 playsinline: 1,
                 origin: typeof window !== 'undefined' ? window.location.origin : '',
             },
             events: {
                 onReady: () => {
-                    console.log('YouTube Player Ready');
+                    console.log('YouTube Player Ready (Document PIP Mode)');
                 },
                 onStateChange: (event: any) => {
                     const state = event.data;
@@ -433,8 +238,6 @@ export const AudioProvider = ({ children }: { children: React.ReactNode }) => {
                         setIsPlaying(true);
                         setIsLoading(false);
                         setDuration(playerRef.current.getDuration() || 0);
-
-                        // Keep screen on during playback
                         requestWakeLock();
 
                         if (timeUpdateInterval.current) clearInterval(timeUpdateInterval.current);
@@ -442,16 +245,14 @@ export const AudioProvider = ({ children }: { children: React.ReactNode }) => {
                             if (playerRef.current && playerRef.current.getCurrentTime) {
                                 setCurrentTime(playerRef.current.getCurrentTime());
                             }
-                        }, 250); // More frequent updates for smoother sync
+                        }, 250);
                     } else if (state === window.YT.PlayerState.PAUSED) {
                         setIsPlaying(false);
-                        // Release wake lock to save battery
                         releaseWakeLock();
                     } else if (state === window.YT.PlayerState.ENDED) {
                         setIsPlaying(false);
                         if (timeUpdateInterval.current) clearInterval(timeUpdateInterval.current);
 
-                        // 📖 SAVE READING PROGRESS ON AUDIO COMPLETE
                         const completedBook = currentBookRef.current;
                         const completedChapter = currentChapterRef.current;
                         if (completedBook && completedChapter) {
@@ -480,7 +281,6 @@ export const AudioProvider = ({ children }: { children: React.ReactNode }) => {
                             })();
                         }
 
-                        // Auto-play next chapter
                         if (autoPlayNext) {
                             const next = getNextChapter();
                             if (next) {
@@ -501,6 +301,123 @@ export const AudioProvider = ({ children }: { children: React.ReactNode }) => {
             }
         });
     }, [ytReady, autoPlayNext, getNextChapter]);
+
+    // ========================================
+    // DOCUMENT PIP: THE REAL SOLUTION
+    // ========================================
+    const toggleVideoPlayer = useCallback(async () => {
+        // Check if Document PIP is supported
+        if (!('documentPictureInPicture' in window)) {
+            setError('이 브라우저는 Document PIP를 지원하지 않습니다. Chrome 116+ 필요.');
+            console.error('Document PIP API not supported');
+            return;
+        }
+
+        try {
+            // If PIP is already open, close it
+            if (pipWindowRef.current && !pipWindowRef.current.closed) {
+                pipWindowRef.current.close();
+                pipWindowRef.current = null;
+                setShowVideoPlayer(false);
+                return;
+            }
+
+            // Open Document PIP Window
+            const pipWindow = await window.documentPictureInPicture!.requestWindow({
+                width: 300,
+                height: 300,
+            });
+            pipWindowRef.current = pipWindow;
+
+            // Add styles to PIP window
+            const style = pipWindow.document.createElement('style');
+            style.textContent = `
+                * { margin: 0; padding: 0; box-sizing: border-box; }
+                body {
+                    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+                    background: linear-gradient(135deg, #15803d 0%, #052e16 100%);
+                    color: white;
+                    display: flex;
+                    flex-direction: column;
+                    height: 100vh;
+                    overflow: hidden;
+                }
+                .header {
+                    padding: 12px;
+                    text-align: center;
+                    background: rgba(0,0,0,0.2);
+                }
+                .header h1 {
+                    font-size: 18px;
+                    font-weight: bold;
+                }
+                .header p {
+                    font-size: 12px;
+                    opacity: 0.8;
+                    margin-top: 4px;
+                }
+                .player-container {
+                    flex: 1;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    padding: 8px;
+                }
+                #yt-audio-container {
+                    width: 100% !important;
+                    height: 100% !important;
+                    opacity: 1 !important;
+                    pointer-events: auto !important;
+                    position: relative !important;
+                    border-radius: 8px;
+                    overflow: hidden;
+                }
+                iframe {
+                    width: 100% !important;
+                    height: 100% !important;
+                }
+            `;
+            pipWindow.document.head.appendChild(style);
+
+            // Create header with track info
+            const header = pipWindow.document.createElement('div');
+            header.className = 'header';
+            header.innerHTML = `
+                <h1>🎧 ${currentBook || '성경'} ${currentChapter || ''}장</h1>
+                <p>공동체 성경 읽기</p>
+            `;
+            pipWindow.document.body.appendChild(header);
+
+            // Create player container
+            const playerContainer = pipWindow.document.createElement('div');
+            playerContainer.className = 'player-container';
+            pipWindow.document.body.appendChild(playerContainer);
+
+            // MOVE the YouTube container into the PIP window
+            const ytContainer = document.getElementById('yt-audio-container');
+            if (ytContainer) {
+                playerContainer.appendChild(ytContainer);
+            }
+
+            setShowVideoPlayer(true);
+
+            // Handle PIP window close
+            pipWindow.addEventListener('pagehide', () => {
+                // Move YouTube container back to main document
+                const ytContainer = pipWindow.document.getElementById('yt-audio-container');
+                if (ytContainer) {
+                    ytContainer.style.cssText = 'position:fixed;bottom:0;left:0;width:300px;height:200px;z-index:9999;opacity:0;pointer-events:none;';
+                    document.body.appendChild(ytContainer);
+                }
+                pipWindowRef.current = null;
+                setShowVideoPlayer(false);
+            });
+
+        } catch (err) {
+            console.error('Failed to open Document PIP:', err);
+            setError('PIP 창을 열 수 없습니다.');
+        }
+    }, [currentBook, currentChapter]);
 
     const playChapterInternal = async (book: string, chapter: number) => {
         try {
@@ -526,7 +443,18 @@ export const AudioProvider = ({ children }: { children: React.ReactNode }) => {
                 setIsLoading(false);
             }
 
-            // Media Session API for lock screen controls
+            // Update PIP header if open
+            if (pipWindowRef.current && !pipWindowRef.current.closed) {
+                const header = pipWindowRef.current.document.querySelector('.header');
+                if (header) {
+                    header.innerHTML = `
+                        <h1>🎧 ${book} ${chapter}장</h1>
+                        <p>공동체 성경 읽기</p>
+                    `;
+                }
+            }
+
+            // Media Session API
             if ('mediaSession' in navigator) {
                 navigator.mediaSession.metadata = new MediaMetadata({
                     title: `${book} ${chapter}장`,
@@ -535,12 +463,8 @@ export const AudioProvider = ({ children }: { children: React.ReactNode }) => {
                     artwork: [{ src: '/icon.png', sizes: '512x512', type: 'image/png' }]
                 });
 
-                navigator.mediaSession.setActionHandler('play', () => {
-                    playerRef.current?.playVideo();
-                });
-                navigator.mediaSession.setActionHandler('pause', () => {
-                    playerRef.current?.pauseVideo();
-                });
+                navigator.mediaSession.setActionHandler('play', () => playerRef.current?.playVideo());
+                navigator.mediaSession.setActionHandler('pause', () => playerRef.current?.pauseVideo());
                 navigator.mediaSession.setActionHandler('previoustrack', () => {
                     const prev = getPreviousChapter();
                     if (prev) playChapterInternal(prev.book, prev.chapter);
@@ -574,7 +498,6 @@ export const AudioProvider = ({ children }: { children: React.ReactNode }) => {
 
     const togglePlay = useCallback(() => {
         if (!playerRef.current) return;
-
         if (isPlaying) {
             playerRef.current.pauseVideo();
         } else {
@@ -592,7 +515,6 @@ export const AudioProvider = ({ children }: { children: React.ReactNode }) => {
         if (!playerRef.current) return;
         playerRef.current.setPlaybackRate(speed);
         setPlaybackRate(speed);
-        // Save to localStorage for persistence
         localStorage.setItem('audioSpeed', speed.toString());
     };
 
@@ -603,7 +525,11 @@ export const AudioProvider = ({ children }: { children: React.ReactNode }) => {
         if (timeUpdateInterval.current) {
             clearInterval(timeUpdateInterval.current);
         }
-        // Release wake lock when stopping
+        // Close PIP if open
+        if (pipWindowRef.current && !pipWindowRef.current.closed) {
+            pipWindowRef.current.close();
+            pipWindowRef.current = null;
+        }
         releaseWakeLock();
         setIsPlaying(false);
         setIsLoading(false);
@@ -612,6 +538,7 @@ export const AudioProvider = ({ children }: { children: React.ReactNode }) => {
         setDuration(0);
         setCurrentTime(0);
         setError(null);
+        setShowVideoPlayer(false);
     };
 
     return (
