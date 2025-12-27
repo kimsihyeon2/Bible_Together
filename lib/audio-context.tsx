@@ -91,10 +91,51 @@ export const AudioProvider = ({ children }: { children: React.ReactNode }) => {
             }
         }
     }, []);
+
     const playerRef = useRef<any>(null);
     const timeUpdateInterval = useRef<ReturnType<typeof setInterval> | null>(null);
     const currentBookRef = useRef<string | null>(null);
     const currentChapterRef = useRef<number | null>(null);
+
+    // Wake Lock API for keeping screen on during playback
+    const wakeLockRef = useRef<WakeLockSentinel | null>(null);
+
+    const requestWakeLock = async () => {
+        if ('wakeLock' in navigator) {
+            try {
+                wakeLockRef.current = await navigator.wakeLock.request('screen');
+                console.log('Wake Lock activated - screen will stay on');
+            } catch (err) {
+                console.log('Wake Lock not available:', err);
+            }
+        }
+    };
+
+    const releaseWakeLock = async () => {
+        if (wakeLockRef.current) {
+            try {
+                await wakeLockRef.current.release();
+                wakeLockRef.current = null;
+                console.log('Wake Lock released');
+            } catch (err) {
+                console.log('Wake Lock release error:', err);
+            }
+        }
+    };
+
+    // Re-acquire wake lock when page becomes visible again (user returns to app)
+    useEffect(() => {
+        const handleVisibilityChange = async () => {
+            if (document.visibilityState === 'visible' && isPlaying) {
+                await requestWakeLock();
+            }
+        };
+
+        document.addEventListener('visibilitychange', handleVisibilityChange);
+        return () => {
+            document.removeEventListener('visibilitychange', handleVisibilityChange);
+        };
+    }, [isPlaying]);
 
     // Keep refs in sync
     useEffect(() => {
@@ -204,6 +245,9 @@ export const AudioProvider = ({ children }: { children: React.ReactNode }) => {
                         setIsLoading(false);
                         setDuration(playerRef.current.getDuration() || 0);
 
+                        // Keep screen on during playback
+                        requestWakeLock();
+
                         if (timeUpdateInterval.current) clearInterval(timeUpdateInterval.current);
                         timeUpdateInterval.current = setInterval(() => {
                             if (playerRef.current && playerRef.current.getCurrentTime) {
@@ -212,6 +256,8 @@ export const AudioProvider = ({ children }: { children: React.ReactNode }) => {
                         }, 250); // More frequent updates for smoother sync
                     } else if (state === window.YT.PlayerState.PAUSED) {
                         setIsPlaying(false);
+                        // Release wake lock to save battery
+                        releaseWakeLock();
                     } else if (state === window.YT.PlayerState.ENDED) {
                         setIsPlaying(false);
                         if (timeUpdateInterval.current) clearInterval(timeUpdateInterval.current);
@@ -368,6 +414,8 @@ export const AudioProvider = ({ children }: { children: React.ReactNode }) => {
         if (timeUpdateInterval.current) {
             clearInterval(timeUpdateInterval.current);
         }
+        // Release wake lock when stopping
+        releaseWakeLock();
         setIsPlaying(false);
         setIsLoading(false);
         setCurrentBook(null);
