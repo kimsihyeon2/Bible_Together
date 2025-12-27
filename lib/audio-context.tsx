@@ -57,6 +57,7 @@ interface AudioContextType {
     setAutoPlayNext: (value: boolean) => void;
     showVideoPlayer: boolean;
     toggleVideoPlayer: () => void;
+    pipMode: 'none' | 'document' | 'video';
 }
 
 const AudioContext = createContext<AudioContextType | null>(null);
@@ -83,9 +84,14 @@ export const AudioProvider = ({ children }: { children: React.ReactNode }) => {
     const [ytReady, setYtReady] = useState(false);
     const [autoPlayNext, setAutoPlayNext] = useState(true);
     const [showVideoPlayer, setShowVideoPlayer] = useState(false);
+    const [pipMode, setPipMode] = useState<'none' | 'document' | 'video'>('none');
 
     const playerRef = useRef<any>(null);
     const pipWindowRef = useRef<Window | null>(null);
+
+    // For Video Element PIP fallback
+    const canvasRef = useRef<HTMLCanvasElement | null>(null);
+    const dummyVideoRef = useRef<HTMLVideoElement | null>(null);
 
     useEffect(() => {
         if (typeof window !== 'undefined') {
@@ -99,18 +105,103 @@ export const AudioProvider = ({ children }: { children: React.ReactNode }) => {
         }
     }, []);
 
+    // Initialize Canvas and Video for fallback PIP
+    useEffect(() => {
+        if (typeof window === 'undefined') return;
+
+        if (!canvasRef.current) {
+            const canvas = document.createElement('canvas');
+            canvas.width = 300;
+            canvas.height = 300;
+            canvasRef.current = canvas;
+        }
+
+        if (!dummyVideoRef.current) {
+            const video = document.createElement('video');
+            video.crossOrigin = "anonymous";
+            video.loop = true;
+            video.muted = true;
+            video.playsInline = true;
+            video.style.cssText = 'position:fixed;top:-9999px;left:-9999px;';
+            document.body.appendChild(video);
+            dummyVideoRef.current = video;
+
+            video.addEventListener('play', () => {
+                if (playerRef.current && playerRef.current.getPlayerState() !== window.YT.PlayerState.PLAYING) {
+                    playerRef.current.playVideo();
+                }
+            });
+
+            video.addEventListener('pause', () => {
+                if (document.pictureInPictureElement === video) {
+                    if (playerRef.current && playerRef.current.getPlayerState() === window.YT.PlayerState.PLAYING) {
+                        playerRef.current.pauseVideo();
+                    }
+                }
+            });
+
+            video.addEventListener('leavepictureinpicture', () => {
+                setShowVideoPlayer(false);
+                setPipMode('none');
+            });
+        }
+    }, []);
+
+    // Draw canvas for video PIP fallback
+    const updateCanvas = useCallback(() => {
+        const canvas = canvasRef.current;
+        if (!canvas) return;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) return;
+
+        // Green gradient background
+        const gradient = ctx.createLinearGradient(0, 0, 300, 300);
+        gradient.addColorStop(0, '#15803d');
+        gradient.addColorStop(1, '#052e16');
+        ctx.fillStyle = gradient;
+        ctx.fillRect(0, 0, 300, 300);
+
+        ctx.fillStyle = 'white';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+
+        // Icon
+        ctx.font = '60px serif';
+        ctx.fillText('🎧', 150, 80);
+
+        // Title
+        ctx.font = 'bold 28px sans-serif';
+        ctx.fillText(`${currentBook || '성경'} ${currentChapter || ''}장`, 150, 150);
+
+        // Subtitle
+        ctx.font = '16px sans-serif';
+        ctx.fillStyle = 'rgba(255,255,255,0.7)';
+        ctx.fillText('공동체 성경 읽기', 150, 190);
+
+        // Warning message for fallback mode
+        ctx.font = '12px sans-serif';
+        ctx.fillStyle = 'rgba(255,200,100,0.9)';
+        ctx.fillText('⚠️ 백그라운드 재생 제한 있음', 150, 250);
+        ctx.fillText('Chrome 브라우저에서 사용 권장', 150, 270);
+
+    }, [currentBook, currentChapter]);
+
+    useEffect(() => {
+        if (showVideoPlayer && pipMode === 'video') {
+            updateCanvas();
+        }
+    }, [updateCanvas, showVideoPlayer, pipMode]);
+
     const timeUpdateInterval = useRef<ReturnType<typeof setInterval> | null>(null);
     const currentBookRef = useRef<string | null>(null);
     const currentChapterRef = useRef<number | null>(null);
 
-    // Wake Lock API for keeping screen on during playback
     const wakeLockRef = useRef<WakeLockSentinel | null>(null);
 
     const requestWakeLock = async () => {
         if ('wakeLock' in navigator) {
             try {
                 wakeLockRef.current = await navigator.wakeLock.request('screen');
-                console.log('Wake Lock activated');
             } catch (err) {
                 console.log('Wake Lock not available:', err);
             }
@@ -187,7 +278,6 @@ export const AudioProvider = ({ children }: { children: React.ReactNode }) => {
         if (!document.getElementById('yt-audio-container')) {
             const container = document.createElement('div');
             container.id = 'yt-audio-container';
-            // Initially hidden but accessible
             container.style.cssText = 'position:fixed;bottom:0;left:0;width:300px;height:200px;z-index:9999;opacity:0;pointer-events:none;';
             document.body.appendChild(container);
 
@@ -224,13 +314,13 @@ export const AudioProvider = ({ children }: { children: React.ReactNode }) => {
             width: '100%',
             playerVars: {
                 autoplay: 0,
-                controls: 1, // Show controls in PIP
+                controls: 1,
                 playsinline: 1,
                 origin: typeof window !== 'undefined' ? window.location.origin : '',
             },
             events: {
                 onReady: () => {
-                    console.log('YouTube Player Ready (Document PIP Mode)');
+                    console.log('YouTube Player Ready');
                 },
                 onStateChange: (event: any) => {
                     const state = event.data;
@@ -303,121 +393,139 @@ export const AudioProvider = ({ children }: { children: React.ReactNode }) => {
     }, [ytReady, autoPlayNext, getNextChapter]);
 
     // ========================================
-    // DOCUMENT PIP: THE REAL SOLUTION
+    // TOGGLE PIP: Document PIP → Video PIP Fallback
     // ========================================
     const toggleVideoPlayer = useCallback(async () => {
-        // Check if Document PIP is supported
-        if (!('documentPictureInPicture' in window)) {
-            setError('이 브라우저는 Document PIP를 지원하지 않습니다. Chrome 116+ 필요.');
-            console.error('Document PIP API not supported');
+        // If already in PIP, close it
+        if (showVideoPlayer) {
+            if (pipMode === 'document' && pipWindowRef.current && !pipWindowRef.current.closed) {
+                pipWindowRef.current.close();
+            } else if (pipMode === 'video' && document.pictureInPictureElement) {
+                await document.exitPictureInPicture();
+            }
+            setShowVideoPlayer(false);
+            setPipMode('none');
+            return;
+        }
+
+        // Try Document PIP first (Best option)
+        if ('documentPictureInPicture' in window) {
+            try {
+                const pipWindow = await window.documentPictureInPicture!.requestWindow({
+                    width: 300,
+                    height: 300,
+                });
+                pipWindowRef.current = pipWindow;
+
+                const style = pipWindow.document.createElement('style');
+                style.textContent = `
+                    * { margin: 0; padding: 0; box-sizing: border-box; }
+                    body {
+                        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+                        background: linear-gradient(135deg, #15803d 0%, #052e16 100%);
+                        color: white;
+                        display: flex;
+                        flex-direction: column;
+                        height: 100vh;
+                        overflow: hidden;
+                    }
+                    .header {
+                        padding: 12px;
+                        text-align: center;
+                        background: rgba(0,0,0,0.2);
+                    }
+                    .header h1 { font-size: 18px; font-weight: bold; }
+                    .header p { font-size: 12px; opacity: 0.8; margin-top: 4px; }
+                    .player-container {
+                        flex: 1;
+                        display: flex;
+                        align-items: center;
+                        justify-content: center;
+                        padding: 8px;
+                    }
+                    #yt-audio-container {
+                        width: 100% !important;
+                        height: 100% !important;
+                        opacity: 1 !important;
+                        pointer-events: auto !important;
+                        position: relative !important;
+                        border-radius: 8px;
+                        overflow: hidden;
+                    }
+                    iframe { width: 100% !important; height: 100% !important; }
+                `;
+                pipWindow.document.head.appendChild(style);
+
+                const header = pipWindow.document.createElement('div');
+                header.className = 'header';
+                header.innerHTML = `
+                    <h1>🎧 ${currentBook || '성경'} ${currentChapter || ''}장</h1>
+                    <p>공동체 성경 읽기</p>
+                `;
+                pipWindow.document.body.appendChild(header);
+
+                const playerContainer = pipWindow.document.createElement('div');
+                playerContainer.className = 'player-container';
+                pipWindow.document.body.appendChild(playerContainer);
+
+                const ytContainer = document.getElementById('yt-audio-container');
+                if (ytContainer) {
+                    playerContainer.appendChild(ytContainer);
+                }
+
+                setShowVideoPlayer(true);
+                setPipMode('document');
+
+                pipWindow.addEventListener('pagehide', () => {
+                    const ytContainer = pipWindow.document.getElementById('yt-audio-container');
+                    if (ytContainer) {
+                        ytContainer.style.cssText = 'position:fixed;bottom:0;left:0;width:300px;height:200px;z-index:9999;opacity:0;pointer-events:none;';
+                        document.body.appendChild(ytContainer);
+                    }
+                    pipWindowRef.current = null;
+                    setShowVideoPlayer(false);
+                    setPipMode('none');
+                });
+
+                return; // Success! Exit here.
+            } catch (err) {
+                console.error('Document PIP failed:', err);
+                // Fall through to Video PIP
+            }
+        }
+
+        // ========================================
+        // FALLBACK: Video Element PIP
+        // ========================================
+        console.log('Falling back to Video Element PIP...');
+        const video = dummyVideoRef.current;
+        const canvas = canvasRef.current;
+
+        if (!video || !canvas) {
+            setError('PIP를 사용할 수 없습니다.');
             return;
         }
 
         try {
-            // If PIP is already open, close it
-            if (pipWindowRef.current && !pipWindowRef.current.closed) {
-                pipWindowRef.current.close();
-                pipWindowRef.current = null;
-                setShowVideoPlayer(false);
-                return;
-            }
-
-            // Open Document PIP Window
-            const pipWindow = await window.documentPictureInPicture!.requestWindow({
-                width: 300,
-                height: 300,
-            });
-            pipWindowRef.current = pipWindow;
-
-            // Add styles to PIP window
-            const style = pipWindow.document.createElement('style');
-            style.textContent = `
-                * { margin: 0; padding: 0; box-sizing: border-box; }
-                body {
-                    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-                    background: linear-gradient(135deg, #15803d 0%, #052e16 100%);
-                    color: white;
-                    display: flex;
-                    flex-direction: column;
-                    height: 100vh;
-                    overflow: hidden;
-                }
-                .header {
-                    padding: 12px;
-                    text-align: center;
-                    background: rgba(0,0,0,0.2);
-                }
-                .header h1 {
-                    font-size: 18px;
-                    font-weight: bold;
-                }
-                .header p {
-                    font-size: 12px;
-                    opacity: 0.8;
-                    margin-top: 4px;
-                }
-                .player-container {
-                    flex: 1;
-                    display: flex;
-                    align-items: center;
-                    justify-content: center;
-                    padding: 8px;
-                }
-                #yt-audio-container {
-                    width: 100% !important;
-                    height: 100% !important;
-                    opacity: 1 !important;
-                    pointer-events: auto !important;
-                    position: relative !important;
-                    border-radius: 8px;
-                    overflow: hidden;
-                }
-                iframe {
-                    width: 100% !important;
-                    height: 100% !important;
-                }
-            `;
-            pipWindow.document.head.appendChild(style);
-
-            // Create header with track info
-            const header = pipWindow.document.createElement('div');
-            header.className = 'header';
-            header.innerHTML = `
-                <h1>🎧 ${currentBook || '성경'} ${currentChapter || ''}장</h1>
-                <p>공동체 성경 읽기</p>
-            `;
-            pipWindow.document.body.appendChild(header);
-
-            // Create player container
-            const playerContainer = pipWindow.document.createElement('div');
-            playerContainer.className = 'player-container';
-            pipWindow.document.body.appendChild(playerContainer);
-
-            // MOVE the YouTube container into the PIP window
-            const ytContainer = document.getElementById('yt-audio-container');
-            if (ytContainer) {
-                playerContainer.appendChild(ytContainer);
-            }
+            updateCanvas();
+            const stream = (canvas as any).captureStream(30);
+            video.srcObject = stream;
+            await video.play();
+            await video.requestPictureInPicture();
 
             setShowVideoPlayer(true);
+            setPipMode('video');
 
-            // Handle PIP window close
-            pipWindow.addEventListener('pagehide', () => {
-                // Move YouTube container back to main document
-                const ytContainer = pipWindow.document.getElementById('yt-audio-container');
-                if (ytContainer) {
-                    ytContainer.style.cssText = 'position:fixed;bottom:0;left:0;width:300px;height:200px;z-index:9999;opacity:0;pointer-events:none;';
-                    document.body.appendChild(ytContainer);
-                }
-                pipWindowRef.current = null;
-                setShowVideoPlayer(false);
-            });
+            // Show user guidance (non-blocking alert alternative)
+            setError('⚠️ 이 환경에서는 화면 끄면 멈출 수 있습니다. Chrome 브라우저에서 직접 사용하시면 완벽한 백그라운드 재생이 지원됩니다.');
+            // Clear error after 5 seconds
+            setTimeout(() => setError(null), 5000);
 
         } catch (err) {
-            console.error('Failed to open Document PIP:', err);
-            setError('PIP 창을 열 수 없습니다.');
+            console.error('Video PIP also failed:', err);
+            setError('PIP 기능을 사용할 수 없습니다.');
         }
-    }, [currentBook, currentChapter]);
+    }, [showVideoPlayer, pipMode, currentBook, currentChapter, updateCanvas]);
 
     const playChapterInternal = async (book: string, chapter: number) => {
         try {
@@ -443,8 +551,8 @@ export const AudioProvider = ({ children }: { children: React.ReactNode }) => {
                 setIsLoading(false);
             }
 
-            // Update PIP header if open
-            if (pipWindowRef.current && !pipWindowRef.current.closed) {
+            // Update Document PIP header if open
+            if (pipMode === 'document' && pipWindowRef.current && !pipWindowRef.current.closed) {
                 const header = pipWindowRef.current.document.querySelector('.header');
                 if (header) {
                     header.innerHTML = `
@@ -452,6 +560,11 @@ export const AudioProvider = ({ children }: { children: React.ReactNode }) => {
                         <p>공동체 성경 읽기</p>
                     `;
                 }
+            }
+
+            // Update Video PIP canvas if in fallback mode
+            if (pipMode === 'video') {
+                updateCanvas();
             }
 
             // Media Session API
@@ -525,10 +638,12 @@ export const AudioProvider = ({ children }: { children: React.ReactNode }) => {
         if (timeUpdateInterval.current) {
             clearInterval(timeUpdateInterval.current);
         }
-        // Close PIP if open
         if (pipWindowRef.current && !pipWindowRef.current.closed) {
             pipWindowRef.current.close();
             pipWindowRef.current = null;
+        }
+        if (document.pictureInPictureElement) {
+            document.exitPictureInPicture().catch(() => { });
         }
         releaseWakeLock();
         setIsPlaying(false);
@@ -539,6 +654,7 @@ export const AudioProvider = ({ children }: { children: React.ReactNode }) => {
         setCurrentTime(0);
         setError(null);
         setShowVideoPlayer(false);
+        setPipMode('none');
     };
 
     return (
@@ -562,6 +678,7 @@ export const AudioProvider = ({ children }: { children: React.ReactNode }) => {
             setAutoPlayNext,
             showVideoPlayer,
             toggleVideoPlayer,
+            pipMode,
         }}>
             {children}
         </AudioContext.Provider>
