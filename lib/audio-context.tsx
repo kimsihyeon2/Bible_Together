@@ -82,95 +82,134 @@ export const AudioProvider = ({ children }: { children: React.ReactNode }) => {
     const [autoPlayNext, setAutoPlayNext] = useState(true);
     const [showVideoPlayer, setShowVideoPlayer] = useState(false);
 
-    // Toggle video player visibility for PIP mode
+    // Canvas and Video refs for PIP
+    const canvasRef = useRef<HTMLCanvasElement | null>(null);
+    const dummyVideoRef = useRef<HTMLVideoElement | null>(null);
+
+    const playerRef = useRef<any>(null);
+
+    // Initialize hidden canvas and video for PIP
+    useEffect(() => {
+        if (typeof window === 'undefined') return;
+
+        // Create canvas if it doesn't exist
+        if (!canvasRef.current) {
+            const canvas = document.createElement('canvas');
+            canvas.width = 512;
+            canvas.height = 512; // Square aspect ratio
+            canvasRef.current = canvas;
+        }
+
+        // Create video if it doesn't exist
+        if (!dummyVideoRef.current) {
+            const video = document.createElement('video');
+            video.crossOrigin = "anonymous";
+            video.loop = true;
+            video.muted = true; // Must be muted to autoplay
+            video.playsInline = true;
+            video.style.position = 'fixed';
+            video.style.top = '-9999px';
+            video.style.left = '-9999px';
+            document.body.appendChild(video);
+            dummyVideoRef.current = video;
+
+            // Sync PIP controls to YouTube player
+            video.addEventListener('play', () => {
+                if (playerRef.current && playerRef.current.getPlayerState() !== window.YT.PlayerState.PLAYING) {
+                    playerRef.current.playVideo();
+                }
+            });
+
+            video.addEventListener('pause', () => {
+                // Only pause YT if we are NOT in the middle of closing PIP
+                if (document.pictureInPictureElement === video) {
+                    if (playerRef.current && playerRef.current.getPlayerState() === window.YT.PlayerState.PLAYING) {
+                        playerRef.current.pauseVideo();
+                    }
+                }
+            });
+
+            video.addEventListener('leavepictureinpicture', () => {
+                setShowVideoPlayer(false);
+            });
+        }
+    }, []);
+
+    // Draw to canvas whenever track info changes
+    const updateCanvas = useCallback(() => {
+        const canvas = canvasRef.current;
+        if (!canvas) return;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) return;
+
+        // Background
+        const gradient = ctx.createLinearGradient(0, 0, 512, 512);
+        gradient.addColorStop(0, '#22c55e');
+        gradient.addColorStop(1, '#16a34a');
+        ctx.fillStyle = gradient;
+        ctx.fillRect(0, 0, 512, 512);
+
+        // Icon
+        ctx.fillStyle = 'white';
+        ctx.font = '120px serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('🎧', 256, 180);
+
+        // Text
+        ctx.fillStyle = 'white';
+        ctx.font = 'bold 48px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(`${currentBook || '성경'}`, 256, 300);
+
+        ctx.font = '36px sans-serif';
+        ctx.fillText(`${currentChapter || 1}장`, 256, 360);
+
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
+        ctx.font = '24px sans-serif';
+        ctx.fillText('공동체 성경 읽기', 256, 430);
+    }, [currentBook, currentChapter]);
+
+    // Update canvas when info changes
+    useEffect(() => {
+        if (showVideoPlayer) {
+            updateCanvas();
+        }
+    }, [updateCanvas, showVideoPlayer]);
+
+    // Toggle PIP mode
     const toggleVideoPlayer = useCallback(async () => {
-        const container = document.getElementById('yt-audio-container');
-        const iframe = document.querySelector('#yt-audio-container iframe') as HTMLIFrameElement;
+        const video = dummyVideoRef.current;
+        const canvas = canvasRef.current;
 
-        // Check if Document PIP API is available (Chrome 116+)
-        if ('documentPictureInPicture' in window && !showVideoPlayer) {
-            try {
-                // Request a PIP window
-                const pipWindow = await (window as any).documentPictureInPicture.requestWindow({
-                    width: 320,
-                    height: 240,
-                });
+        if (!video || !canvas) return;
 
-                // Create audio player UI for PIP window
-                const pipContent = pipWindow.document.createElement('div');
-                pipContent.innerHTML = `
-                    <style>
-                        * { margin: 0; padding: 0; box-sizing: border-box; }
-                        body { 
-                            font-family: -apple-system, BlinkMacSystemFont, sans-serif;
-                            background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%);
-                            color: white;
-                            height: 100vh;
-                            display: flex;
-                            flex-direction: column;
-                            align-items: center;
-                            justify-content: center;
-                            padding: 16px;
-                        }
-                        .title { font-size: 18px; font-weight: bold; margin-bottom: 8px; }
-                        .subtitle { font-size: 14px; opacity: 0.8; margin-bottom: 16px; }
-                        .icon { font-size: 48px; margin-bottom: 12px; }
-                        .info { font-size: 12px; opacity: 0.7; text-align: center; }
-                    </style>
-                    <div class="icon">🎧</div>
-                    <div class="title">${currentBook} ${currentChapter}장</div>
-                    <div class="subtitle">오디오 성경</div>
-                    <div class="info">이 창을 열어두면<br/>앱을 나가도 소리가 계속 납니다</div>
-                `;
-                pipWindow.document.body.appendChild(pipContent);
-
-                // Listen for PIP window close
-                pipWindow.addEventListener('pagehide', () => {
-                    setShowVideoPlayer(false);
-                });
-
-                setShowVideoPlayer(true);
-                return;
-            } catch (err) {
-                console.log('Document PIP not available, falling back to video display:', err);
-            }
-        }
-
-        // Fallback: Show/hide video container for manual PIP
-        if (container) {
-            if (showVideoPlayer) {
-                container.style.cssText = 'position:fixed;top:-9999px;left:-9999px;width:1px;height:1px;pointer-events:none;z-index:9999;';
-                if (iframe) {
-                    iframe.style.width = '1px';
-                    iframe.style.height = '1px';
-                }
+        try {
+            if (document.pictureInPictureElement) {
+                // Exit PIP
+                await document.exitPictureInPicture();
+                setShowVideoPlayer(false);
             } else {
-                container.style.cssText = `
-                    position: fixed;
-                    bottom: 200px;
-                    right: 16px;
-                    width: 280px;
-                    height: 158px;
-                    z-index: 9999;
-                    border-radius: 16px;
-                    overflow: hidden;
-                    box-shadow: 0 8px 32px rgba(0,0,0,0.4);
-                    border: 2px solid rgba(255,255,255,0.2);
-                    pointer-events: auto;
-                `;
-                if (iframe) {
-                    iframe.style.width = '100%';
-                    iframe.style.height = '100%';
-                    iframe.style.position = 'absolute';
-                    iframe.style.top = '0';
-                    iframe.style.left = '0';
-                    iframe.setAttribute('allow', 'autoplay; picture-in-picture; fullscreen');
-                    iframe.setAttribute('allowfullscreen', 'true');
+                // Enter PIP
+                updateCanvas();
+
+                // Set stream - Chrome supports captureStream
+                const stream = (canvas as any).captureStream(30);
+                if (video.srcObject !== stream) {
+                    video.srcObject = stream;
                 }
+
+                // Play and request PIP
+                await video.play();
+                await video.requestPictureInPicture();
+                setShowVideoPlayer(true);
             }
+        } catch (err) {
+            console.error('Failed to toggle PIP:', err);
         }
-        setShowVideoPlayer(!showVideoPlayer);
-    }, [showVideoPlayer, currentBook, currentChapter]);
+    }, [updateCanvas]);
+
     useEffect(() => {
         if (typeof window !== 'undefined') {
             const savedSpeed = localStorage.getItem('audioSpeed');
@@ -183,7 +222,6 @@ export const AudioProvider = ({ children }: { children: React.ReactNode }) => {
         }
     }, []);
 
-    const playerRef = useRef<any>(null);
     const timeUpdateInterval = useRef<ReturnType<typeof setInterval> | null>(null);
     const currentBookRef = useRef<string | null>(null);
     const currentChapterRef = useRef<number | null>(null);
@@ -286,7 +324,7 @@ export const AudioProvider = ({ children }: { children: React.ReactNode }) => {
         if (!document.getElementById('yt-audio-container')) {
             const container = document.createElement('div');
             container.id = 'yt-audio-container';
-            // Start hidden, will be shown when PIP mode is requested
+            // Always hidden for new PIP approach
             container.style.cssText = 'position:fixed;top:-9999px;left:-9999px;width:1px;height:1px;pointer-events:none;z-index:9999;';
             document.body.appendChild(container);
 

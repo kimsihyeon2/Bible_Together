@@ -334,12 +334,11 @@ export const GlobalAudioPlayer = () => {
                         <div className="flex items-start gap-3">
                             <span className="material-symbols-outlined text-blue-400 text-2xl flex-shrink-0">info</span>
                             <div>
-                                <p className="font-bold text-sm mb-2">PIP 모드 사용법</p>
-                                <ol className="text-xs text-slate-300 space-y-1">
-                                    <li>1. 아래 영상을 <strong className="text-white">길게 터치</strong></li>
-                                    <li>2. <strong className="text-white">&quot;화면 속 화면&quot;</strong> 선택</li>
-                                    <li>3. 홈/다른 앱으로 이동해도 소리 유지!</li>
-                                </ol>
+                                <p className="font-bold text-sm mb-2">PIP 모드 실행 중</p>
+                                <p className="text-xs text-slate-300">
+                                    앱을 나가도 오디오가 계속 재생됩니다.<br />
+                                    (PIP 창을 닫으면 종료됩니다)
+                                </p>
                             </div>
                         </div>
                         <button
