@@ -95,8 +95,8 @@ export const AudioProvider = ({ children }: { children: React.ReactNode }) => {
         // Create canvas if it doesn't exist
         if (!canvasRef.current) {
             const canvas = document.createElement('canvas');
-            canvas.width = 16;
-            canvas.height = 16; // Extreme Stealth (Dot size)
+            canvas.width = 600;
+            canvas.height = 80; // 7.5:1 Ratio (Very thin bar)
             canvasRef.current = canvas;
         }
 
@@ -135,26 +135,40 @@ export const AudioProvider = ({ children }: { children: React.ReactNode }) => {
         }
     }, [showVideoPlayer]);
 
-    // Draw to canvas whenever track info changes
-    // EXTREME STEALTH MODE: 16x16 Pixel Dot
+    // Draw to canvas with "Ticker Bar" style
     const updateCanvas = useCallback(() => {
         const canvas = canvasRef.current;
         if (!canvas) return;
         const ctx = canvas.getContext('2d');
         if (!ctx) return;
 
-        // Background - Pure Black
-        ctx.fillStyle = '#000000';
-        ctx.fillRect(0, 0, 16, 16);
+        // Background: Green Gradient (As user liked)
+        const gradient = ctx.createLinearGradient(0, 0, 600, 80);
+        gradient.addColorStop(0, '#22c55e'); // Green-500
+        gradient.addColorStop(1, '#15803d'); // Green-700
+        ctx.fillStyle = gradient;
+        ctx.fillRect(0, 0, 600, 80);
 
-        // Tiny indicator dot in center (Dark Grey)
-        ctx.fillStyle = '#222222';
-        ctx.beginPath();
-        ctx.arc(8, 8, 4, 0, Math.PI * 2);
-        ctx.fill();
+        // Icon (Left)
+        ctx.fillStyle = 'white';
+        ctx.font = '40px serif';
+        ctx.textAlign = 'left';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('🎧', 20, 42);
 
-        // Absolutely minimize visual footprint
-    }, []);
+        // Title text (Centered/Left)
+        ctx.fillStyle = 'white';
+        ctx.font = 'bold 32px sans-serif';
+        ctx.textAlign = 'left';
+        ctx.fillText(`${currentBook} ${currentChapter}장`, 80, 50);
+
+        // Subtitle (Right aligned)
+        ctx.font = '24px sans-serif';
+        ctx.fillStyle = 'rgba(255,255,255,0.8)';
+        ctx.textAlign = 'right';
+        ctx.fillText('공동체 성경 읽기', 580, 50);
+
+    }, [currentBook, currentChapter]);
 
     // Update canvas when info changes
     useEffect(() => {
@@ -180,6 +194,7 @@ export const AudioProvider = ({ children }: { children: React.ReactNode }) => {
                 updateCanvas();
 
                 // Set stream - Chrome supports captureStream
+                // Use higher framerate for smoother marqee if we implemented it, but 30 is fine
                 const stream = (canvas as any).captureStream(30);
                 if (video.srcObject !== stream) {
                     video.srcObject = stream;
