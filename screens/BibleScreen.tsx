@@ -188,25 +188,28 @@ const BibleScreen: React.FC<BibleScreenProps> = ({ navigate }) => {
             return;
         }
 
-        // Priority 2: Continue reading - load next chapter after last read
-        // Priority 2: Continue reading - load next chapter after last read (User Specific)
-        const lastReadBook = user ? localStorage.getItem(`lastReadBook_${user.id}`) : null;
-        const lastReadChapter = user ? localStorage.getItem(`lastReadChapter_${user.id}`) : null;
-        if (lastReadBook && BIBLE_BOOKS.includes(lastReadBook) && lastReadChapter) {
-            const lastChapter = parseInt(lastReadChapter) || 1;
-            const maxChapters = getChapterCountFromContext(lastReadBook);
+        // Priority 2: Restore last viewed position (EXACT position, not next chapter)
+        const userId = user?.id || 'guest';
+        const currentViewBook = localStorage.getItem(`currentViewBook_${userId}`);
+        const currentViewChapter = localStorage.getItem(`currentViewChapter_${userId}`);
 
-            setSelectedBook(lastReadBook);
-            // Go to NEXT chapter (continue reading)
-            if (lastChapter < maxChapters) {
-                setSelectedChapter(lastChapter + 1);
-            } else {
-                // Already read last chapter, show that chapter
-                setSelectedChapter(lastChapter);
+        if (currentViewBook && BIBLE_BOOKS.includes(currentViewBook)) {
+            setSelectedBook(currentViewBook);
+            if (currentViewChapter) {
+                setSelectedChapter(parseInt(currentViewChapter) || 1);
             }
+            return;
         }
+
         // Otherwise: Keep default (창세기 1장)
-    }, [getChapterCountFromContext, user]);
+    }, [user]);
+
+    // SOTA: Save current position on every change
+    useEffect(() => {
+        const userId = user?.id || 'guest';
+        localStorage.setItem(`currentViewBook_${userId}`, selectedBook);
+        localStorage.setItem(`currentViewChapter_${userId}`, selectedChapter.toString());
+    }, [selectedBook, selectedChapter, user]);
 
     // Wait for Bible Load
     useEffect(() => {
@@ -355,79 +358,65 @@ const BibleScreen: React.FC<BibleScreenProps> = ({ navigate }) => {
 
     return (
         <div className="min-h-screen bg-background-light dark:bg-background-dark font-sans text-slate-900 dark:text-white pb-24">
-            {/* Header */}
+            {/* SOTA Header - Clean, Premium Design */}
             <header className="sticky top-0 z-40 bg-background-light/95 dark:bg-background-dark/95 backdrop-blur-md border-b border-black/5 dark:border-white/10">
-                {/* Horizontal Scroll Container */}
-                <div className="flex items-center gap-3 px-4 py-3 overflow-x-auto no-scrollbar whitespace-nowrap mask-linear-fade">
-                    <button
-                        onClick={() => navigate(Screen.DASHBOARD)}
-                        className="flex-shrink-0 p-2 -ml-2 hover:bg-black/5 dark:hover:bg-white/10 rounded-full transition-colors text-text-sub-light dark:text-text-sub-dark"
-                    >
-                        <span className="material-symbols-outlined text-2xl">arrow_back</span>
-                    </button>
+                <div className="flex items-center justify-between px-4 py-3">
+                    {/* Left Section: Back + Navigation */}
+                    <div className="flex items-center gap-2">
+                        <button
+                            onClick={() => navigate(Screen.DASHBOARD)}
+                            className="w-10 h-10 flex items-center justify-center hover:bg-black/5 dark:hover:bg-white/10 rounded-xl transition-colors"
+                        >
+                            <span className="material-symbols-outlined text-xl">arrow_back</span>
+                        </button>
 
-                    {/* Book selector */}
-                    <button
-                        onClick={() => setShowBookPicker(true)}
-                        className="flex-shrink-0 px-4 py-2 bg-primary/10 text-primary rounded-full text-sm font-semibold flex items-center gap-1 transition-transform active:scale-95"
-                    >
-                        {selectedBook}
-                        <span className="material-symbols-outlined text-lg">expand_more</span>
-                    </button>
+                        {/* Book & Chapter Selector - Unified Pill */}
+                        <div className="flex items-center bg-slate-100 dark:bg-slate-800 rounded-xl overflow-hidden">
+                            <button
+                                onClick={() => setShowBookPicker(true)}
+                                className="px-3 py-2 text-sm font-semibold text-primary hover:bg-primary/10 transition-colors flex items-center gap-0.5"
+                            >
+                                {selectedBook}
+                                <span className="material-symbols-outlined text-base opacity-60">expand_more</span>
+                            </button>
+                            <div className="w-px h-5 bg-slate-300 dark:bg-slate-600"></div>
+                            <button
+                                onClick={() => setShowChapterPicker(true)}
+                                className="px-3 py-2 text-sm font-semibold hover:bg-black/5 dark:hover:bg-white/10 transition-colors flex items-center gap-0.5"
+                            >
+                                {selectedChapter}장
+                                <span className="material-symbols-outlined text-base opacity-60">expand_more</span>
+                            </button>
+                        </div>
+                    </div>
 
-                    {/* Chapter selector */}
-                    <button
-                        onClick={() => setShowChapterPicker(true)}
-                        className="flex-shrink-0 px-4 py-2 bg-slate-100 dark:bg-slate-800 rounded-full text-sm font-semibold flex items-center gap-1 transition-transform active:scale-95"
-                    >
-                        {selectedChapter}장
-                        <span className="material-symbols-outlined text-lg">expand_more</span>
-                    </button>
-
-                    {/* Spacer to push controls to right if space permits, otherwise they flow */}
-                    <div className="flex-grow min-w-[10px]"></div>
-
-                    <div className="flex items-center gap-1 flex-shrink-0">
+                    {/* Right Section: Action Icons - Uniform 44px touch targets */}
+                    <div className="flex items-center gap-1">
                         {/* Audio Button */}
                         <button
                             onClick={() => playChapter(selectedBook, selectedChapter)}
-                            className="p-2 hover:bg-black/5 dark:hover:bg-white/10 rounded-full transition-colors relative"
+                            className="w-10 h-10 flex items-center justify-center hover:bg-black/5 dark:hover:bg-white/10 rounded-xl transition-colors relative"
                         >
-                            <span className={`material-symbols-outlined text-2xl ${isPlaying && currentBook === selectedBook && currentChapter === selectedChapter
-                                ? 'text-primary'
-                                : ''
-                                }`}>
+                            <span className={`material-symbols-outlined text-xl ${isPlaying && currentBook === selectedBook && currentChapter === selectedChapter ? 'text-primary' : ''}`}>
                                 headphones
                             </span>
-                            {/* Equalizer animation when playing this chapter */}
                             {isPlaying && currentBook === selectedBook && currentChapter === selectedChapter && (
-                                <span className="absolute top-2 right-2 flex gap-0.5 items-end h-3">
-                                    <span className="w-0.5 bg-primary animate-[bounce_1s_infinite] h-2"></span>
-                                    <span className="w-0.5 bg-primary animate-[bounce_1.2s_infinite] h-3"></span>
-                                    <span className="w-0.5 bg-primary animate-[bounce_0.8s_infinite] h-1.5"></span>
-                                </span>
+                                <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-primary rounded-full animate-pulse"></span>
                             )}
                         </button>
 
-                        {/* Translation Toggle */}
+                        {/* Translation Badge */}
                         <button
                             onClick={() => {
-                                // Save current position BEFORE switching translation
-                                // This ensures position is preserved when translation changes
-                                localStorage.setItem('selectedBook', selectedBook);
-                                localStorage.setItem('selectedChapter', selectedChapter.toString());
-
-                                // Cycle through: KRV → KLB → EASY → KRV
                                 const order: BibleTranslation[] = ['KRV', 'KLB', 'EASY'];
                                 const currentIndex = order.indexOf(currentTranslation);
                                 const nextIndex = (currentIndex + 1) % order.length;
                                 setTranslation(order[nextIndex]);
                             }}
-                            className="px-2 py-1 bg-slate-100 dark:bg-slate-800 rounded-lg text-xs font-bold flex items-center gap-1 transition-colors hover:bg-slate-200 dark:hover:bg-slate-700"
-                            title={`현재: ${TRANSLATIONS[currentTranslation].name}`}
+                            className="h-10 px-2.5 flex items-center gap-1 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-xl transition-colors"
                         >
                             <span className="material-symbols-outlined text-lg">translate</span>
-                            <span className={currentTranslation !== 'KRV' ? 'text-primary' : ''}>
+                            <span className={`text-xs font-bold ${currentTranslation !== 'KRV' ? 'text-primary' : ''}`}>
                                 {TRANSLATIONS[currentTranslation].name}
                             </span>
                         </button>
@@ -435,17 +424,17 @@ const BibleScreen: React.FC<BibleScreenProps> = ({ navigate }) => {
                         {/* Search Button */}
                         <button
                             onClick={() => setShowSearch(true)}
-                            className="p-2 hover:bg-black/5 dark:hover:bg-white/10 rounded-full transition-colors"
-                            title="성경 검색"
+                            className="w-10 h-10 flex items-center justify-center hover:bg-black/5 dark:hover:bg-white/10 rounded-xl transition-colors"
                         >
-                            <span className="material-symbols-outlined text-2xl">search</span>
+                            <span className="material-symbols-outlined text-xl">search</span>
                         </button>
 
+                        {/* Settings Button */}
                         <button
                             onClick={() => setShowSettings(true)}
-                            className="p-2 -mr-2 hover:bg-black/5 dark:hover:bg-white/10 rounded-full transition-colors"
+                            className="w-10 h-10 flex items-center justify-center hover:bg-black/5 dark:hover:bg-white/10 rounded-xl transition-colors"
                         >
-                            <span className="material-symbols-outlined text-2xl">settings</span>
+                            <span className="material-symbols-outlined text-xl">tune</span>
                         </button>
                     </div>
                 </div>
