@@ -85,7 +85,8 @@ export const AudioProvider = ({ children }: { children: React.ReactNode }) => {
     // Toggle video player visibility for PIP mode
     const toggleVideoPlayer = useCallback(() => {
         const container = document.getElementById('yt-audio-container');
-        const iframe = document.querySelector('#yt-audio-player iframe') as HTMLIFrameElement;
+        // Note: YouTube IFrame API replaces #yt-audio-player div with iframe
+        const iframe = document.querySelector('#yt-audio-container iframe') as HTMLIFrameElement;
 
         if (container) {
             if (showVideoPlayer) {
