@@ -21,7 +21,9 @@ export const GlobalAudioPlayer = () => {
         playbackRate,
         autoPlayNext,
         setAutoPlayNext,
-        error
+        error,
+        showVideoPlayer,
+        toggleVideoPlayer
     } = useAudio();
 
     const [isExpanded, setIsExpanded] = useState(false);
@@ -233,7 +235,20 @@ export const GlobalAudioPlayer = () => {
                                         자동재생
                                     </button>
 
-
+                                    {/* PIP (Dynamic Bar) Mode */}
+                                    <button
+                                        onClick={toggleVideoPlayer}
+                                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${showVideoPlayer
+                                            ? 'bg-blue-500 text-white'
+                                            : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400'
+                                            }`}
+                                        title="백그라운드 재생 (Dynamic Bar)"
+                                    >
+                                        <span className="material-symbols-outlined text-base">
+                                            {showVideoPlayer ? 'picture_in_picture_off' : 'picture_in_picture_alt'}
+                                        </span>
+                                        PIP
+                                    </button>
 
                                     {/* Close */}
                                     <button
