@@ -26,7 +26,7 @@ type BibleData = {
 };
 
 const BibleScreen: React.FC<BibleScreenProps> = ({ navigate }) => {
-    const { isLoaded, getVerses: getVersesFromContext, getChapterCount: getChapterCountFromContext, currentTranslation, setTranslation } = useBible();
+    const { isLoaded, getVerses: getVersesFromContext, getChapterCount: getChapterCountFromContext, currentTranslation, setTranslation, searchBible } = useBible();
     const { user, profile } = useAuth();
     const { playChapter, isPlaying, currentBook, currentChapter, currentTime, duration } = useAudio();
     // const [bibleData, setBibleData] = useState<BibleData | null>(null); // Removed
@@ -42,6 +42,12 @@ const BibleScreen: React.FC<BibleScreenProps> = ({ navigate }) => {
     const [isExpanded, setIsExpanded] = useState(false);
     const [touchStart, setTouchStart] = useState(0);
     const [showComparison, setShowComparison] = useState(false);
+
+    // Search State
+    const [showSearch, setShowSearch] = useState(false);
+    const [searchQuery, setSearchQuery] = useState('');
+    const [searchResults, setSearchResults] = useState<Array<{ book: string, chapter: number, verse: string, text: string }>>([]);
+    const [isSearching, setIsSearching] = useState(false);
 
     // New State for Settings & Highlights
     const [fontSize, setFontSize] = useState(18);
@@ -406,6 +412,11 @@ const BibleScreen: React.FC<BibleScreenProps> = ({ navigate }) => {
                         {/* Translation Toggle */}
                         <button
                             onClick={() => {
+                                // Save current position BEFORE switching translation
+                                // This ensures position is preserved when translation changes
+                                localStorage.setItem('selectedBook', selectedBook);
+                                localStorage.setItem('selectedChapter', selectedChapter.toString());
+
                                 // Cycle through: KRV → KLB → EASY → KRV
                                 const order: BibleTranslation[] = ['KRV', 'KLB', 'EASY'];
                                 const currentIndex = order.indexOf(currentTranslation);
@@ -419,6 +430,15 @@ const BibleScreen: React.FC<BibleScreenProps> = ({ navigate }) => {
                             <span className={currentTranslation !== 'KRV' ? 'text-primary' : ''}>
                                 {TRANSLATIONS[currentTranslation].name}
                             </span>
+                        </button>
+
+                        {/* Search Button */}
+                        <button
+                            onClick={() => setShowSearch(true)}
+                            className="p-2 hover:bg-black/5 dark:hover:bg-white/10 rounded-full transition-colors"
+                            title="성경 검색"
+                        >
+                            <span className="material-symbols-outlined text-2xl">search</span>
                         </button>
 
                         <button
@@ -851,6 +871,109 @@ const BibleScreen: React.FC<BibleScreenProps> = ({ navigate }) => {
                     verse={activeVerse}
                     onClose={() => setShowComparison(false)}
                 />
+            )}
+
+            {/* Search Modal */}
+            {showSearch && (
+                <div className="fixed inset-0 z-[100] bg-black/50 flex items-start justify-center pt-12 backdrop-blur-sm" onClick={() => setShowSearch(false)}>
+                    <div
+                        className="w-full max-w-lg mx-4 bg-white dark:bg-slate-900 rounded-2xl shadow-2xl animate-in fade-in zoom-in-95 duration-200 max-h-[80vh] flex flex-col"
+                        onClick={e => e.stopPropagation()}
+                    >
+                        {/* Search Header */}
+                        <div className="flex items-center gap-3 p-4 border-b border-slate-200 dark:border-slate-700">
+                            <span className="material-symbols-outlined text-slate-400">search</span>
+                            <input
+                                type="text"
+                                value={searchQuery}
+                                onChange={(e) => setSearchQuery(e.target.value)}
+                                onKeyDown={(e) => {
+                                    if (e.key === 'Enter' && searchQuery.length >= 2) {
+                                        setIsSearching(true);
+                                        const results = searchBible(searchQuery);
+                                        setSearchResults(results);
+                                        setIsSearching(false);
+                                    }
+                                }}
+                                placeholder={`${TRANSLATIONS[currentTranslation].name}에서 검색...`}
+                                className="flex-1 bg-transparent outline-none text-lg"
+                                autoFocus
+                            />
+                            <button
+                                onClick={() => {
+                                    if (searchQuery.length >= 2) {
+                                        setIsSearching(true);
+                                        const results = searchBible(searchQuery);
+                                        setSearchResults(results);
+                                        setIsSearching(false);
+                                    }
+                                }}
+                                className="px-3 py-1.5 bg-primary text-white rounded-lg text-sm font-bold"
+                            >
+                                검색
+                            </button>
+                            <button onClick={() => { setShowSearch(false); setSearchQuery(''); setSearchResults([]); }} className="p-2">
+                                <span className="material-symbols-outlined">close</span>
+                            </button>
+                        </div>
+
+                        {/* Search Results */}
+                        <div className="flex-1 overflow-y-auto overscroll-contain">
+                            {isSearching && (
+                                <div className="flex items-center justify-center py-12">
+                                    <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin"></div>
+                                </div>
+                            )}
+
+                            {!isSearching && searchResults.length === 0 && searchQuery.length >= 2 && (
+                                <div className="text-center py-12 text-slate-400">
+                                    <span className="material-symbols-outlined text-4xl mb-2 block">search_off</span>
+                                    <p>검색 결과가 없습니다</p>
+                                </div>
+                            )}
+
+                            {!isSearching && searchQuery.length < 2 && (
+                                <div className="text-center py-12 text-slate-400">
+                                    <span className="material-symbols-outlined text-4xl mb-2 block">tips_and_updates</span>
+                                    <p>2글자 이상 입력해주세요</p>
+                                </div>
+                            )}
+
+                            {!isSearching && searchResults.length > 0 && (
+                                <div className="p-2">
+                                    <p className="text-xs text-slate-400 px-2 mb-2">{searchResults.length}개 결과 (최대 100개)</p>
+                                    {searchResults.map((result, idx) => (
+                                        <button
+                                            key={`${result.book}-${result.chapter}-${result.verse}-${idx}`}
+                                            onClick={() => {
+                                                setSelectedBook(result.book);
+                                                setSelectedChapter(result.chapter);
+                                                setShowSearch(false);
+                                                setSearchQuery('');
+                                                setSearchResults([]);
+                                                // Scroll to verse after a short delay
+                                                setTimeout(() => {
+                                                    const el = document.getElementById(`verse-${result.verse}`);
+                                                    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                                                }, 300);
+                                            }}
+                                            className="w-full text-left p-3 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors mb-1"
+                                        >
+                                            <div className="flex items-center gap-2 mb-1">
+                                                <span className="text-xs font-bold text-primary bg-primary/10 px-2 py-0.5 rounded-full">
+                                                    {result.book} {result.chapter}:{result.verse}
+                                                </span>
+                                            </div>
+                                            <p className="text-sm text-slate-600 dark:text-slate-300 line-clamp-2">
+                                                {result.text}
+                                            </p>
+                                        </button>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                </div>
             )}
         </div>
     );

@@ -187,9 +187,7 @@ const AdminScreen: React.FC<AdminScreenProps> = ({ navigate, t }) => {
 
                 } else if (isPastor) {
                     // PASTOR: Get all members with context from profiles directly
-                    console.log('[DEBUG] PASTOR member loading - isPastor:', isPastor, 'profile.role:', profile.role);
-                    const { data, error } = await supabase.from('profiles').select(memberSelect).order('name');
-                    console.log('[DEBUG] PASTOR members result:', data?.length || 0, 'error:', error);
+                    const { data } = await supabase.from('profiles').select(memberSelect).order('name');
                     if (data) setMembers(data);
                 }
 

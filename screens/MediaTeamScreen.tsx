@@ -50,12 +50,10 @@ const MediaTeamScreen: React.FC<MediaTeamScreenProps> = ({ navigate }) => {
     };
 
     const handleCardClick = (member: MediaTeamMember) => {
-        console.log('[MediaTeamScreen] Card clicked:', member.name, 'isManageMode:', isManageMode);
         if (isManageMode) {
             setEditingMember(member);
             setShowForm(true);
         } else {
-            console.log('[MediaTeamScreen] Setting selectedMember to:', member.name);
             setSelectedMember(member);
         }
     };
@@ -209,7 +207,6 @@ const MediaTeamScreen: React.FC<MediaTeamScreenProps> = ({ navigate }) => {
                     <MediaMemberDetailModal
                         member={selectedMember}
                         onClose={() => {
-                            console.log('[MediaTeamScreen] Closing modal');
                             setSelectedMember(null);
                         }}
                     />

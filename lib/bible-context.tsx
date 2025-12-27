@@ -16,6 +16,7 @@ interface BibleContextType {
     setTranslation: (translation: BibleTranslation) => void;
     getVerses: (book: string, chapter: number) => [string, string][];
     getChapterCount: (book: string) => number;
+    searchBible: (query: string) => Array<{ book: string, chapter: number, verse: string, text: string }>;
     availableTranslations: typeof TRANSLATIONS;
 }
 
@@ -125,6 +126,40 @@ export const BibleProvider = ({ children }: { children: ReactNode }) => {
         return Object.keys(cache[key]).length;
     }, [currentTranslation]);
 
+    // SOTA Bible Search - Full-text search across current translation
+    const searchBible = useCallback((query: string): Array<{ book: string, chapter: number, verse: string, text: string }> => {
+        const cache = bibleCaches[currentTranslation];
+        if (!cache || !query || query.length < 2) return [];
+
+        const results: Array<{ book: string, chapter: number, verse: string, text: string }> = [];
+        const lowerQuery = query.toLowerCase();
+        const MAX_RESULTS = 100;
+
+        // Search through all books
+        for (const [book, chapters] of Object.entries(cache)) {
+            if (results.length >= MAX_RESULTS) break;
+
+            for (const [chapterNum, verses] of Object.entries(chapters as Record<string, Record<string, string>>)) {
+                if (results.length >= MAX_RESULTS) break;
+
+                for (const [verseNum, text] of Object.entries(verses)) {
+                    if (results.length >= MAX_RESULTS) break;
+
+                    if (text.toLowerCase().includes(lowerQuery)) {
+                        results.push({
+                            book,
+                            chapter: parseInt(chapterNum),
+                            verse: verseNum,
+                            text: text.replace(/\[[a-zA-Z0-9]+\]/g, '')
+                        });
+                    }
+                }
+            }
+        }
+
+        return results;
+    }, [currentTranslation]);
+
     return (
         <BibleContext.Provider value={{
             isLoaded,
@@ -132,6 +167,7 @@ export const BibleProvider = ({ children }: { children: ReactNode }) => {
             setTranslation,
             getVerses,
             getChapterCount,
+            searchBible,
             availableTranslations: TRANSLATIONS
         }}>
             {children}
