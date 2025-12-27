@@ -35,7 +35,6 @@ const CHAPTER_COUNTS: Record<string, number> = {
     '요한삼서': 1, '유다서': 1, '요한계시록': 22
 };
 
-// Speed options
 export const SPEED_OPTIONS = [0.5, 0.75, 1.0, 1.25, 1.5, 1.75, 2.0];
 
 interface AudioContextType {
@@ -85,6 +84,9 @@ export const AudioProvider = ({ children }: { children: React.ReactNode }) => {
     // Canvas and Video refs for PIP
     const canvasRef = useRef<HTMLCanvasElement | null>(null);
     const dummyVideoRef = useRef<HTMLVideoElement | null>(null);
+    // Web Audio API Context for Silent Track
+    const wAudioCtxRef = useRef<AudioContext | null>(null);
+    const destRef = useRef<MediaStreamAudioDestinationNode | null>(null);
 
     const playerRef = useRef<any>(null);
 
@@ -95,8 +97,8 @@ export const AudioProvider = ({ children }: { children: React.ReactNode }) => {
         // Create canvas if it doesn't exist
         if (!canvasRef.current) {
             const canvas = document.createElement('canvas');
-            canvas.width = 600;
-            canvas.height = 80; // 7.5:1 Ratio (Very thin bar)
+            canvas.width = 300; // 1:1 Aspect Ratio
+            canvas.height = 300;
             canvasRef.current = canvas;
         }
 
@@ -105,7 +107,14 @@ export const AudioProvider = ({ children }: { children: React.ReactNode }) => {
             const video = document.createElement('video');
             video.crossOrigin = "anonymous";
             video.loop = true;
-            video.muted = true; // Must be muted to autoplay
+            // IMPORTANT: Muted should be FALSE if we are feeding an audio track, 
+            // but for safety with autoplay policies, sometimes muted=true performs better initially.
+            // However, to keep background alive, having an active audio track is key.
+            // We set muted=false effectively, but volume=0 on the video if needed, 
+            // OR rely on the fact that our stream audio is silent.
+            // Chrome might block autoplay if unmuted. Let's try muted=false but with silent stream.
+            video.muted = false;
+            video.volume = 0.0; // Volume 0 just to be safe, though track is silent.
             video.playsInline = true;
             video.style.position = 'fixed';
             video.style.top = '-9999px';
@@ -121,7 +130,7 @@ export const AudioProvider = ({ children }: { children: React.ReactNode }) => {
             });
 
             video.addEventListener('pause', () => {
-                // Only pause YT if we are NOT in the middle of closing PIP
+                // Only pause YT if we are NOT in the middle of closing PIP (which triggers pause sometimes)
                 if (document.pictureInPictureElement === video) {
                     if (playerRef.current && playerRef.current.getPlayerState() === window.YT.PlayerState.PLAYING) {
                         playerRef.current.pauseVideo();
@@ -133,40 +142,39 @@ export const AudioProvider = ({ children }: { children: React.ReactNode }) => {
                 setShowVideoPlayer(false);
             });
         }
-    }, [showVideoPlayer]);
+    }, []); // Run once on mount
 
-    // Draw to canvas with "Ticker Bar" style
+    // Draw to canvas with "Album Art 1:1" style
     const updateCanvas = useCallback(() => {
         const canvas = canvasRef.current;
         if (!canvas) return;
         const ctx = canvas.getContext('2d');
         if (!ctx) return;
 
-        // Background: Green Gradient (As user liked)
-        const gradient = ctx.createLinearGradient(0, 0, 600, 80);
-        gradient.addColorStop(0, '#22c55e'); // Green-500
-        gradient.addColorStop(1, '#15803d'); // Green-700
+        // Background: Deep Green Gradient
+        const gradient = ctx.createLinearGradient(0, 0, 300, 300);
+        gradient.addColorStop(0, '#15803d'); // Green-700
+        gradient.addColorStop(1, '#052e16'); // Green-950
         ctx.fillStyle = gradient;
-        ctx.fillRect(0, 0, 600, 80);
+        ctx.fillRect(0, 0, 300, 300);
 
-        // Icon (Left)
+        // Center content layout
         ctx.fillStyle = 'white';
-        ctx.font = '40px serif';
-        ctx.textAlign = 'left';
+        ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
-        ctx.fillText('🎧', 20, 42);
 
-        // Title text (Centered/Left)
-        ctx.fillStyle = 'white';
-        ctx.font = 'bold 32px sans-serif';
-        ctx.textAlign = 'left';
-        ctx.fillText(`${currentBook} ${currentChapter}장`, 80, 50);
+        // 1. Icon (Big Headphone or Book) - Top
+        ctx.font = '80px serif';
+        ctx.fillText('🎧', 150, 100);
 
-        // Subtitle (Right aligned)
-        ctx.font = '24px sans-serif';
-        ctx.fillStyle = 'rgba(255,255,255,0.8)';
-        ctx.textAlign = 'right';
-        ctx.fillText('공동체 성경 읽기', 580, 50);
+        // 2. Book Name - Center
+        ctx.font = 'bold 36px sans-serif';
+        ctx.fillText(`${currentBook || '성경'} ${currentChapter || ''}장`, 150, 180);
+
+        // 3. Subtitle - Bottom
+        ctx.font = '20px sans-serif';
+        ctx.fillStyle = 'rgba(255,255,255,0.7)';
+        ctx.fillText('공동체 성경 읽기', 150, 230);
 
     }, [currentBook, currentChapter]);
 
@@ -176,6 +184,41 @@ export const AudioProvider = ({ children }: { children: React.ReactNode }) => {
             updateCanvas();
         }
     }, [updateCanvas, showVideoPlayer]);
+
+    // Init Web Audio for Silent Track
+    const getSilentAudioTrack = () => {
+        if (!wAudioCtxRef.current) {
+            // @ts-ignore - Webkit prefix support if needed
+            const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+            wAudioCtxRef.current = new AudioContextClass();
+        }
+
+        const ctx = wAudioCtxRef.current;
+
+        if (ctx.state === 'suspended') {
+            ctx.resume();
+        }
+
+        if (!destRef.current) {
+            const oscillator = ctx.createOscillator();
+            const gainNode = ctx.createGain();
+            const dest = ctx.createMediaStreamDestination();
+
+            oscillator.type = 'sine';
+            oscillator.frequency.value = 440; // Any freq
+            // Gain must be minimal but technically "audible" for OS to respect it? 
+            // Actually 0 works on many, but 0.0001 is safer to ensure track is active.
+            gainNode.gain.value = 0.0001;
+
+            oscillator.connect(gainNode);
+            gainNode.connect(dest);
+            oscillator.start();
+
+            destRef.current = dest;
+        }
+
+        return destRef.current.stream.getAudioTracks()[0];
+    };
 
     // Toggle PIP mode
     const toggleVideoPlayer = useCallback(async () => {
@@ -193,16 +236,33 @@ export const AudioProvider = ({ children }: { children: React.ReactNode }) => {
                 // Enter PIP
                 updateCanvas();
 
-                // Set stream - Chrome supports captureStream
-                const stream = (canvas as any).captureStream(30);
-                if (video.srcObject !== stream) {
-                    video.srcObject = stream;
+                // 1. Get Video Track from Canvas
+                const canvasStream = (canvas as any).captureStream(30);
+                const videoTrack = canvasStream.getVideoTracks()[0];
+
+                // 2. Get Silent Audio Track
+                const audioTrack = getSilentAudioTrack();
+
+                // 3. Combine them into a new MediaStream
+                const combinedStream = new MediaStream([videoTrack, audioTrack]);
+
+                if (video.srcObject !== combinedStream) {
+                    video.srcObject = combinedStream;
                 }
 
                 // Play and request PIP
-                await video.play();
-                await video.requestPictureInPicture();
-                setShowVideoPlayer(true);
+                // We need to handle autoplay rejection
+                try {
+                    await video.play();
+                    await video.requestPictureInPicture();
+                    setShowVideoPlayer(true);
+                } catch (e) {
+                    console.error('Play/PIP Error:', e);
+                    // Ensure audio context is resuming if stuck
+                    if (wAudioCtxRef.current?.state === 'suspended') {
+                        wAudioCtxRef.current.resume();
+                    }
+                }
             }
         } catch (err) {
             console.error('Failed to toggle PIP:', err);
