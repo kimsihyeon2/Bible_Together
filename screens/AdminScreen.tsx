@@ -134,8 +134,8 @@ const AdminScreen: React.FC<AdminScreenProps> = ({ navigate, t }) => {
             // 2. Content Data (Members, Prayers) - Run in parallel
             const contentPromise = (async () => {
                 // Fetch Members based on Role
-                // Use cell_members as the source of truth for role-based membership
-                const memberSelect = '*, parishes(name), cells(name)';
+                // Use explicit FK names to avoid PGRST201 ambiguous relationship error
+                const memberSelect = '*, parishes!profiles_parish_id_fkey(name), cells!profiles_cell_id_fkey(name)';
 
                 if (isSubAdmin && profile.parish_id) {
                     // SUB_ADMIN: Get all members in parish via cell_members join
@@ -151,7 +151,7 @@ const AdminScreen: React.FC<AdminScreenProps> = ({ navigate, t }) => {
                         // Step 2: Get all members in those cells
                         const { data: cellMembers } = await supabase
                             .from('cell_members')
-                            .select('user_id, profiles(*, parishes(name), cells(name))')
+                            .select('user_id, profiles(*, parishes!profiles_parish_id_fkey(name), cells!profiles_cell_id_fkey(name))')
                             .in('cell_id', cellIds);
 
                         if (cellMembers) {
@@ -172,7 +172,7 @@ const AdminScreen: React.FC<AdminScreenProps> = ({ navigate, t }) => {
                     // LEADER: Get all members in own cell via cell_members
                     const { data: cellMembers } = await supabase
                         .from('cell_members')
-                        .select('user_id, profiles(*, parishes(name), cells(name))')
+                        .select('user_id, profiles(*, parishes!profiles_parish_id_fkey(name), cells!profiles_cell_id_fkey(name))')
                         .eq('cell_id', profile.cell_id);
 
                     if (cellMembers) {
