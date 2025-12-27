@@ -358,54 +358,53 @@ const BibleScreen: React.FC<BibleScreenProps> = ({ navigate }) => {
 
     return (
         <div className="min-h-screen bg-background-light dark:bg-background-dark font-sans text-slate-900 dark:text-white pb-24">
-            {/* SOTA Header - Clean, Premium Design */}
+            {/* SOTA Header - Reference Style Clean Design */}
             <header className="sticky top-0 z-40 bg-background-light/95 dark:bg-background-dark/95 backdrop-blur-md border-b border-black/5 dark:border-white/10">
-                <div className="flex items-center justify-between px-4 py-3">
-                    {/* Left Section: Back + Navigation */}
-                    <div className="flex items-center gap-2">
+                <div className="flex items-center justify-between h-14 px-4">
+                    {/* Left: Back + Book/Chapter Title */}
+                    <div className="flex items-center gap-1 min-w-0">
                         <button
                             onClick={() => navigate(Screen.DASHBOARD)}
-                            className="w-10 h-10 flex items-center justify-center hover:bg-black/5 dark:hover:bg-white/10 rounded-xl transition-colors"
+                            className="w-10 h-10 flex-shrink-0 flex items-center justify-center hover:bg-black/5 dark:hover:bg-white/10 rounded-xl transition-colors"
                         >
                             <span className="material-symbols-outlined text-xl">arrow_back</span>
                         </button>
 
-                        {/* Book & Chapter Selector - Unified Pill */}
-                        <div className="flex items-center bg-slate-100 dark:bg-slate-800 rounded-xl overflow-hidden">
+                        {/* Clickable Title with Dropdowns */}
+                        <div className="flex items-center min-w-0">
                             <button
                                 onClick={() => setShowBookPicker(true)}
-                                className="px-3 py-2 text-sm font-semibold text-primary hover:bg-primary/10 transition-colors flex items-center gap-0.5"
+                                className="text-lg font-bold text-primary hover:text-primary/80 transition-colors truncate flex items-center gap-0.5"
                             >
                                 {selectedBook}
-                                <span className="material-symbols-outlined text-base opacity-60">expand_more</span>
+                                <span className="material-symbols-outlined text-sm">expand_more</span>
                             </button>
-                            <div className="w-px h-5 bg-slate-300 dark:bg-slate-600"></div>
                             <button
                                 onClick={() => setShowChapterPicker(true)}
-                                className="px-3 py-2 text-sm font-semibold hover:bg-black/5 dark:hover:bg-white/10 transition-colors flex items-center gap-0.5"
+                                className="text-lg font-bold hover:text-primary/80 transition-colors whitespace-nowrap flex items-center gap-0.5 ml-1"
                             >
                                 {selectedChapter}장
-                                <span className="material-symbols-outlined text-base opacity-60">expand_more</span>
+                                <span className="material-symbols-outlined text-sm">expand_more</span>
                             </button>
                         </div>
                     </div>
 
-                    {/* Right Section: Action Icons - Uniform 44px touch targets */}
-                    <div className="flex items-center gap-1">
-                        {/* Audio Button */}
+                    {/* Right: Compact Icon Bar */}
+                    <div className="flex items-center gap-0.5 flex-shrink-0">
+                        {/* Audio */}
                         <button
                             onClick={() => playChapter(selectedBook, selectedChapter)}
-                            className="w-10 h-10 flex items-center justify-center hover:bg-black/5 dark:hover:bg-white/10 rounded-xl transition-colors relative"
+                            className="w-9 h-9 flex items-center justify-center hover:bg-black/5 dark:hover:bg-white/10 rounded-lg transition-colors relative"
                         >
                             <span className={`material-symbols-outlined text-xl ${isPlaying && currentBook === selectedBook && currentChapter === selectedChapter ? 'text-primary' : ''}`}>
                                 headphones
                             </span>
                             {isPlaying && currentBook === selectedBook && currentChapter === selectedChapter && (
-                                <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-primary rounded-full animate-pulse"></span>
+                                <span className="absolute top-1 right-1 w-1.5 h-1.5 bg-primary rounded-full animate-pulse"></span>
                             )}
                         </button>
 
-                        {/* Translation Badge */}
+                        {/* Translation - Compact Badge */}
                         <button
                             onClick={() => {
                                 const order: BibleTranslation[] = ['KRV', 'KLB', 'EASY'];
@@ -413,26 +412,26 @@ const BibleScreen: React.FC<BibleScreenProps> = ({ navigate }) => {
                                 const nextIndex = (currentIndex + 1) % order.length;
                                 setTranslation(order[nextIndex]);
                             }}
-                            className="h-10 px-2.5 flex items-center gap-1 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-xl transition-colors"
+                            className="h-9 px-2 flex items-center gap-0.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-lg transition-colors"
                         >
-                            <span className="material-symbols-outlined text-lg">translate</span>
+                            <span className="material-symbols-outlined text-base">translate</span>
                             <span className={`text-xs font-bold ${currentTranslation !== 'KRV' ? 'text-primary' : ''}`}>
                                 {TRANSLATIONS[currentTranslation].name}
                             </span>
                         </button>
 
-                        {/* Search Button */}
+                        {/* Search */}
                         <button
                             onClick={() => setShowSearch(true)}
-                            className="w-10 h-10 flex items-center justify-center hover:bg-black/5 dark:hover:bg-white/10 rounded-xl transition-colors"
+                            className="w-9 h-9 flex items-center justify-center hover:bg-black/5 dark:hover:bg-white/10 rounded-lg transition-colors"
                         >
                             <span className="material-symbols-outlined text-xl">search</span>
                         </button>
 
-                        {/* Settings Button */}
+                        {/* Settings */}
                         <button
                             onClick={() => setShowSettings(true)}
-                            className="w-10 h-10 flex items-center justify-center hover:bg-black/5 dark:hover:bg-white/10 rounded-xl transition-colors"
+                            className="w-9 h-9 flex items-center justify-center hover:bg-black/5 dark:hover:bg-white/10 rounded-lg transition-colors"
                         >
                             <span className="material-symbols-outlined text-xl">tune</span>
                         </button>
@@ -440,11 +439,8 @@ const BibleScreen: React.FC<BibleScreenProps> = ({ navigate }) => {
                 </div>
             </header>
 
-            {/* Bible Content */}
-            <main className="px-5 py-6">
-                <h1 className="text-2xl font-bold mb-6 text-center">
-                    {selectedBook} {selectedChapter}장
-                </h1>
+            {/* Bible Content - No duplicate title needed, header has it */}
+            <main className="px-5 py-4">
 
                 <div className="space-y-2">
                     {getVerses().map(([verseNumStr, text]) => {
