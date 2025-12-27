@@ -95,8 +95,8 @@ export const AudioProvider = ({ children }: { children: React.ReactNode }) => {
         // Create canvas if it doesn't exist
         if (!canvasRef.current) {
             const canvas = document.createElement('canvas');
-            canvas.width = 640;
-            canvas.height = 360; // 16:9 Aspect Ratio (Compact)
+            canvas.width = 600;
+            canvas.height = 250; // 2.4:1 Ultra Wide Ratio (Minimizes Height)
             canvasRef.current = canvas;
         }
 
@@ -136,40 +136,25 @@ export const AudioProvider = ({ children }: { children: React.ReactNode }) => {
     }, [showVideoPlayer]);
 
     // Draw to canvas whenever track info changes
+    // STEALTH MODE: Minimize distraction
     const updateCanvas = useCallback(() => {
         const canvas = canvasRef.current;
         if (!canvas) return;
         const ctx = canvas.getContext('2d');
         if (!ctx) return;
 
-        // Background
-        const gradient = ctx.createLinearGradient(0, 0, 640, 360);
-        gradient.addColorStop(0, '#22c55e');
-        gradient.addColorStop(1, '#16a34a');
-        ctx.fillStyle = gradient;
-        ctx.fillRect(0, 0, 640, 360);
+        // Background - Solid Dark (Almost Black)
+        ctx.fillStyle = '#0f172a'; // slate-900
+        ctx.fillRect(0, 0, 600, 250);
 
-        // Icon
-        ctx.fillStyle = 'white';
-        ctx.font = '80px serif';
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        ctx.fillText('🎧', 320, 100);
+        // Minimal Indicator (Tiny dot to show it's active)
+        ctx.fillStyle = '#334155'; // slate-700
+        ctx.beginPath();
+        ctx.arc(300, 125, 4, 0, Math.PI * 2);
+        ctx.fill();
 
-        // Text
-        ctx.fillStyle = 'white';
-        ctx.font = 'bold 36px sans-serif';
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        ctx.fillText(`${currentBook || '성경'}`, 320, 190);
-
-        ctx.font = '28px sans-serif';
-        ctx.fillText(`${currentChapter || 1}장`, 320, 240);
-
-        ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
-        ctx.font = '20px sans-serif';
-        ctx.fillText('공동체 성경 읽기', 320, 300);
-    }, [currentBook, currentChapter]);
+        // No text, no icons. Pure stealth.
+    }, []);
 
     // Update canvas when info changes
     useEffect(() => {
