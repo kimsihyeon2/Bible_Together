@@ -95,8 +95,8 @@ export const AudioProvider = ({ children }: { children: React.ReactNode }) => {
         // Create canvas if it doesn't exist
         if (!canvasRef.current) {
             const canvas = document.createElement('canvas');
-            canvas.width = 512;
-            canvas.height = 512; // Square aspect ratio
+            canvas.width = 640;
+            canvas.height = 360; // 16:9 Aspect Ratio (Compact)
             canvasRef.current = canvas;
         }
 
@@ -133,7 +133,7 @@ export const AudioProvider = ({ children }: { children: React.ReactNode }) => {
                 setShowVideoPlayer(false);
             });
         }
-    }, []);
+    }, [showVideoPlayer]);
 
     // Draw to canvas whenever track info changes
     const updateCanvas = useCallback(() => {
@@ -143,32 +143,32 @@ export const AudioProvider = ({ children }: { children: React.ReactNode }) => {
         if (!ctx) return;
 
         // Background
-        const gradient = ctx.createLinearGradient(0, 0, 512, 512);
+        const gradient = ctx.createLinearGradient(0, 0, 640, 360);
         gradient.addColorStop(0, '#22c55e');
         gradient.addColorStop(1, '#16a34a');
         ctx.fillStyle = gradient;
-        ctx.fillRect(0, 0, 512, 512);
+        ctx.fillRect(0, 0, 640, 360);
 
         // Icon
         ctx.fillStyle = 'white';
-        ctx.font = '120px serif';
+        ctx.font = '80px serif';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
-        ctx.fillText('🎧', 256, 180);
+        ctx.fillText('🎧', 320, 100);
 
         // Text
         ctx.fillStyle = 'white';
-        ctx.font = 'bold 48px sans-serif';
+        ctx.font = 'bold 36px sans-serif';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
-        ctx.fillText(`${currentBook || '성경'}`, 256, 300);
+        ctx.fillText(`${currentBook || '성경'}`, 320, 190);
 
-        ctx.font = '36px sans-serif';
-        ctx.fillText(`${currentChapter || 1}장`, 256, 360);
+        ctx.font = '28px sans-serif';
+        ctx.fillText(`${currentChapter || 1}장`, 320, 240);
 
         ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
-        ctx.font = '24px sans-serif';
-        ctx.fillText('공동체 성경 읽기', 256, 430);
+        ctx.font = '20px sans-serif';
+        ctx.fillText('공동체 성경 읽기', 320, 300);
     }, [currentBook, currentChapter]);
 
     // Update canvas when info changes
