@@ -173,6 +173,9 @@ const BibleScreen: React.FC<BibleScreenProps> = ({ navigate }) => {
         fetchHighlights();
     };
 
+    // Track if initial position has been restored
+    const [positionInitialized, setPositionInitialized] = useState(false);
+
     useEffect(() => {
         // Priority 1: Explicit selection from other screens (e.g. PlanDetailScreen)
         const savedBook = localStorage.getItem('selectedBook');
@@ -185,6 +188,7 @@ const BibleScreen: React.FC<BibleScreenProps> = ({ navigate }) => {
             // 읽은 후 삭제 (일회성)
             localStorage.removeItem('selectedBook');
             localStorage.removeItem('selectedChapter');
+            setPositionInitialized(true);
             return;
         }
 
@@ -198,18 +202,20 @@ const BibleScreen: React.FC<BibleScreenProps> = ({ navigate }) => {
             if (currentViewChapter) {
                 setSelectedChapter(parseInt(currentViewChapter) || 1);
             }
-            return;
         }
 
-        // Otherwise: Keep default (창세기 1장)
+        // Mark initialization complete
+        setPositionInitialized(true);
     }, [user]);
 
-    // SOTA: Save current position on every change
+    // SOTA: Save current position on every change - ONLY after initialization
     useEffect(() => {
+        if (!positionInitialized) return; // Don't save during initial load
+
         const userId = user?.id || 'guest';
         localStorage.setItem(`currentViewBook_${userId}`, selectedBook);
         localStorage.setItem(`currentViewChapter_${userId}`, selectedChapter.toString());
-    }, [selectedBook, selectedChapter, user]);
+    }, [selectedBook, selectedChapter, user, positionInitialized]);
 
     // Wait for Bible Load
     useEffect(() => {
