@@ -1,8 +1,8 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { useAudio, SPEED_OPTIONS } from '@/lib/audio-context';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence, useDragControls, PanInfo } from 'framer-motion';
 
 export const GlobalAudioPlayer = () => {
     const {
@@ -26,6 +26,33 @@ export const GlobalAudioPlayer = () => {
 
     const [isExpanded, setIsExpanded] = useState(false);
     const [showSpeedMenu, setShowSpeedMenu] = useState(false);
+
+    // Draggable position state for mini player
+    const [miniPosition, setMiniPosition] = useState({ x: 0, y: 0 });
+    const dragControls = useDragControls();
+
+    // Load saved position from localStorage
+    useEffect(() => {
+        if (typeof window !== 'undefined') {
+            const savedPos = localStorage.getItem('audioPlayerPosition');
+            if (savedPos) {
+                try {
+                    const pos = JSON.parse(savedPos);
+                    setMiniPosition(pos);
+                } catch (e) { }
+            }
+        }
+    }, []);
+
+    // Save position when drag ends
+    const handleDragEnd = (event: MouseEvent | TouchEvent | PointerEvent, info: PanInfo) => {
+        const newPos = {
+            x: miniPosition.x + info.offset.x,
+            y: miniPosition.y + info.offset.y
+        };
+        setMiniPosition(newPos);
+        localStorage.setItem('audioPlayerPosition', JSON.stringify(newPos));
+    };
 
     if (!currentBook) return null;
 
@@ -179,8 +206,8 @@ export const GlobalAudioPlayer = () => {
                                                             setShowSpeedMenu(false);
                                                         }}
                                                         className={`w-full px-3 py-1.5 text-sm rounded-lg text-left transition-colors ${playbackRate === speed
-                                                                ? 'bg-primary text-white'
-                                                                : 'hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300'
+                                                            ? 'bg-primary text-white'
+                                                            : 'hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300'
                                                             }`}
                                                     >
                                                         {speed}x
@@ -195,8 +222,8 @@ export const GlobalAudioPlayer = () => {
                                 <button
                                     onClick={() => setAutoPlayNext(!autoPlayNext)}
                                     className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${autoPlayNext
-                                            ? 'bg-primary/10 text-primary'
-                                            : 'bg-slate-100 dark:bg-slate-800 text-slate-500'
+                                        ? 'bg-primary/10 text-primary'
+                                        : 'bg-slate-100 dark:bg-slate-800 text-slate-500'
                                         }`}
                                 >
                                     <span className="material-symbols-outlined text-base">
@@ -217,16 +244,27 @@ export const GlobalAudioPlayer = () => {
                     </div>
                 </motion.div>
             ) : (
-                // ========== MINI MODE (Pill) ==========
+                // ========== MINI MODE (Pill) - DRAGGABLE ==========
                 <motion.div
                     key="mini"
-                    initial={{ y: 50, opacity: 0, scale: 0.8 }}
-                    animate={{ y: 0, opacity: 1, scale: 1 }}
-                    exit={{ y: 50, opacity: 0, scale: 0.8 }}
+                    initial={{ opacity: 0, scale: 0.8 }}
+                    animate={{ opacity: 1, scale: 1, x: miniPosition.x, y: miniPosition.y }}
+                    exit={{ opacity: 0, scale: 0.8 }}
                     transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-                    className="fixed bottom-[88px] left-1/2 -translate-x-1/2 z-40"
+                    drag
+                    dragMomentum={false}
+                    dragElastic={0.1}
+                    onDragEnd={handleDragEnd}
+                    className="fixed bottom-[88px] left-1/2 -translate-x-1/2 z-40 cursor-grab active:cursor-grabbing touch-none"
+                    whileDrag={{ scale: 1.05 }}
                 >
                     <div className="flex items-center gap-1 bg-gradient-to-r from-primary to-green-600 text-white pl-1.5 pr-3 py-1 rounded-full shadow-lg">
+                        {/* Drag Handle */}
+                        <div className="w-1.5 h-6 flex flex-col justify-center gap-0.5 mr-0.5 opacity-50">
+                            <div className="w-full h-0.5 bg-white/60 rounded-full"></div>
+                            <div className="w-full h-0.5 bg-white/60 rounded-full"></div>
+                            <div className="w-full h-0.5 bg-white/60 rounded-full"></div>
+                        </div>
                         {/* Play/Pause */}
                         <button
                             onClick={togglePlay}

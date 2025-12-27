@@ -79,6 +79,18 @@ export const AudioProvider = ({ children }: { children: React.ReactNode }) => {
     const [ytReady, setYtReady] = useState(false);
     const [autoPlayNext, setAutoPlayNext] = useState(true);
 
+    // Load saved audio speed from localStorage on mount
+    useEffect(() => {
+        if (typeof window !== 'undefined') {
+            const savedSpeed = localStorage.getItem('audioSpeed');
+            if (savedSpeed) {
+                const speed = parseFloat(savedSpeed);
+                if (!isNaN(speed) && speed > 0) {
+                    setPlaybackRate(speed);
+                }
+            }
+        }
+    }, []);
     const playerRef = useRef<any>(null);
     const timeUpdateInterval = useRef<ReturnType<typeof setInterval> | null>(null);
     const currentBookRef = useRef<string | null>(null);
@@ -345,6 +357,8 @@ export const AudioProvider = ({ children }: { children: React.ReactNode }) => {
         if (!playerRef.current) return;
         playerRef.current.setPlaybackRate(speed);
         setPlaybackRate(speed);
+        // Save to localStorage for persistence
+        localStorage.setItem('audioSpeed', speed.toString());
     };
 
     const stop = () => {
