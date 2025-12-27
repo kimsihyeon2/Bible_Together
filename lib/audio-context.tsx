@@ -85,13 +85,34 @@ export const AudioProvider = ({ children }: { children: React.ReactNode }) => {
     // Toggle video player visibility for PIP mode
     const toggleVideoPlayer = useCallback(() => {
         const container = document.getElementById('yt-audio-container');
+        const iframe = document.querySelector('#yt-audio-player iframe') as HTMLIFrameElement;
+
         if (container) {
             if (showVideoPlayer) {
-                // Hide
+                // Hide - minimize player
                 container.style.cssText = 'position:fixed;top:-9999px;left:-9999px;width:1px;height:1px;pointer-events:none;z-index:9999;';
+                if (iframe) {
+                    iframe.style.width = '1px';
+                    iframe.style.height = '1px';
+                }
             } else {
-                // Show in corner for PIP access
-                container.style.cssText = 'position:fixed;bottom:180px;right:16px;width:180px;height:100px;z-index:9999;border-radius:12px;overflow:hidden;box-shadow:0 4px 20px rgba(0,0,0,0.3);';
+                // Show in corner with proper size for PIP access
+                container.style.cssText = `
+                    position: fixed;
+                    bottom: 200px;
+                    right: 16px;
+                    width: 280px;
+                    height: 158px;
+                    z-index: 9999;
+                    border-radius: 16px;
+                    overflow: hidden;
+                    box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+                    border: 2px solid rgba(255,255,255,0.2);
+                `;
+                if (iframe) {
+                    iframe.style.width = '280px';
+                    iframe.style.height = '158px';
+                }
             }
         }
         setShowVideoPlayer(!showVideoPlayer);
