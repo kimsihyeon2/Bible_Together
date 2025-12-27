@@ -21,7 +21,9 @@ export const GlobalAudioPlayer = () => {
         playbackRate,
         autoPlayNext,
         setAutoPlayNext,
-        error
+        error,
+        showVideoPlayer,
+        toggleVideoPlayer
     } = useAudio();
 
     const [isExpanded, setIsExpanded] = useState(false);
@@ -230,6 +232,21 @@ export const GlobalAudioPlayer = () => {
                                         {autoPlayNext ? 'repeat_one_on' : 'repeat_one'}
                                     </span>
                                     자동재생
+                                </button>
+
+                                {/* PIP (Picture-in-Picture) Mode */}
+                                <button
+                                    onClick={toggleVideoPlayer}
+                                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${showVideoPlayer
+                                        ? 'bg-blue-500 text-white'
+                                        : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400'
+                                        }`}
+                                    title="영상을 표시하여 PIP 모드로 전환 (앱 나가도 재생)"
+                                >
+                                    <span className="material-symbols-outlined text-base">
+                                        {showVideoPlayer ? 'picture_in_picture_off' : 'picture_in_picture'}
+                                    </span>
+                                    PIP
                                 </button>
 
                                 {/* Close */}

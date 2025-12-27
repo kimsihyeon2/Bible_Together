@@ -56,6 +56,8 @@ interface AudioContextType {
     error: string | null;
     autoPlayNext: boolean;
     setAutoPlayNext: (value: boolean) => void;
+    showVideoPlayer: boolean;
+    toggleVideoPlayer: () => void;
 }
 
 const AudioContext = createContext<AudioContextType | null>(null);
@@ -78,8 +80,22 @@ export const AudioProvider = ({ children }: { children: React.ReactNode }) => {
     const [error, setError] = useState<string | null>(null);
     const [ytReady, setYtReady] = useState(false);
     const [autoPlayNext, setAutoPlayNext] = useState(true);
+    const [showVideoPlayer, setShowVideoPlayer] = useState(false);
 
-    // Load saved audio speed from localStorage on mount
+    // Toggle video player visibility for PIP mode
+    const toggleVideoPlayer = useCallback(() => {
+        const container = document.getElementById('yt-audio-container');
+        if (container) {
+            if (showVideoPlayer) {
+                // Hide
+                container.style.cssText = 'position:fixed;top:-9999px;left:-9999px;width:1px;height:1px;pointer-events:none;z-index:9999;';
+            } else {
+                // Show in corner for PIP access
+                container.style.cssText = 'position:fixed;bottom:180px;right:16px;width:180px;height:100px;z-index:9999;border-radius:12px;overflow:hidden;box-shadow:0 4px 20px rgba(0,0,0,0.3);';
+            }
+        }
+        setShowVideoPlayer(!showVideoPlayer);
+    }, [showVideoPlayer]);
     useEffect(() => {
         if (typeof window !== 'undefined') {
             const savedSpeed = localStorage.getItem('audioSpeed');
@@ -195,7 +211,8 @@ export const AudioProvider = ({ children }: { children: React.ReactNode }) => {
         if (!document.getElementById('yt-audio-container')) {
             const container = document.createElement('div');
             container.id = 'yt-audio-container';
-            container.style.cssText = 'position:fixed;top:-9999px;left:-9999px;width:1px;height:1px;pointer-events:none;';
+            // Start hidden, will be shown when PIP mode is requested
+            container.style.cssText = 'position:fixed;top:-9999px;left:-9999px;width:1px;height:1px;pointer-events:none;z-index:9999;';
             document.body.appendChild(container);
 
             const playerDiv = document.createElement('div');
@@ -444,6 +461,8 @@ export const AudioProvider = ({ children }: { children: React.ReactNode }) => {
             error,
             autoPlayNext,
             setAutoPlayNext,
+            showVideoPlayer,
+            toggleVideoPlayer,
         }}>
             {children}
         </AudioContext.Provider>
